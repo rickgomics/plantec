@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa Interativo - Plantec Hoje SP</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    .leaflet-popup-content {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const cidades = [
+  { nome: "ARUJA", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.3964, lng: -46.3207 },
+  { nome: "CAIEIRAS", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.3644, lng: -46.7408 },
+  { nome: "DIADEMA", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.6813, lng: -46.6202 },
+  { nome: "FERRAZ DE VASCONCELOS", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.5411, lng: -46.3716 },
+  { nome: "GUARULHOS", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.4545, lng: -46.5333 },
+  { nome: "ITAQUAQUECETUBA", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.4861, lng: -46.3487 },
+  { nome: "MOGI DAS CRUZES", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.5201, lng: -46.1858 },
+  { nome: "OSASCO", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.5329, lng: -46.7917 },
+  { nome: "POA", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.5333, lng: -46.3478 },
+  { nome: "SANTO ANDRE", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.6639, lng: -46.5383 },
+  { nome: "SÃO BERNARDO DO CAMPO", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.6914, lng: -46.5646 },
+  { nome: "SÃO CAETANO DO SUL", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.6229, lng: -46.5533 },
+  { nome: "SUZANO", origem: "Matriz", status: "Disponível", corte: "12:00", lat: -23.5428, lng: -46.3109 },
+  { nome: "CAMPINAS", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -22.9099, lng: -47.0626 },
+  { nome: "SOROCABA", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -23.5015, lng: -47.4526 },
+  { nome: "VALINHOS", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -22.9697, lng: -46.9955 },
+  { nome: "FRANCA", origem: "Ribeirão Preto", status: "Disponível", corte: "16:00", lat: -20.5382, lng: -47.4009 },
+  { nome: "SAO CARLOS", origem: "Ribeirão Preto", status: "Disponível", corte: "16:00", lat: -22.0054, lng: -47.8977 },
+  { nome: "SERTAOZINHO", origem: "Ribeirão Preto", status: "Disponível", corte: "16:00", lat: -21.1313, lng: -47.9871 },
+  { nome: "JUNDIAÍ", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -23.1857, lng: -46.8978 },
+  { nome: "ITATIBA", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -23.0063, lng: -46.8463 },
+  { nome: "VINHEDO", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -23.0294, lng: -46.9746 },
+  { nome: "INDAIATUBA", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -23.0884, lng: -47.2126 },
+  { nome: "ITU", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -23.2649, lng: -47.2997 },
+  { nome: "SALTO", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -23.2008, lng: -47.2869 },
+  { nome: "AMERICANA", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -22.7338, lng: -47.3312 },
+  { nome: "PIRACICABA", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -22.7253, lng: -47.6493 },
+  { nome: "LIMEIRA", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -22.5648, lng: -47.4017 },
+  { nome: "HORTOLÂNDIA", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -22.8584, lng: -47.2211 },
+  { nome: "SUMARÉ", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -22.8219, lng: -47.2669 },
+  { nome: "NOVA ODESSA", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -22.7775, lng: -47.2942 },
+  { nome: "MONTE MOR", origem: "Campinas", status: "Disponível", corte: "11:00", lat: -22.9462, lng: -47.3138 },
+  { nome: "ARARAQUARA", origem: "Ribeirão Preto", status: "Disponível", corte: "16:00", lat: -21.7941, lng: -48.1745 },
+  { nome: "BATATAIS", origem: "Ribeirão Preto", status: "Disponível", corte: "16:00", lat: -20.8929, lng: -47.5921 },
+  { nome: "CATANDUVA", origem: "Ribeirão Preto", status: "Disponível", corte: "16:00", lat: -21.1316, lng: -48.9777 },
+  { nome: "SANTA RITA DO PASSA QUATRO", origem: "Ribeirão Preto", status: "Disponível", corte: "16:00", lat: -21.7086, lng: -47.4781 },
+  { nome: "SÃO JOÃO DA BOA VISTA", origem: "Ribeirão Preto", status: "Disponível", corte: "16:00", lat: -21.9706, lng: -46.7963 },
+  { nome: "POÇOS DE CALDAS", origem: "Ribeirão Preto", status: "Disponível", corte: "16:00", lat: -21.7892, lng: -46.5646 }
+];
+
+    const map = L.map('map').setView([-22.9, -47.1], 7);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    cidades.forEach(cidade => {
+      const marker = L.circleMarker([cidade.lat, cidade.lng], {
+        color: cidade.origem === 'Matriz' ? '#0074D9' : cidade.origem === 'Campinas' ? '#3D9BE9' : '#7FDBFF',
+        radius: 5,
+        fillOpacity: 0.7
+      }).addTo(map);
+
+      marker.bindPopup(`<b>${cidade.nome}</b><br>Origem: ${cidade.origem}<br>Status: ${cidade.status}<br>Horário de Corte: ${cidade.corte}`);
+    });
+  </script>
+</body>
+</html>
