@@ -624,7 +624,8 @@
 <script>
 // ═══════ Seed — Fechamento Comercial 25/05/2025 ═══════
 (function seedFechamento() {
-  if (localStorage.getItem('plt_checklist')) return;
+  const existing = JSON.parse(localStorage.getItem('plt_checklist') || '[]');
+  if (existing.length > 0) return;
   const ts = '2025-05-14T09:00:00.000Z';
   const items = [
     // P1 — Pipeline & Conversão
