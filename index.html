@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plantec — Checklists, Pendências & Insights</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:    #0074D9;
+      --blue-dk: #005bb5;
+      --green:   #2ECC40;
+      --orange:  #FF851B;
+      --red:     #FF4136;
+      --yellow:  #FFDC00;
+      --gray:    #6c757d;
+      --bg:      #f4f6fb;
+      --card:    #ffffff;
+      --border:  #dde3ee;
+      --text:    #1a202c;
+      --muted:   #64748b;
+    }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--blue);
+      color: #fff;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: .5px; }
+    header span { font-size: .8rem; opacity: .8; }
+
+    /* ── Layout ── */
+    .app { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 60px); }
+
+    /* ── Sidebar ── */
+    nav {
+      background: #fff;
+      border-right: 1px solid var(--border);
+      padding: 16px 0;
+    }
+    nav .section-label {
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--muted);
+      padding: 8px 20px 4px;
+      text-transform: uppercase;
+    }
+    nav button {
+      width: 100%;
+      text-align: left;
+      padding: 10px 20px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: .9rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background .15s;
+    }
+    nav button:hover { background: var(--bg); }
+    nav button.active { background: #e8f0fe; color: var(--blue); font-weight: 600; border-right: 3px solid var(--blue); }
+    nav button .badge {
+      margin-left: auto;
+      background: var(--blue);
+      color: #fff;
+      border-radius: 10px;
+      font-size: .7rem;
+      padding: 1px 7px;
+      font-weight: 700;
+    }
+    nav button.active .badge { background: var(--blue-dk); }
+    nav hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+    /* ── Main ── */
+    main { padding: 24px; overflow-y: auto; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Page header ── */
+    .page-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .page-header h2 { font-size: 1.3rem; }
+    .page-header p { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+
+    /* ── Btn ── */
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: .85rem;
+      font-weight: 600;
+      transition: opacity .15s, transform .1s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover { opacity: .88; transform: translateY(-1px); }
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-success { background: var(--green); color: #fff; }
+    .btn-danger  { background: var(--red);   color: #fff; }
+    .btn-sm { padding: 4px 10px; font-size: .78rem; }
+    .btn-ghost { background: none; border: 1px solid var(--border); color: var(--text); }
+
+    /* ── Stats bar ── */
+    .stats { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .stat {
+      flex: 1; min-width: 120px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+    }
+    .stat .num { font-size: 1.8rem; font-weight: 700; }
+    .stat .lbl { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+    .stat.blue  .num { color: var(--blue); }
+    .stat.green .num { color: var(--green); }
+    .stat.orange .num { color: var(--orange); }
+    .stat.red   .num { color: var(--red); }
+
+    /* ── Filters ── */
+    .filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filters input, .filters select {
+      padding: 7px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: .85rem;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+    }
+    .filters input:focus, .filters select:focus { border-color: var(--blue); }
+    .filters input { flex: 1; min-width: 180px; }
+
+    /* ── Card list ── */
+    .card-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .item-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      transition: box-shadow .15s;
+    }
+    .item-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+    .item-card.done { opacity: .6; }
+    .item-card.done .item-title { text-decoration: line-through; }
+
+    .item-check {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-radius: 50%;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, border-color .15s;
+    }
+    .item-check.checked { background: var(--green); border-color: var(--green); }
+    .item-check.checked::after { content: '✓'; color: #fff; font-size: .7rem; font-weight: 700; }
+
+    .item-body { flex: 1; min-width: 0; }
+    .item-title { font-size: .92rem; font-weight: 600; margin-bottom: 4px; }
+    .item-desc  { font-size: .82rem; color: var(--muted); margin-bottom: 6px; white-space: pre-wrap; }
+    .item-meta  { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: .72rem;
+      font-weight: 600;
+    }
+    .tag-blue   { background: #dbeafe; color: #1d4ed8; }
+    .tag-green  { background: #dcfce7; color: #166534; }
+    .tag-orange { background: #ffedd5; color: #c2410c; }
+    .tag-red    { background: #fee2e2; color: #991b1b; }
+    .tag-purple { background: #ede9fe; color: #5b21b6; }
+    .tag-gray   { background: #f1f5f9; color: #475569; }
+
+    .item-date { font-size: .72rem; color: var(--muted); }
+    .item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    /* ── Priority dot ── */
+    .prio {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 6px;
+    }
+    .prio-alta   { background: var(--red); }
+    .prio-media  { background: var(--orange); }
+    .prio-baixa  { background: var(--green); }
+
+    /* ── Progress bar ── */
+    .progress-wrap { margin-bottom: 20px; }
+    .progress-label { font-size: .8rem; color: var(--muted); margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .progress-bar { background: var(--border); border-radius: 8px; height: 8px; overflow: hidden; }
+    .progress-fill { background: var(--green); height: 100%; border-radius: 8px; transition: width .4s; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: 12px;
+      padding: 28px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      animation: slideUp .2s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal h3 { margin-bottom: 20px; font-size: 1.1rem; }
+    .modal .close {
+      float: right;
+      background: none; border: none; font-size: 1.3rem;
+      cursor: pointer; color: var(--muted); line-height: 1;
+    }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: .82rem; font-weight: 600; margin-bottom: 5px; color: var(--muted); }
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: .88rem;
+      font-family: inherit;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+      resize: vertical;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus { border-color: var(--blue); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+    /* ── Insight card ── */
+    .insight-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      transition: box-shadow .15s;
+    }
+    .insight-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+    .insight-card .ic-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .insight-card .ic-title { font-weight: 700; font-size: .95rem; }
+    .insight-card .ic-body  { font-size: .85rem; color: var(--muted); white-space: pre-wrap; margin-bottom: 10px; line-height: 1.5; }
+    .insight-card .ic-footer{ display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .insight-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+    /* ── Dashboard ── */
+    .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 8px; }
+    .dash-widget {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .dash-widget h4 { font-size: .85rem; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+    .dash-list-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 0; border-bottom: 1px solid var(--border); font-size: .85rem;
+    }
+    .dash-list-item:last-child { border-bottom: none; }
+
+    /* ── Empty state ── */
+    .empty {
+      text-align: center; padding: 48px 24px; color: var(--muted);
+    }
+    .empty .ico { font-size: 3rem; margin-bottom: 12px; }
+    .empty p { font-size: .9rem; }
+
+    /* ── Toast ── */
+    .toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      background: #1a202c; color: #fff;
+      padding: 12px 18px; border-radius: 8px;
+      font-size: .85rem; font-weight: 500;
+      box-shadow: 0 4px 14px rgba(0,0,0,.3);
+      animation: fadeSlide .25s ease;
+    }
+    @keyframes fadeSlide { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+
+    @media (max-width: 640px) {
+      .app { grid-template-columns: 1fr; }
+      nav { display: flex; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 0; }
+      nav button { flex-shrink: 0; }
+      nav .section-label, nav hr { display: none; }
+      main { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🌿 Plantec — Gestão Comercial</h1>
+  <span id="clock"></span>
+</header>
+
+<div class="app">
+  <!-- Sidebar -->
+  <nav id="nav">
+    <div class="section-label">Visão Geral</div>
+    <button onclick="navigate('dashboard')" class="active" id="nav-dashboard">📊 Dashboard</button>
+    <hr>
+    <div class="section-label">Operacional</div>
+    <button onclick="navigate('checklist')" id="nav-checklist">✅ Checklists <span class="badge" id="badge-checklist">0</span></button>
+    <button onclick="navigate('pendencias')" id="nav-pendencias">⏳ Pendências <span class="badge" id="badge-pendencias">0</span></button>
+    <hr>
+    <div class="section-label">Estratégico</div>
+    <button onclick="navigate('insights')" id="nav-insights">💡 Insights <span class="badge" id="badge-insights">0</span></button>
+  </nav>
+
+  <main>
+    <!-- ═══════════════════════ DASHBOARD ═══════════════════════ -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <h2>Dashboard</h2>
+          <p id="dash-date">Carregando...</p>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat blue">  <div class="num" id="ds-total-cl">0</div><div class="lbl">Checklists Total</div></div>
+        <div class="stat green"> <div class="num" id="ds-done-cl">0</div> <div class="lbl">Concluídos</div></div>
+        <div class="stat orange"><div class="num" id="ds-pend">0</div>    <div class="lbl">Pendências Abertas</div></div>
+        <div class="stat red">   <div class="num" id="ds-alta">0</div>   <div class="lbl">Prioridade Alta</div></div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-label"><span>Progresso dos Checklists</span><span id="ds-pct">0%</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="ds-bar" style="width:0%"></div></div>
+      </div>
+      <div class="dash-grid">
+        <div class="dash-widget">
+          <h4>Pendências Recentes</h4>
+          <div id="dw-pendencias"><div class="empty"><p>Nenhuma pendência.</p></div></div>
+        </div>
+        <div class="dash-widget">
+          <h4>Insights Recentes</h4>
+          <div id="dw-insights"><div class="empty"><p>Nenhum insight.</p></div></div>
+        </div>
+        <div class="dash-widget">
+          <h4>Checklists Prioritários</h4>
+          <div id="dw-checklist"><div class="empty"><p>Nenhum item.</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ CHECKLIST ═══════════════════════ -->
+    <div class="page" id="page-checklist">
+      <div class="page-header">
+        <div>
+          <h2>✅ Checklists</h2>
+          <p>Acompanhe as atividades e tarefas do dia a dia</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('checklist')">+ Novo Item</button>
+      </div>
+      <div class="filters">
+        <input type="text" id="filter-cl-search" placeholder="Buscar..." oninput="renderChecklist()">
+        <select id="filter-cl-cat" onchange="renderChecklist()">
+          <option value="">Todas as categorias</option>
+          <option>Comercial</option><option>Operacional</option><option>Financeiro</option><option>Logística</option><option>Outros</option>
+        </select>
+        <select id="filter-cl-prio" onchange="renderChecklist()">
+          <option value="">Toda prioridade</option>
+          <option value="Alta">Alta</option><option value="Média">Média</option><option value="Baixa">Baixa</option>
+        </select>
+        <select id="filter-cl-status" onchange="renderChecklist()">
+          <option value="">Todos status</option>
+          <option value="open">Pendentes</option><option value="done">Concluídos</option>
+        </select>
+      </div>
+      <div class="card-list" id="list-checklist"></div>
+    </div>
+
+    <!-- ═══════════════════════ PENDÊNCIAS ═══════════════════════ -->
+    <div class="page" id="page-pendencias">
+      <div class="page-header">
+        <div>
+          <h2>⏳ Pendências</h2>
+          <p>Registre e acompanhe pendências comerciais e operacionais</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('pendencias')">+ Nova Pendência</button>
+      </div>
+      <div class="filters">
+        <input type="text" id="filter-p-search" placeholder="Buscar..." oninput="renderPendencias()">
+        <select id="filter-p-resp" onchange="renderPendencias()">
+          <option value="">Todos responsáveis</option>
+        </select>
+        <select id="filter-p-prio" onchange="renderPendencias()">
+          <option value="">Toda prioridade</option>
+          <option value="Alta">Alta</option><option value="Média">Média</option><option value="Baixa">Baixa</option>
+        </select>
+        <select id="filter-p-status" onchange="renderPendencias()">
+          <option value="">Todos status</option>
+          <option value="Aberta">Aberta</option><option value="Em Andamento">Em Andamento</option><option value="Resolvida">Resolvida</option>
+        </select>
+      </div>
+      <div class="card-list" id="list-pendencias"></div>
+    </div>
+
+    <!-- ═══════════════════════ INSIGHTS ═══════════════════════ -->
+    <div class="page" id="page-insights">
+      <div class="page-header">
+        <div>
+          <h2>💡 Insights Comerciais</h2>
+          <p>Registre oportunidades, observações e aprendizados estratégicos</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('insights')">+ Novo Insight</button>
+      </div>
+      <div class="filters">
+        <input type="text" id="filter-i-search" placeholder="Buscar..." oninput="renderInsights()">
+        <select id="filter-i-tipo" onchange="renderInsights()">
+          <option value="">Todos os tipos</option>
+          <option>Oportunidade</option><option>Alerta</option><option>Aprendizado</option><option>Ideia</option><option>Tendência</option>
+        </select>
+        <select id="filter-i-area" onchange="renderInsights()">
+          <option value="">Todas as áreas</option>
+          <option>Vendas</option><option>Marketing</option><option>Operações</option><option>Produto</option><option>Mercado</option><option>Outros</option>
+        </select>
+      </div>
+      <div class="insight-grid" id="list-insights"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════════════════ MODALS ═══════════════════════ -->
+
+<!-- Modal Checklist -->
+<div class="modal-overlay" id="modal-checklist">
+  <div class="modal">
+    <button class="close" onclick="closeModal('checklist')">✕</button>
+    <h3 id="modal-cl-title">Novo Item de Checklist</h3>
+    <input type="hidden" id="cl-id">
+    <div class="form-group">
+      <label>Título *</label>
+      <input type="text" id="cl-titulo" placeholder="Ex: Ligar para cliente X">
+    </div>
+    <div class="form-group">
+      <label>Descrição</label>
+      <textarea id="cl-desc" rows="3" placeholder="Detalhes adicionais..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Categoria</label>
+        <select id="cl-cat">
+          <option>Comercial</option><option>Operacional</option><option>Financeiro</option><option>Logística</option><option>Outros</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Prioridade</label>
+        <select id="cl-prio">
+          <option>Alta</option><option selected>Média</option><option>Baixa</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Responsável</label>
+        <input type="text" id="cl-resp" placeholder="Nome do responsável">
+      </div>
+      <div class="form-group">
+        <label>Prazo</label>
+        <input type="date" id="cl-prazo">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('checklist')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveChecklist()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Pendências -->
+<div class="modal-overlay" id="modal-pendencias">
+  <div class="modal">
+    <button class="close" onclick="closeModal('pendencias')">✕</button>
+    <h3 id="modal-p-title">Nova Pendência</h3>
+    <input type="hidden" id="p-id">
+    <div class="form-group">
+      <label>Título *</label>
+      <input type="text" id="p-titulo" placeholder="Ex: Fatura pendente cliente Y">
+    </div>
+    <div class="form-group">
+      <label>Descrição</label>
+      <textarea id="p-desc" rows="3" placeholder="Descreva a pendência em detalhe..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Responsável</label>
+        <input type="text" id="p-resp" placeholder="Nome">
+      </div>
+      <div class="form-group">
+        <label>Prazo</label>
+        <input type="date" id="p-prazo">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Prioridade</label>
+        <select id="p-prio">
+          <option>Alta</option><option selected>Média</option><option>Baixa</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="p-status">
+          <option>Aberta</option><option>Em Andamento</option><option>Resolvida</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Área / Departamento</label>
+      <input type="text" id="p-area" placeholder="Ex: Comercial SP">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('pendencias')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePendencia()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Insights -->
+<div class="modal-overlay" id="modal-insights">
+  <div class="modal">
+    <button class="close" onclick="closeModal('insights')">✕</button>
+    <h3 id="modal-i-title">Novo Insight Comercial</h3>
+    <input type="hidden" id="i-id">
+    <div class="form-group">
+      <label>Título *</label>
+      <input type="text" id="i-titulo" placeholder="Ex: Crescimento em Campinas">
+    </div>
+    <div class="form-group">
+      <label>Descrição / Observação</label>
+      <textarea id="i-desc" rows="4" placeholder="Descreva o insight com contexto e dados..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="i-tipo">
+          <option>Oportunidade</option><option>Alerta</option><option>Aprendizado</option><option>Ideia</option><option>Tendência</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Área</label>
+        <select id="i-area">
+          <option>Vendas</option><option>Marketing</option><option>Operações</option><option>Produto</option><option>Mercado</option><option>Outros</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Fonte / Contexto</label>
+        <input type="text" id="i-fonte" placeholder="Ex: Visita a cliente, reunião...">
+      </div>
+      <div class="form-group">
+        <label>Impacto</label>
+        <select id="i-impacto">
+          <option>Alto</option><option selected>Médio</option><option>Baixo</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('insights')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveInsight()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+// ═══════ State ═══════
+const KEY = { cl: 'plt_checklist', pend: 'plt_pendencias', ins: 'plt_insights' };
+let state = {
+  checklist:  JSON.parse(localStorage.getItem(KEY.cl)   || '[]'),
+  pendencias: JSON.parse(localStorage.getItem(KEY.pend) || '[]'),
+  insights:   JSON.parse(localStorage.getItem(KEY.ins)  || '[]'),
+};
+
+function save() {
+  localStorage.setItem(KEY.cl,   JSON.stringify(state.checklist));
+  localStorage.setItem(KEY.pend, JSON.stringify(state.pendencias));
+  localStorage.setItem(KEY.ins,  JSON.stringify(state.insights));
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function fmt(iso) { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; }
+function fmtNow() { return new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }); }
+function isOverdue(prazo) { return prazo && new Date(prazo + 'T23:59:59') < new Date(); }
+
+// ═══════ Navigation ═══════
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+  if (page === 'dashboard') renderDashboard();
+  if (page === 'checklist') renderChecklist();
+  if (page === 'pendencias') renderPendencias();
+  if (page === 'insights') renderInsights();
+}
+
+// ═══════ Modal ═══════
+let editingId = {};
+
+function openModal(type, id) {
+  editingId[type] = id || null;
+  const overlay = document.getElementById('modal-' + type);
+  if (type === 'checklist') {
+    document.getElementById('modal-cl-title').textContent = id ? 'Editar Item' : 'Novo Item de Checklist';
+    const item = id ? state.checklist.find(x => x.id === id) : null;
+    document.getElementById('cl-id').value    = item?.id    || '';
+    document.getElementById('cl-titulo').value = item?.titulo || '';
+    document.getElementById('cl-desc').value   = item?.desc   || '';
+    document.getElementById('cl-cat').value    = item?.cat    || 'Comercial';
+    document.getElementById('cl-prio').value   = item?.prio   || 'Média';
+    document.getElementById('cl-resp').value   = item?.resp   || '';
+    document.getElementById('cl-prazo').value  = item?.prazo  || '';
+  } else if (type === 'pendencias') {
+    document.getElementById('modal-p-title').textContent = id ? 'Editar Pendência' : 'Nova Pendência';
+    const item = id ? state.pendencias.find(x => x.id === id) : null;
+    document.getElementById('p-id').value     = item?.id     || '';
+    document.getElementById('p-titulo').value  = item?.titulo || '';
+    document.getElementById('p-desc').value    = item?.desc   || '';
+    document.getElementById('p-resp').value    = item?.resp   || '';
+    document.getElementById('p-prazo').value   = item?.prazo  || '';
+    document.getElementById('p-prio').value    = item?.prio   || 'Média';
+    document.getElementById('p-status').value  = item?.status || 'Aberta';
+    document.getElementById('p-area').value    = item?.area   || '';
+  } else if (type === 'insights') {
+    document.getElementById('modal-i-title').textContent = id ? 'Editar Insight' : 'Novo Insight Comercial';
+    const item = id ? state.insights.find(x => x.id === id) : null;
+    document.getElementById('i-id').value      = item?.id      || '';
+    document.getElementById('i-titulo').value   = item?.titulo  || '';
+    document.getElementById('i-desc').value     = item?.desc    || '';
+    document.getElementById('i-tipo').value     = item?.tipo    || 'Oportunidade';
+    document.getElementById('i-area').value     = item?.area    || 'Vendas';
+    document.getElementById('i-fonte').value    = item?.fonte   || '';
+    document.getElementById('i-impacto').value  = item?.impacto || 'Médio';
+  }
+  overlay.classList.add('open');
+}
+
+function closeModal(type) {
+  document.getElementById('modal-' + type).classList.remove('open');
+}
+
+// close on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+
+// ═══════ CRUD Checklist ═══════
+function saveChecklist() {
+  const titulo = document.getElementById('cl-titulo').value.trim();
+  if (!titulo) return toast('Informe o título!', true);
+  const id = document.getElementById('cl-id').value || uid();
+  const item = {
+    id, titulo,
+    desc:  document.getElementById('cl-desc').value.trim(),
+    cat:   document.getElementById('cl-cat').value,
+    prio:  document.getElementById('cl-prio').value,
+    resp:  document.getElementById('cl-resp').value.trim(),
+    prazo: document.getElementById('cl-prazo').value,
+    done:  false,
+    criadoEm: new Date().toISOString(),
+  };
+  const idx = state.checklist.findIndex(x => x.id === id);
+  if (idx >= 0) { item.done = state.checklist[idx].done; state.checklist[idx] = item; }
+  else state.checklist.unshift(item);
+  save(); closeModal('checklist'); renderChecklist(); renderDashboard(); updateBadges();
+  toast('Item salvo com sucesso!');
+}
+
+function toggleChecklist(id) {
+  const item = state.checklist.find(x => x.id === id);
+  if (item) { item.done = !item.done; save(); renderChecklist(); renderDashboard(); updateBadges(); }
+}
+
+function deleteChecklist(id) {
+  if (!confirm('Remover item?')) return;
+  state.checklist = state.checklist.filter(x => x.id !== id);
+  save(); renderChecklist(); renderDashboard(); updateBadges(); toast('Item removido.');
+}
+
+// ═══════ CRUD Pendências ═══════
+function savePendencia() {
+  const titulo = document.getElementById('p-titulo').value.trim();
+  if (!titulo) return toast('Informe o título!', true);
+  const id = document.getElementById('p-id').value || uid();
+  const item = {
+    id, titulo,
+    desc:   document.getElementById('p-desc').value.trim(),
+    resp:   document.getElementById('p-resp').value.trim(),
+    prazo:  document.getElementById('p-prazo').value,
+    prio:   document.getElementById('p-prio').value,
+    status: document.getElementById('p-status').value,
+    area:   document.getElementById('p-area').value.trim(),
+    criadoEm: new Date().toISOString(),
+  };
+  const idx = state.pendencias.findIndex(x => x.id === id);
+  if (idx >= 0) state.pendencias[idx] = item;
+  else state.pendencias.unshift(item);
+  save(); closeModal('pendencias'); renderPendencias(); renderDashboard(); updateBadges();
+  toast('Pendência salva!');
+}
+
+function deletePendencia(id) {
+  if (!confirm('Remover pendência?')) return;
+  state.pendencias = state.pendencias.filter(x => x.id !== id);
+  save(); renderPendencias(); renderDashboard(); updateBadges(); toast('Pendência removida.');
+}
+
+function changeStatusPendencia(id, status) {
+  const item = state.pendencias.find(x => x.id === id);
+  if (item) { item.status = status; save(); renderPendencias(); renderDashboard(); updateBadges(); }
+}
+
+// ═══════ CRUD Insights ═══════
+function saveInsight() {
+  const titulo = document.getElementById('i-titulo').value.trim();
+  if (!titulo) return toast('Informe o título!', true);
+  const id = document.getElementById('i-id').value || uid();
+  const item = {
+    id, titulo,
+    desc:    document.getElementById('i-desc').value.trim(),
+    tipo:    document.getElementById('i-tipo').value,
+    area:    document.getElementById('i-area').value,
+    fonte:   document.getElementById('i-fonte').value.trim(),
+    impacto: document.getElementById('i-impacto').value,
+    criadoEm: new Date().toISOString(),
+  };
+  const idx = state.insights.findIndex(x => x.id === id);
+  if (idx >= 0) state.insights[idx] = item;
+  else state.insights.unshift(item);
+  save(); closeModal('insights'); renderInsights(); renderDashboard(); updateBadges();
+  toast('Insight salvo!');
+}
+
+function deleteInsight(id) {
+  if (!confirm('Remover insight?')) return;
+  state.insights = state.insights.filter(x => x.id !== id);
+  save(); renderInsights(); renderDashboard(); updateBadges(); toast('Insight removido.');
+}
+
+// ═══════ Render helpers ═══════
+const prioClass = { Alta: 'prio-alta', Média: 'prio-media', Baixa: 'prio-baixa' };
+const catTag    = { Comercial:'tag-blue', Operacional:'tag-orange', Financeiro:'tag-green', Logística:'tag-purple', Outros:'tag-gray' };
+const tipoTag   = { Oportunidade:'tag-green', Alerta:'tag-red', Aprendizado:'tag-blue', Ideia:'tag-purple', Tendência:'tag-orange' };
+const statusTag = { Aberta:'tag-red', 'Em Andamento':'tag-orange', Resolvida:'tag-green' };
+const impTag    = { Alto:'tag-red', Médio:'tag-orange', Baixo:'tag-gray' };
+
+function renderChecklist() {
+  const search = (document.getElementById('filter-cl-search').value || '').toLowerCase();
+  const cat    = document.getElementById('filter-cl-cat').value;
+  const prio   = document.getElementById('filter-cl-prio').value;
+  const status = document.getElementById('filter-cl-status').value;
+
+  let items = state.checklist.filter(x => {
+    if (search && !x.titulo.toLowerCase().includes(search) && !(x.desc||'').toLowerCase().includes(search)) return false;
+    if (cat   && x.cat  !== cat)  return false;
+    if (prio  && x.prio !== prio) return false;
+    if (status === 'open' && x.done)  return false;
+    if (status === 'done' && !x.done) return false;
+    return true;
+  });
+
+  const el = document.getElementById('list-checklist');
+  if (!items.length) { el.innerHTML = `<div class="empty"><div class="ico">✅</div><p>Nenhum item encontrado.</p></div>`; return; }
+
+  el.innerHTML = items.map(x => `
+    <div class="item-card ${x.done ? 'done' : ''}">
+      <div class="prio ${prioClass[x.prio] || ''}"></div>
+      <div class="item-check ${x.done ? 'checked' : ''}" onclick="toggleChecklist('${x.id}')"></div>
+      <div class="item-body">
+        <div class="item-title">${esc(x.titulo)}</div>
+        ${x.desc ? `<div class="item-desc">${esc(x.desc)}</div>` : ''}
+        <div class="item-meta">
+          <span class="tag ${catTag[x.cat]||'tag-gray'}">${x.cat}</span>
+          <span class="tag tag-gray">${x.prio}</span>
+          ${x.resp ? `<span class="tag tag-blue">👤 ${esc(x.resp)}</span>` : ''}
+          ${x.prazo ? `<span class="item-date ${isOverdue(x.prazo)&&!x.done?'tag tag-red':''}">📅 ${fmt(x.prazo)}</span>` : ''}
+        </div>
+      </div>
+      <div class="item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openModal('checklist','${x.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteChecklist('${x.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderPendencias() {
+  const search = (document.getElementById('filter-p-search').value || '').toLowerCase();
+  const resp   = document.getElementById('filter-p-resp').value;
+  const prio   = document.getElementById('filter-p-prio').value;
+  const status = document.getElementById('filter-p-status').value;
+
+  // populate resp filter
+  const resps = [...new Set(state.pendencias.map(x => x.resp).filter(Boolean))];
+  const sel = document.getElementById('filter-p-resp');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todos responsáveis</option>' + resps.map(r => `<option${r===cur?' selected':''}>${esc(r)}</option>`).join('');
+
+  let items = state.pendencias.filter(x => {
+    if (search && !x.titulo.toLowerCase().includes(search) && !(x.desc||'').toLowerCase().includes(search)) return false;
+    if (resp   && x.resp !== resp) return false;
+    if (prio   && x.prio !== prio) return false;
+    if (status && x.status !== status) return false;
+    return true;
+  });
+
+  const el = document.getElementById('list-pendencias');
+  if (!items.length) { el.innerHTML = `<div class="empty"><div class="ico">⏳</div><p>Nenhuma pendência encontrada.</p></div>`; return; }
+
+  el.innerHTML = items.map(x => `
+    <div class="item-card">
+      <div class="prio ${prioClass[x.prio]||''}"></div>
+      <div class="item-body">
+        <div class="item-title">${esc(x.titulo)}</div>
+        ${x.desc ? `<div class="item-desc">${esc(x.desc)}</div>` : ''}
+        <div class="item-meta">
+          <span class="tag ${statusTag[x.status]||'tag-gray'}">${x.status}</span>
+          <span class="tag tag-gray">${x.prio}</span>
+          ${x.area ? `<span class="tag tag-blue">${esc(x.area)}</span>` : ''}
+          ${x.resp ? `<span class="tag tag-purple">👤 ${esc(x.resp)}</span>` : ''}
+          ${x.prazo ? `<span class="item-date ${isOverdue(x.prazo)&&x.status!=='Resolvida'?'tag tag-red':''}">📅 ${fmt(x.prazo)}</span>` : ''}
+        </div>
+        ${x.status !== 'Resolvida' ? `
+        <div style="margin-top:8px;display:flex;gap:6px;">
+          ${x.status==='Aberta' ? `<button class="btn btn-ghost btn-sm" onclick="changeStatusPendencia('${x.id}','Em Andamento')">▶ Em Andamento</button>` : ''}
+          <button class="btn btn-success btn-sm" onclick="changeStatusPendencia('${x.id}','Resolvida')">✓ Resolver</button>
+        </div>` : ''}
+      </div>
+      <div class="item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openModal('pendencias','${x.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deletePendencia('${x.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderInsights() {
+  const search = (document.getElementById('filter-i-search').value || '').toLowerCase();
+  const tipo   = document.getElementById('filter-i-tipo').value;
+  const area   = document.getElementById('filter-i-area').value;
+
+  let items = state.insights.filter(x => {
+    if (search && !x.titulo.toLowerCase().includes(search) && !(x.desc||'').toLowerCase().includes(search)) return false;
+    if (tipo && x.tipo !== tipo) return false;
+    if (area && x.area !== area) return false;
+    return true;
+  });
+
+  const el = document.getElementById('list-insights');
+  if (!items.length) { el.innerHTML = `<div class="empty"><div class="ico">💡</div><p>Nenhum insight encontrado.</p></div>`; return; }
+
+  el.innerHTML = items.map(x => `
+    <div class="insight-card">
+      <div class="ic-header">
+        <div class="ic-title">${esc(x.titulo)}</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="openModal('insights','${x.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteInsight('${x.id}')">🗑</button>
+        </div>
+      </div>
+      ${x.desc ? `<div class="ic-body">${esc(x.desc)}</div>` : ''}
+      <div class="ic-footer">
+        <span class="tag ${tipoTag[x.tipo]||'tag-gray'}">${x.tipo}</span>
+        <span class="tag tag-blue">${x.area}</span>
+        <span class="tag ${impTag[x.impacto]||'tag-gray'}">Impacto: ${x.impacto}</span>
+        ${x.fonte ? `<span class="tag tag-gray">📌 ${esc(x.fonte)}</span>` : ''}
+        <span class="item-date" style="margin-left:auto">${new Date(x.criadoEm).toLocaleDateString('pt-BR')}</span>
+      </div>
+    </div>`).join('');
+}
+
+function renderDashboard() {
+  const cl    = state.checklist;
+  const pend  = state.pendencias;
+  const ins   = state.insights;
+
+  const totalCl  = cl.length;
+  const doneCl   = cl.filter(x => x.done).length;
+  const openPend = pend.filter(x => x.status !== 'Resolvida').length;
+  const alta     = [...cl, ...pend].filter(x => x.prio === 'Alta' && !x.done && x.status !== 'Resolvida').length;
+  const pct      = totalCl ? Math.round(doneCl / totalCl * 100) : 0;
+
+  document.getElementById('ds-total-cl').textContent = totalCl;
+  document.getElementById('ds-done-cl').textContent  = doneCl;
+  document.getElementById('ds-pend').textContent     = openPend;
+  document.getElementById('ds-alta').textContent     = alta;
+  document.getElementById('ds-pct').textContent      = pct + '%';
+  document.getElementById('ds-bar').style.width      = pct + '%';
+  document.getElementById('dash-date').textContent   = fmtNow();
+
+  // widgets
+  const dwP = document.getElementById('dw-pendencias');
+  const recPend = pend.filter(x => x.status !== 'Resolvida').slice(0, 5);
+  dwP.innerHTML = recPend.length
+    ? recPend.map(x => `<div class="dash-list-item"><span class="prio ${prioClass[x.prio]||''}"></span><span style="flex:1">${esc(x.titulo)}</span><span class="tag ${statusTag[x.status]||'tag-gray'}" style="font-size:.68rem">${x.status}</span></div>`).join('')
+    : '<div class="empty" style="padding:16px"><p>Tudo em dia! 🎉</p></div>';
+
+  const dwI = document.getElementById('dw-insights');
+  const recIns = ins.slice(0, 4);
+  dwI.innerHTML = recIns.length
+    ? recIns.map(x => `<div class="dash-list-item"><span class="tag ${tipoTag[x.tipo]||'tag-gray'}" style="font-size:.68rem">${x.tipo}</span><span style="flex:1">${esc(x.titulo)}</span></div>`).join('')
+    : '<div class="empty" style="padding:16px"><p>Nenhum insight ainda.</p></div>';
+
+  const dwCl = document.getElementById('dw-checklist');
+  const prioCl = cl.filter(x => !x.done && x.prio === 'Alta').slice(0, 5);
+  dwCl.innerHTML = prioCl.length
+    ? prioCl.map(x => `<div class="dash-list-item"><span class="prio prio-alta"></span><span style="flex:1">${esc(x.titulo)}</span>${x.prazo ? `<span class="item-date">${fmt(x.prazo)}</span>` : ''}</div>`).join('')
+    : '<div class="empty" style="padding:16px"><p>Sem itens prioritários.</p></div>';
+}
+
+function updateBadges() {
+  document.getElementById('badge-checklist').textContent = state.checklist.filter(x => !x.done).length;
+  document.getElementById('badge-pendencias').textContent = state.pendencias.filter(x => x.status !== 'Resolvida').length;
+  document.getElementById('badge-insights').textContent = state.insights.length;
+}
+
+// ═══════ Toast ═══════
+function toast(msg, err) {
+  const wrap = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.style.background = err ? '#c0392b' : '#1a202c';
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+
+// ═══════ XSS guard ═══════
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ═══════ Clock ═══════
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ═══════ Boot ═══════
+updateBadges();
+renderDashboard();
+</script>
+</body>
+</html>
