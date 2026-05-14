@@ -360,6 +360,10 @@
     <hr>
     <div class="section-label">Estratégico</div>
     <button onclick="navigate('insights')" id="nav-insights">💡 Insights <span class="badge" id="badge-insights">0</span></button>
+    <hr>
+    <div class="section-label">Dados</div>
+    <button onclick="openImport()">📥 Importar JSON</button>
+    <button onclick="exportJSON()">📤 Exportar JSON</button>
   </nav>
 
   <main>
@@ -614,6 +618,24 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('insights')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveInsight()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Importar JSON -->
+<div class="modal-overlay" id="modal-import">
+  <div class="modal">
+    <button class="close" onclick="closeModal('import')">✕</button>
+    <h3>📥 Importar JSON</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:14px">Cole o JSON abaixo. Ele substituirá <strong>todos</strong> os dados atuais.</p>
+    <div class="form-group">
+      <label>JSON</label>
+      <textarea id="import-json" rows="12" placeholder='{"checklist":[...],"pendencias":[...],"insights":[]}'></textarea>
+    </div>
+    <div id="import-error" style="color:#e53e3e;font-size:.8rem;margin-top:-8px;margin-bottom:8px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('import')">Cancelar</button>
+      <button class="btn btn-primary" onclick="importJSON()">Carregar</button>
     </div>
   </div>
 </div>
@@ -1017,6 +1039,39 @@ function toast(msg, err) {
   t.textContent = msg;
   wrap.appendChild(t);
   setTimeout(() => t.remove(), 2800);
+}
+
+// ═══════ Import / Export ═══════
+function openImport() {
+  document.getElementById('import-json').value = '';
+  document.getElementById('import-error').style.display = 'none';
+  document.getElementById('modal-import').classList.add('open');
+}
+
+function importJSON() {
+  const raw = document.getElementById('import-json').value.trim();
+  const errEl = document.getElementById('import-error');
+  errEl.style.display = 'none';
+  let data;
+  try { data = JSON.parse(raw); } catch(e) { errEl.textContent = 'JSON inválido: ' + e.message; errEl.style.display = 'block'; return; }
+  if (!data || typeof data !== 'object') { errEl.textContent = 'Formato inválido. Esperado objeto com chaves checklist, pendencias, insights.'; errEl.style.display = 'block'; return; }
+  if (data.checklist)  { localStorage.setItem(KEY.cl,   JSON.stringify(data.checklist));  state.checklist  = data.checklist; }
+  if (data.pendencias) { localStorage.setItem(KEY.pend, JSON.stringify(data.pendencias)); state.pendencias = data.pendencias; }
+  if (data.insights)   { localStorage.setItem(KEY.ins,  JSON.stringify(data.insights));   state.insights   = data.insights; }
+  closeModal('import');
+  updateBadges(); renderDashboard();
+  toast('Base carregada com sucesso! ' + (data.checklist?.length||0) + ' checklists, ' + (data.pendencias?.length||0) + ' pendências, ' + (data.insights?.length||0) + ' insights.');
+  navigate(document.querySelector('nav button.active')?.id?.replace('nav-','') || 'dashboard');
+}
+
+function exportJSON() {
+  const data = { checklist: state.checklist, pendencias: state.pendencias, insights: state.insights };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'plantec-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  toast('Exportado com sucesso!');
 }
 
 // ═══════ XSS guard ═══════
