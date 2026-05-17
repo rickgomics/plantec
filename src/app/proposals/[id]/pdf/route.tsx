@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/lib/prisma'
+import { getCoverStyle } from '@/lib/coverStyles'
 
 async function mermaidToSvg(diagram: string): Promise<string | null> {
   try {
@@ -42,6 +43,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   })
 
   if (!proposal) return new Response('Not found', { status: 404 })
+
+  const coverSt = getCoverStyle(proposal.coverStyle ?? 'teal')
 
   const subtotal = proposal.items.reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0)
   const totalDiscount = Number(proposal.totalDiscount)
@@ -263,6 +266,21 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .legend-item{display:flex;align-items:center;gap:6px;font-size:8pt;color:var(--g500);font-weight:600}
     .legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
     @media print{.toolbar{display:none!important}body{background:white}.outer{padding:0;max-width:none}.pdf-page{box-shadow:none;border-radius:0;margin-bottom:0;page-break-after:always}.pdf-page:last-child{page-break-after:auto}.inner-page{min-height:100vh}}
+    /* Cover style overrides */
+    .cover{background:${coverSt.bg}!important}
+    .cover-pattern{position:absolute;inset:0;pointer-events:none;${coverSt.pattern ? `background:${coverSt.pattern}` : 'display:none'}}
+    .cover-logo-text{color:${coverSt.text}!important}
+    .cover-logo-sub{color:${coverSt.subText}!important}
+    .cover-badge{color:${coverSt.accentLight}!important;background:rgba(${coverSt.dark?'255,255,255':'0,0,0'},.1)!important;border-color:rgba(${coverSt.dark?'255,255,255':'0,0,0'},.15)!important}
+    .cover-eyebrow{color:${coverSt.accentLight}!important}
+    .cover-eyebrow::before{background:${coverSt.accent}!important}
+    .cover-title{color:${coverSt.text}!important}
+    .cover-divider{background:${coverSt.accent}!important}
+    .cover-client-label{color:${coverSt.subText}!important}
+    .cover-client-name{color:${coverSt.text}!important}
+    .cover-footer{background:${coverSt.footerBg}!important;border-top-color:rgba(${coverSt.dark?'255,255,255':'0,0,0'},.08)!important}
+    .cover-footer-item label{color:${coverSt.subText}!important}
+    .cover-footer-item span{color:${coverSt.text}!important;opacity:0.9}
   </style>
 </head>
 <body>
@@ -286,6 +304,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   <!-- CAPA -->
   <div class="pdf-page">
     <div class="cover">
+      <div class="cover-pattern"></div>
       <div class="cover-top">
         <div>
           ${logoSrc

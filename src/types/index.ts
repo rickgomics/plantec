@@ -104,6 +104,7 @@ export interface Proposal {
   introProfileId?: string | null
   scenarioDesc?: string | null
   scenarioDiagram?: string | null
+  coverStyle?: string | null
   coverProfile?: CompanyProfile | null
   introProfile?: CompanyProfile | null
   items: ProposalItem[]

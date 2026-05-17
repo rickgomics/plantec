@@ -11,6 +11,7 @@ import MermaidDiagram from '@/components/MermaidDiagram'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Proposal, ProposalItem, Product, RuleEngineResult, CompanyProfile } from '@/types'
+import { COVER_STYLES, getCoverStyle } from '@/lib/coverStyles'
 
 const STATUS_FLOW: Record<string, string> = {
   draft: 'generated',
@@ -96,6 +97,7 @@ export default function ProposalDetailPage() {
   const [scope, setScope] = useState('')
   const [scenarioDesc, setScenarioDesc] = useState('')
   const [scenarioDiagram, setScenarioDiagram] = useState('')
+  const [coverStyle, setCoverStyle] = useState('teal')
   const [coverProfileId, setCoverProfileId] = useState<string>('')
   const [introProfileId, setIntroProfileId] = useState<string>('')
   const [introText, setIntroText] = useState('')
@@ -119,6 +121,7 @@ export default function ProposalDetailPage() {
       setScope(p.scope ?? '')
       setScenarioDesc(p.scenarioDesc ?? '')
       setScenarioDiagram(p.scenarioDiagram ?? '')
+      setCoverStyle(p.coverStyle ?? 'teal')
       setCoverProfileId(p.coverProfileId ?? '')
       setIntroProfileId(p.introProfileId ?? '')
     }
@@ -201,6 +204,7 @@ export default function ProposalDetailPage() {
         scope,
         scenarioDesc,
         scenarioDiagram,
+        coverStyle,
         coverProfileId: coverProfileId || null,
         introProfileId: introProfileId || null,
       }),
@@ -636,44 +640,84 @@ export default function ProposalDetailPage() {
               </div>
             </div>
 
-            <div className="card p-6">
-              <h3 className="font-semibold text-gray-700 mb-3 text-sm">Pré-visualização da Capa</h3>
-              <div className="rounded-2xl overflow-hidden min-h-[300px] flex flex-col"
-                style={{ background: 'linear-gradient(135deg, #002827 0%, #005F5C 60%, #00928E 100%)' }}>
-                {/* Top bar */}
-                <div className="flex justify-between items-center px-8 py-5 border-b border-white/10">
-                  {coverProfile?.logoBase64 ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={coverProfile.logoBase64} alt={coverProfile.name} className="h-10 object-contain brightness-0 invert" />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded bg-white/20 flex items-center justify-center">
-                        <span className="text-white font-black text-sm">P</span>
-                      </div>
-                      <span className="text-white font-black text-sm tracking-tight">PLANTEC</span>
+            <div className="card p-6 space-y-4">
+              <h3 className="font-semibold text-gray-700 text-sm">Estilo da Capa</h3>
+              <div className="flex gap-3 flex-wrap">
+                {COVER_STYLES.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={async () => {
+                      setCoverStyle(s.id)
+                      await fetch(`/api/proposals/${id}`, {
+                        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ coverStyle: s.id }),
+                      })
+                    }}
+                    title={s.name}
+                    className={`relative rounded-xl overflow-hidden w-24 h-14 transition-all ${
+                      coverStyle === s.id
+                        ? 'ring-2 ring-brand-500 ring-offset-2 shadow-md scale-105'
+                        : 'hover:scale-102 opacity-80 hover:opacity-100'
+                    }`}
+                    style={{ background: s.bg }}
+                  >
+                    {s.pattern && (
+                      <div className="absolute inset-0" style={{ background: s.pattern }} />
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 py-1 text-center"
+                      style={{ background: 'rgba(0,0,0,0.25)', fontSize: 9, fontWeight: 700, letterSpacing: 1, color: s.text }}>
+                      {s.name}
                     </div>
-                  )}
-                  <div className="text-right">
-                    <div className="text-[10px] text-white/50 uppercase tracking-widest font-semibold">Proposta Comercial</div>
-                    <div className="font-mono text-white/70 text-xs font-semibold mt-0.5">{proposal.number}</div>
-                  </div>
-                </div>
-                {/* Body */}
-                <div className="flex-1 flex flex-col justify-center px-8 py-8">
-                  <div className="text-[10px] text-brand-300 uppercase tracking-widest font-black mb-2">{proposal.vertical}</div>
-                  <div className="text-white font-black text-2xl leading-tight tracking-tight mb-3">{proposal.title}</div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-px bg-white/30" />
-                    <div className="text-white/70 text-sm font-semibold">{proposal.customer.companyName}</div>
-                  </div>
-                </div>
-                {/* Footer */}
-                <div className="px-8 py-4 bg-black/20 border-t border-white/10">
-                  <div className="text-white/40 text-[10px] font-semibold uppercase tracking-widest">
-                    Válida por {proposal.validityDays} dias
-                  </div>
-                </div>
+                  </button>
+                ))}
               </div>
+            </div>
+
+            <div className="card p-6">
+              <h3 className="font-semibold text-gray-700 mb-3 text-sm">Pré-visualização</h3>
+              {(() => {
+                const s = getCoverStyle(coverStyle)
+                return (
+                  <div className="rounded-2xl overflow-hidden min-h-[300px] flex flex-col relative"
+                    style={{ background: s.bg }}>
+                    {s.pattern && <div className="absolute inset-0 pointer-events-none" style={{ background: s.pattern }} />}
+                    {/* Top bar */}
+                    <div className="flex justify-between items-center px-8 py-5 relative z-10"
+                      style={{ borderBottom: `1px solid ${s.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}` }}>
+                      {coverProfile?.logoBase64 ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={coverProfile.logoBase64} alt={coverProfile.name} className="h-10 object-contain" style={{ filter: s.dark ? 'brightness(0) invert(1)' : 'none' }} />
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded flex items-center justify-center" style={{ background: s.dark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }}>
+                            <span className="font-black text-sm" style={{ color: s.text }}>P</span>
+                          </div>
+                          <span className="font-black text-sm tracking-tight" style={{ color: s.text }}>PLANTEC</span>
+                        </div>
+                      )}
+                      <div className="text-right">
+                        <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: s.subText }}>Proposta Comercial</div>
+                        <div className="font-mono text-xs font-semibold mt-0.5" style={{ color: s.subText }}>{proposal.number}</div>
+                      </div>
+                    </div>
+                    {/* Body */}
+                    <div className="flex-1 flex flex-col justify-center px-8 py-8 relative z-10">
+                      <div className="text-[10px] uppercase tracking-widest font-black mb-2" style={{ color: s.accentLight }}>{proposal.vertical}</div>
+                      <div className="font-black text-2xl leading-tight tracking-tight mb-3" style={{ color: s.text }}>{proposal.title}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-px" style={{ background: s.dark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }} />
+                        <div className="text-sm font-semibold" style={{ color: s.subText }}>{proposal.customer.companyName}</div>
+                      </div>
+                    </div>
+                    {/* Footer */}
+                    <div className="px-8 py-4 relative z-10" style={{ background: s.footerBg, borderTop: `1px solid ${s.dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}` }}>
+                      <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: s.subText }}>
+                        Válida por {proposal.validityDays} dias
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           </div>
         )}
