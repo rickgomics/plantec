@@ -6,15 +6,19 @@ import StatusBadge from '@/components/StatusBadge'
 import BOMTable from '@/components/BOMTable'
 import AlertPanel from '@/components/AlertPanel'
 import ProductSearchModal from '@/components/ProductSearchModal'
+import AIGenerateButton from '@/components/AIGenerateButton'
+import MermaidDiagram from '@/components/MermaidDiagram'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { Proposal, ProposalItem, Product, RuleEngineResult } from '@/types'
+import { Proposal, ProposalItem, Product, RuleEngineResult, CompanyProfile } from '@/types'
 
 const STATUS_FLOW: Record<string, string> = {
   draft: 'generated',
   generated: 'sent',
   sent: 'approved',
 }
+
+type Tab = 'bom' | 'cover' | 'intro' | 'scenario'
 
 export default function ProposalDetailPage() {
   const params = useParams()
@@ -26,13 +30,31 @@ export default function ProposalDetailPage() {
   const [saving, setSaving] = useState(false)
   const [showAddProduct, setShowAddProduct] = useState(false)
   const [globalDiscount, setGlobalDiscount] = useState(0)
+  const [activeTab, setActiveTab] = useState<Tab>('bom')
+  const [profiles, setProfiles] = useState<CompanyProfile[]>([])
+
+  // editable fields for new tabs
+  const [executiveSummary, setExecutiveSummary] = useState('')
+  const [scope, setScope] = useState('')
+  const [scenarioDesc, setScenarioDesc] = useState('')
+  const [scenarioDiagram, setScenarioDiagram] = useState('')
+  const [coverProfileId, setCoverProfileId] = useState<string>('')
+  const [introProfileId, setIntroProfileId] = useState<string>('')
+  const [introText, setIntroText] = useState('')
 
   const loadProposal = useCallback(async () => {
     const res = await fetch(`/api/proposals/${id}`)
     const data = await res.json()
     if (data.proposal) {
-      setProposal(data.proposal)
-      setGlobalDiscount(Number(data.proposal.discount))
+      const p: Proposal = data.proposal
+      setProposal(p)
+      setGlobalDiscount(Number(p.discount))
+      setExecutiveSummary(p.executiveSummary ?? '')
+      setScope(p.scope ?? '')
+      setScenarioDesc(p.scenarioDesc ?? '')
+      setScenarioDiagram(p.scenarioDiagram ?? '')
+      setCoverProfileId(p.coverProfileId ?? '')
+      setIntroProfileId(p.introProfileId ?? '')
     }
     setLoading(false)
   }, [id])
@@ -43,10 +65,10 @@ export default function ProposalDetailPage() {
     setRuleResult(data)
   }, [id])
 
+  useEffect(() => { loadProposal() }, [loadProposal])
   useEffect(() => {
-    loadProposal()
-  }, [loadProposal])
-
+    fetch('/api/company-profiles').then(r => r.json()).then(d => setProfiles(d.profiles ?? []))
+  }, [])
   useEffect(() => {
     if (proposal?.items?.length) evaluate()
   }, [proposal?.items, evaluate])
@@ -109,6 +131,12 @@ export default function ProposalDetailPage() {
         totalPrice: totals.totalPrice,
         totalDiscount: totals.totalDiscount,
         margin: totals.margin,
+        executiveSummary,
+        scope,
+        scenarioDesc,
+        scenarioDiagram,
+        coverProfileId: coverProfileId || null,
+        introProfileId: introProfileId || null,
       }),
     })
     setSaving(false)
@@ -139,6 +167,16 @@ export default function ProposalDetailPage() {
 
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   const canAdvance = proposal && STATUS_FLOW[proposal.status] && !ruleResult?.isBlocked
+
+  const coverProfile = profiles.find(p => p.id === coverProfileId)
+  const introProfile = profiles.find(p => p.id === introProfileId)
+  const aiContext = {
+    title: proposal?.title,
+    vertical: proposal?.vertical,
+    customer: proposal?.customer?.companyName,
+    itemCount: proposal?.items?.length,
+    totalPrice: totals?.totalPrice,
+  }
 
   if (loading) {
     return <AppLayout><div className="p-10 text-center text-gray-400">Carregando proposta...</div></AppLayout>
@@ -174,117 +212,334 @@ export default function ProposalDetailPage() {
                  '✅ Aprovar'}
               </button>
             )}
-            <Link
-              href={`/proposals/${id}/pdf`}
-              target="_blank"
-              className="btn-secondary"
-            >
+            <Link href={`/proposals/${id}/pdf`} target="_blank" className="btn-secondary">
               📄 PDF
             </Link>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main BOM area */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="card">
-              <div className="flex items-center justify-between px-5 py-4 border-b">
-                <h2 className="font-semibold text-gray-900">BOM Comercial</h2>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <label className="text-gray-500">Desconto global:</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.5}
-                      value={globalDiscount}
-                      onChange={(e) => setGlobalDiscount(parseFloat(e.target.value) || 0)}
-                      className="w-16 text-center border border-gray-200 rounded px-1.5 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-400">%</span>
-                  </div>
-                  <button
-                    onClick={() => setShowAddProduct(true)}
-                    className="btn-primary text-sm"
-                  >
-                    + Adicionar Produto
-                  </button>
-                </div>
-              </div>
-              <BOMTable
-                items={proposal.items}
-                onQuantityChange={handleQuantityChange}
-                onDiscountChange={handleDiscountChange}
-                onRemove={handleRemoveItem}
-              />
-            </div>
-
-            {/* Totals */}
-            {totals && proposal.items.length > 0 && (
-              <div className="card p-5">
-                <div className="flex justify-end">
-                  <div className="w-72 space-y-2 text-sm">
-                    <div className="flex justify-between text-gray-600">
-                      <span>Subtotal:</span>
-                      <span>{fmt(totals.subtotal)}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-600">
-                      <span>Descontos:</span>
-                      <span className="text-red-600">-{fmt(totals.totalDiscount)}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-200">
-                      <span>Total:</span>
-                      <span>{fmt(totals.totalPrice)}</span>
-                    </div>
-                    <div className={`flex justify-between font-medium ${totals.margin >= 15 ? 'text-green-600' : totals.margin >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>
-                      <span>Margem estimada:</span>
-                      <span>{totals.margin.toFixed(1)}%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Info sections */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {proposal.executiveSummary && (
-                <div className="card p-4">
-                  <h3 className="font-semibold text-gray-700 text-sm mb-2">Resumo Executivo</h3>
-                  <p className="text-sm text-gray-600 whitespace-pre-line">{proposal.executiveSummary}</p>
-                </div>
-              )}
-              {proposal.scope && (
-                <div className="card p-4">
-                  <h3 className="font-semibold text-gray-700 text-sm mb-2">Escopo</h3>
-                  <p className="text-sm text-gray-600 whitespace-pre-line">{proposal.scope}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right panel: alerts */}
-          <div className="space-y-4">
-            <AlertPanel result={ruleResult} onAddSuggestion={handleAddSuggestion} />
-
-            {/* Quick info */}
-            <div className="card p-4 text-sm space-y-2">
-              <h3 className="font-semibold text-gray-700 mb-2">Informações</h3>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Itens na BOM:</span>
-                <span className="font-medium">{proposal.items.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Criada em:</span>
-                <span>{new Date(proposal.createdAt).toLocaleDateString('pt-BR')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Validade:</span>
-                <span>{proposal.validityDays} dias</span>
-              </div>
-            </div>
-          </div>
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 border-b border-gray-200">
+          {([
+            { key: 'bom', label: '📋 BOM' },
+            { key: 'cover', label: '🏷️ Capa' },
+            { key: 'intro', label: '🏢 Introdução' },
+            { key: 'scenario', label: '🔌 Cenário' },
+          ] as { key: Tab; label: string }[]).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                activeTab === tab.key
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
+
+        {/* Tab: BOM */}
+        {activeTab === 'bom' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="card">
+                <div className="flex items-center justify-between px-5 py-4 border-b">
+                  <h2 className="font-semibold text-gray-900">BOM Comercial</h2>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <label className="text-gray-500">Desconto global:</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.5}
+                        value={globalDiscount}
+                        onChange={(e) => setGlobalDiscount(parseFloat(e.target.value) || 0)}
+                        className="w-16 text-center border border-gray-200 rounded px-1.5 py-1 text-sm"
+                      />
+                      <span className="text-gray-400">%</span>
+                    </div>
+                    <button onClick={() => setShowAddProduct(true)} className="btn-primary text-sm">
+                      + Adicionar Produto
+                    </button>
+                  </div>
+                </div>
+                <BOMTable
+                  items={proposal.items}
+                  onQuantityChange={handleQuantityChange}
+                  onDiscountChange={handleDiscountChange}
+                  onRemove={handleRemoveItem}
+                />
+              </div>
+
+              {totals && proposal.items.length > 0 && (
+                <div className="card p-5">
+                  <div className="flex justify-end">
+                    <div className="w-72 space-y-2 text-sm">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Subtotal:</span><span>{fmt(totals.subtotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-600">
+                        <span>Descontos:</span><span className="text-red-600">-{fmt(totals.totalDiscount)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-200">
+                        <span>Total:</span><span>{fmt(totals.totalPrice)}</span>
+                      </div>
+                      <div className={`flex justify-between font-medium ${totals.margin >= 15 ? 'text-green-600' : totals.margin >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        <span>Margem estimada:</span><span>{totals.margin.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Texts editable in BOM tab */}
+              <div className="card p-5 space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium text-gray-700">Resumo Executivo</label>
+                    <AIGenerateButton
+                      type="executiveSummary"
+                      context={aiContext}
+                      onGenerated={setExecutiveSummary}
+                    />
+                  </div>
+                  <textarea
+                    value={executiveSummary}
+                    onChange={e => setExecutiveSummary(e.target.value)}
+                    rows={5}
+                    placeholder="Descreva o valor entregue..."
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium text-gray-700">Escopo do Projeto</label>
+                    <AIGenerateButton
+                      type="scope"
+                      context={aiContext}
+                      onGenerated={setScope}
+                    />
+                  </div>
+                  <textarea
+                    value={scope}
+                    onChange={e => setScope(e.target.value)}
+                    rows={5}
+                    placeholder="O que está incluso nesta proposta..."
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <AlertPanel result={ruleResult} onAddSuggestion={handleAddSuggestion} />
+              <div className="card p-4 text-sm space-y-2">
+                <h3 className="font-semibold text-gray-700 mb-2">Informações</h3>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Itens na BOM:</span>
+                  <span className="font-medium">{proposal.items.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Criada em:</span>
+                  <span>{new Date(proposal.createdAt).toLocaleDateString('pt-BR')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Validade:</span>
+                  <span>{proposal.validityDays} dias</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Capa */}
+        {activeTab === 'cover' && (
+          <div className="max-w-2xl space-y-6">
+            <div className="card p-6 space-y-4">
+              <h2 className="font-semibold text-gray-900">Perfil da Capa</h2>
+              <p className="text-sm text-gray-500">Selecione o perfil que aparecerá na capa da proposta.</p>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Empresa na Capa</label>
+                <select
+                  value={coverProfileId}
+                  onChange={e => setCoverProfileId(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">— Sem perfil (Plantec padrão) —</option>
+                  {profiles.map(p => (
+                    <option key={p.id} value={p.id}>
+                      [{p.type === 'plantec' ? 'Plantec' : 'Parceiro'}] {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {coverProfile && (
+                <div className="border rounded-xl p-4 bg-gray-50 space-y-2">
+                  <div className="flex items-center gap-4">
+                    {coverProfile.logoBase64 && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={coverProfile.logoBase64} alt={coverProfile.name} className="h-16 object-contain" />
+                    )}
+                    <div>
+                      <div className="font-semibold">{coverProfile.name}</div>
+                      {coverProfile.website && <div className="text-xs text-blue-600">{coverProfile.website}</div>}
+                      {coverProfile.phone && <div className="text-xs text-gray-500">{coverProfile.phone}</div>}
+                    </div>
+                  </div>
+                  {coverProfile.description && (
+                    <p className="text-xs text-gray-600">{coverProfile.description}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="pt-2">
+                <Link href="/settings/profiles" className="text-sm text-blue-600 hover:underline">
+                  + Criar ou editar perfis de empresa →
+                </Link>
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <h3 className="font-semibold text-gray-700 mb-3 text-sm">Pré-visualização da Capa</h3>
+              <div className="border rounded-xl bg-gradient-to-br from-blue-900 to-blue-700 text-white p-8 space-y-4 min-h-[300px] flex flex-col justify-between">
+                <div className="flex justify-between items-start">
+                  {coverProfile?.logoBase64 ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={coverProfile.logoBase64} alt={coverProfile.name} className="h-12 object-contain brightness-200" />
+                  ) : (
+                    <div className="text-blue-300 text-xs font-medium uppercase tracking-wider">Plantec Distribuidora</div>
+                  )}
+                  <div className="text-right text-xs text-blue-200">
+                    <div>Proposta Comercial</div>
+                    <div className="font-mono">{proposal.number}</div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-blue-300 uppercase tracking-wider mb-1">{proposal.vertical}</div>
+                  <div className="text-2xl font-bold leading-tight">{proposal.title}</div>
+                  <div className="text-blue-200 mt-2 text-sm">{proposal.customer.companyName}</div>
+                </div>
+                <div className="text-xs text-blue-300">
+                  Válida por {proposal.validityDays} dias
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Introdução */}
+        {activeTab === 'intro' && (
+          <div className="max-w-2xl space-y-6">
+            <div className="card p-6 space-y-4">
+              <h2 className="font-semibold text-gray-900">Empresa Apresentada</h2>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Perfil de Introdução</label>
+                <select
+                  value={introProfileId}
+                  onChange={e => {
+                    setIntroProfileId(e.target.value)
+                    const p = profiles.find(x => x.id === e.target.value)
+                    if (p?.description) setIntroText(p.description)
+                  }}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">— Selecione um perfil —</option>
+                  {profiles.map(p => (
+                    <option key={p.id} value={p.id}>
+                      [{p.type === 'plantec' ? 'Plantec' : 'Parceiro'}] {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {introProfile?.logoBase64 && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={introProfile.logoBase64} alt={introProfile.name} className="h-14 object-contain" />
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-medium text-gray-700">Texto de Apresentação</label>
+                  <AIGenerateButton
+                    type="introText"
+                    context={{ company: introProfile?.name ?? 'Plantec Distribuidora', ...aiContext }}
+                    onGenerated={setIntroText}
+                    label="Gerar com IA"
+                  />
+                </div>
+                <textarea
+                  value={introText}
+                  onChange={e => setIntroText(e.target.value)}
+                  rows={8}
+                  placeholder="Descreva a empresa apresentada nesta proposta..."
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="pt-2">
+                <Link href="/settings/profiles" className="text-sm text-blue-600 hover:underline">
+                  + Criar ou editar perfis de empresa →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Cenário */}
+        {activeTab === 'scenario' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="card p-6 space-y-4">
+                <h2 className="font-semibold text-gray-900">Descrição do Cenário</h2>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium text-gray-700">Descreva o ambiente técnico</label>
+                    <AIGenerateButton
+                      type="scenarioDiagram"
+                      context={{ description: scenarioDesc, ...aiContext }}
+                      onGenerated={setScenarioDiagram}
+                      label="Gerar Diagrama"
+                    />
+                  </div>
+                  <textarea
+                    value={scenarioDesc}
+                    onChange={e => setScenarioDesc(e.target.value)}
+                    rows={8}
+                    placeholder={`Descreva o cenário técnico. Exemplo:\n\nEdifício comercial de 5 andares com recepção, área de escritórios e estacionamento. Necessidade de 16 câmeras IP distribuídas pelos ambientes, conectadas a um NVR central com armazenamento de 30 dias. Rack instalado na central de TI no 2º andar.`}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Código Mermaid (editar manualmente)</label>
+                  <textarea
+                    value={scenarioDiagram}
+                    onChange={e => setScenarioDiagram(e.target.value)}
+                    rows={10}
+                    placeholder={'graph LR\n  Camera --> Switch\n  Switch --> NVR'}
+                    className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="card p-6">
+                <h2 className="font-semibold text-gray-900 mb-4">Pré-visualização do Diagrama</h2>
+                {scenarioDiagram ? (
+                  <MermaidDiagram code={scenarioDiagram} className="min-h-[300px]" />
+                ) : (
+                  <div className="flex items-center justify-center min-h-[300px] text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-xl">
+                    Descreva o cenário e clique em &quot;Gerar Diagrama&quot;
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {showAddProduct && (

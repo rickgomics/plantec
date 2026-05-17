@@ -8,6 +8,7 @@ const navItems = [
   { href: '/products', label: 'Produtos', icon: '📦' },
   { href: '/customers', label: 'Clientes', icon: '🏢' },
   { href: '/proposals', label: 'Propostas', icon: '📋' },
+  { href: '/settings/profiles', label: 'Perfis', icon: '🏷️' },
 ]
 
 export default function Sidebar() {

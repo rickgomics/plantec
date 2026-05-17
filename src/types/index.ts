@@ -66,6 +66,21 @@ export interface ProposalItem {
   technicalNotes?: string | null
 }
 
+export interface CompanyProfile {
+  id: string
+  name: string
+  type: string
+  logoBase64?: string | null
+  description?: string | null
+  website?: string | null
+  phone?: string | null
+  email?: string | null
+  address?: string | null
+  active: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
 export interface Proposal {
   id: string
   number: string
@@ -85,6 +100,12 @@ export interface Proposal {
   totalDiscount: number
   margin: number
   notes?: string | null
+  coverProfileId?: string | null
+  introProfileId?: string | null
+  scenarioDesc?: string | null
+  scenarioDiagram?: string | null
+  coverProfile?: CompanyProfile | null
+  introProfile?: CompanyProfile | null
   items: ProposalItem[]
   createdAt: Date
   updatedAt: Date

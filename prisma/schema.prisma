@@ -77,12 +77,36 @@ model Proposal {
   totalDiscount    Decimal  @default(0)
   margin           Decimal  @default(0)
   notes            String?
+  coverProfileId   String?
+  introProfileId   String?
+  scenarioDesc     String?
+  scenarioDiagram  String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  customer Customer      @relation(fields: [customerId], references: [id])
-  user     User?         @relation(fields: [userId], references: [id])
-  items    ProposalItem[]
+  customer     Customer        @relation(fields: [customerId], references: [id])
+  user         User?           @relation(fields: [userId], references: [id])
+  coverProfile CompanyProfile? @relation("CoverProfile", fields: [coverProfileId], references: [id])
+  introProfile CompanyProfile? @relation("IntroProfile", fields: [introProfileId], references: [id])
+  items        ProposalItem[]
+}
+
+model CompanyProfile {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("plantec")
+  logoBase64  String?
+  description String?
+  website     String?
+  phone       String?
+  email       String?
+  address     String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  coverProposals Proposal[] @relation("CoverProfile")
+  introProposals Proposal[] @relation("IntroProfile")
 }
 
 model ProposalItem {

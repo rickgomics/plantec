@@ -16,6 +16,8 @@ export async function GET(
           include: { product: true },
           orderBy: { createdAt: 'asc' },
         },
+        coverProfile: true,
+        introProfile: true,
       },
     })
 
@@ -50,6 +52,10 @@ export async function PUT(
       totalDiscount,
       margin,
       notes,
+      coverProfileId,
+      introProfileId,
+      scenarioDesc,
+      scenarioDiagram,
     } = body
 
     const proposal = await prisma.proposal.update({
@@ -68,10 +74,16 @@ export async function PUT(
         totalDiscount,
         margin,
         notes,
+        coverProfileId: coverProfileId !== undefined ? coverProfileId : undefined,
+        introProfileId: introProfileId !== undefined ? introProfileId : undefined,
+        scenarioDesc: scenarioDesc !== undefined ? scenarioDesc : undefined,
+        scenarioDiagram: scenarioDiagram !== undefined ? scenarioDiagram : undefined,
       },
       include: {
         customer: true,
         items: { include: { product: true } },
+        coverProfile: true,
+        introProfile: true,
       },
     })
 
