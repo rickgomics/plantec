@@ -261,7 +261,13 @@ export default function ProposalDetailPage() {
         body: JSON.stringify({ type: 'scenarioDiagram', context: { ...base, description: desc } }),
       })
       const d2 = await r2.json()
-      if (d2.text) setScenarioDiagram(d2.text)
+      if (d2.text) {
+        setScenarioDiagram(d2.text)
+        await fetch(`/api/proposals/${id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenarioDesc: desc, scenarioDiagram: d2.text }),
+        })
+      }
     } catch { alert('Erro ao gerar cenário') }
     finally { setScenarioGenerating(false); setScenarioStep('idle') }
   }

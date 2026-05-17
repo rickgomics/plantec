@@ -63,8 +63,8 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
         <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
         <script type="module" dangerouslySetInnerHTML={{ __html: `
           import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-          mermaid.initialize({
-            startOnLoad: true,
+          const cfg = {
+            startOnLoad: false,
             theme: 'base',
             themeVariables: {
               primaryColor: '#E6F5F4',
@@ -79,7 +79,18 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
               fontFamily: 'Montserrat, Arial, sans-serif',
               fontSize: '13px',
             }
-          });
+          };
+          mermaid.initialize(cfg);
+          async function renderDiagrams() {
+            const els = document.querySelectorAll('pre.mermaid');
+            if (els.length === 0) return;
+            await mermaid.run({ nodes: els });
+          }
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', renderDiagrams);
+          } else {
+            renderDiagrams();
+          }
         `}} />
         <style>{`
           :root {
