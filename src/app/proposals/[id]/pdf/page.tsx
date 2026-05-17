@@ -63,7 +63,7 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
         <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
         <script type="module" dangerouslySetInnerHTML={{ __html: `
           import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-          const cfg = {
+          mermaid.initialize({
             startOnLoad: false,
             theme: 'base',
             themeVariables: {
@@ -79,12 +79,23 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
               fontFamily: 'Montserrat, Arial, sans-serif',
               fontSize: '13px',
             }
-          };
-          mermaid.initialize(cfg);
+          });
           async function renderDiagrams() {
             const els = document.querySelectorAll('pre.mermaid');
-            if (els.length === 0) return;
-            await mermaid.run({ nodes: els });
+            for (let i = 0; i < els.length; i++) {
+              const el = els[i];
+              const code = el.textContent || '';
+              if (!code.trim()) continue;
+              try {
+                const id = 'mmd-' + i + '-' + Date.now();
+                const { svg } = await mermaid.render(id, code);
+                const wrap = document.createElement('div');
+                wrap.innerHTML = svg;
+                el.replaceWith(wrap);
+              } catch(e) {
+                console.warn('Mermaid render error:', e);
+              }
+            }
           }
           if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', renderDiagrams);
@@ -904,7 +915,7 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
                           Diagrama de Topologia
                         </div>
                         <div className="mermaid-wrap">
-                          <pre className="mermaid">{proposal.scenarioDiagram}</pre>
+                          <pre className="mermaid" dangerouslySetInnerHTML={{ __html: proposal.scenarioDiagram ?? '' }} />
                         </div>
 
                         {/* Legend */}
