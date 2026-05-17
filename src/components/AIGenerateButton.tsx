@@ -46,9 +46,9 @@ export default function AIGenerateButton({
       type="button"
       onClick={handleGenerate}
       disabled={loading}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md
-        bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-60 disabled:cursor-not-allowed
-        transition-colors ${className}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg
+        bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed
+        transition-colors tracking-wide ${className}`}
     >
       <FaRobot className={loading ? 'animate-pulse' : ''} />
       {loading ? 'Gerando...' : label}

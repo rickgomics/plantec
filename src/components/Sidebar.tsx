@@ -4,24 +4,33 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { href: '/products', label: 'Produtos', icon: '📦' },
-  { href: '/customers', label: 'Clientes', icon: '🏢' },
-  { href: '/proposals', label: 'Propostas', icon: '📋' },
-  { href: '/settings/profiles', label: 'Perfis', icon: '🏷️' },
+  { href: '/dashboard',         label: 'Dashboard',  icon: '◈' },
+  { href: '/proposals',         label: 'Propostas',  icon: '◻' },
+  { href: '/products',          label: 'Produtos',   icon: '▦' },
+  { href: '/customers',         label: 'Clientes',   icon: '◎' },
+  { href: '/settings/profiles', label: 'Perfis',     icon: '◉' },
 ]
 
 export default function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-64 min-h-screen bg-[#1B3A6B] flex flex-col">
-      <div className="px-6 py-5 border-b border-blue-800">
-        <div className="text-white font-bold text-xl tracking-tight">Plantec</div>
-        <div className="text-blue-300 text-xs mt-0.5">BOM Builder</div>
+    <aside className="w-64 min-h-screen bg-brand-900 flex flex-col">
+      {/* Logo */}
+      <div className="px-6 py-6 border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center">
+            <span className="text-white font-black text-sm">P</span>
+          </div>
+          <div>
+            <div className="text-white font-black text-base tracking-tight leading-none">PLANTEC</div>
+            <div className="text-brand-400 text-[10px] font-semibold tracking-widest uppercase mt-0.5">BOM Builder</div>
+          </div>
+        </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-5 space-y-0.5">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
@@ -30,16 +39,17 @@ export default function Sidebar() {
               href={item.href}
               className={`sidebar-link ${isActive ? 'active' : ''}`}
             >
-              <span className="text-base">{item.icon}</span>
-              <span>{item.label}</span>
+              <span className="text-lg w-5 text-center leading-none">{item.icon}</span>
+              <span className="tracking-wide">{item.label}</span>
             </Link>
           )
         })}
       </nav>
 
-      <div className="px-6 py-4 border-t border-blue-800">
-        <div className="text-blue-400 text-xs">Plantec Distribuidora</div>
-        <div className="text-blue-500 text-xs mt-0.5">v0.1.0 MVP</div>
+      {/* Footer */}
+      <div className="px-5 py-4 border-t border-white/10">
+        <div className="text-brand-400 text-xs font-semibold">Plantec Distribuidora</div>
+        <div className="text-brand-600 text-[10px] mt-0.5 font-medium">v1.0 · 2026</div>
       </div>
     </aside>
   )
