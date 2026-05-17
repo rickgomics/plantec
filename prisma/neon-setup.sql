@@ -141,21 +141,33 @@ CREATE UNIQUE INDEX IF NOT EXISTS "Proposal_number_key" ON "Proposal"("number");
 
 -- 3. CHAVES ESTRANGEIRAS -----------------------------------
 
-ALTER TABLE "Proposal"
-    ADD CONSTRAINT IF NOT EXISTS "Proposal_customerId_fkey"
-    FOREIGN KEY ("customerId") REFERENCES "Customer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Proposal_customerId_fkey') THEN
+    ALTER TABLE "Proposal" ADD CONSTRAINT "Proposal_customerId_fkey"
+      FOREIGN KEY ("customerId") REFERENCES "Customer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "Proposal"
-    ADD CONSTRAINT IF NOT EXISTS "Proposal_userId_fkey"
-    FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Proposal_userId_fkey') THEN
+    ALTER TABLE "Proposal" ADD CONSTRAINT "Proposal_userId_fkey"
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "ProposalItem"
-    ADD CONSTRAINT IF NOT EXISTS "ProposalItem_proposalId_fkey"
-    FOREIGN KEY ("proposalId") REFERENCES "Proposal"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ProposalItem_proposalId_fkey') THEN
+    ALTER TABLE "ProposalItem" ADD CONSTRAINT "ProposalItem_proposalId_fkey"
+      FOREIGN KEY ("proposalId") REFERENCES "Proposal"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "ProposalItem"
-    ADD CONSTRAINT IF NOT EXISTS "ProposalItem_productId_fkey"
-    FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ProposalItem_productId_fkey') THEN
+    ALTER TABLE "ProposalItem" ADD CONSTRAINT "ProposalItem_productId_fkey"
+      FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- 4. REGISTRO DA MIGRATION NO PRISMA ----------------------
 
