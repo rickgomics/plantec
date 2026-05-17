@@ -20,6 +20,64 @@ const STATUS_FLOW: Record<string, string> = {
 
 type Tab = 'bom' | 'cover' | 'intro' | 'scenario'
 
+// ── Scope visual preview ────────────────────────────────────────────────────
+type ParsedLine =
+  | { type: 'gap' }
+  | { type: 'header'; text: string; excluded: boolean }
+  | { type: 'bullet'; text: string; excluded: boolean }
+  | { type: 'text'; text: string }
+
+function parseScopeLines(raw: string): ParsedLine[] {
+  let inExcluded = false
+  const result: ParsedLine[] = []
+  for (const line of raw.split('\n')) {
+    const t = line.trim()
+    if (!t) { result.push({ type: 'gap' }); continue }
+    if (t.endsWith(':') && t.length < 80) {
+      inExcluded = /não|fora|exclu/i.test(t)
+      result.push({ type: 'header', text: t.slice(0, -1), excluded: inExcluded })
+      continue
+    }
+    const bulletMatch = t.match(/^([•\-*→✓✗✕×])\s+(.+)/)
+    if (bulletMatch) {
+      const neg = inExcluded || '✗✕×'.includes(bulletMatch[1])
+      result.push({ type: 'bullet', text: bulletMatch[2], excluded: neg })
+    } else {
+      result.push({ type: 'text', text: t })
+    }
+  }
+  return result
+}
+
+function ScopePreview({ text }: { text: string }) {
+  const lines = parseScopeLines(text)
+  return (
+    <div className="space-y-1 text-sm">
+      {lines.map((item, i) => {
+        if (item.type === 'gap') return <div key={i} className="h-1" />
+        if (item.type === 'header') return (
+          <div key={i} className={`flex items-center gap-3 py-2 ${i > 0 ? 'mt-2' : ''}`}>
+            <div className={`h-px flex-1 ${item.excluded ? 'bg-red-200' : 'bg-brand-200'}`} />
+            <span className={`text-[10px] font-black uppercase tracking-widest flex-shrink-0 ${item.excluded ? 'text-red-400' : 'text-brand-500'}`}>
+              {item.text}
+            </span>
+            <div className={`h-px flex-1 ${item.excluded ? 'bg-red-200' : 'bg-brand-200'}`} />
+          </div>
+        )
+        if (item.type === 'bullet') return (
+          <div key={i} className={`flex items-start gap-2.5 px-3 py-1.5 rounded-lg ${item.excluded ? 'bg-red-50' : 'bg-brand-50/60'}`}>
+            <span className={`mt-0.5 text-xs font-black flex-shrink-0 w-3 text-center ${item.excluded ? 'text-red-500' : 'text-brand-600'}`}>
+              {item.excluded ? '✕' : '✓'}
+            </span>
+            <span className={`font-medium leading-snug ${item.excluded ? 'text-red-700' : 'text-gray-700'}`}>{item.text}</span>
+          </div>
+        )
+        return <p key={i} className="text-gray-500 leading-relaxed px-1">{item.text}</p>
+      })}
+    </div>
+  )
+}
+
 export default function ProposalDetailPage() {
   const params = useParams()
   const id = params.id as string
@@ -41,6 +99,14 @@ export default function ProposalDetailPage() {
   const [coverProfileId, setCoverProfileId] = useState<string>('')
   const [introProfileId, setIntroProfileId] = useState<string>('')
   const [introText, setIntroText] = useState('')
+
+  // UI edit mode toggles
+  const [editingScope, setEditingScope] = useState(false)
+  const [editingSummary, setEditingSummary] = useState(false)
+
+  // Scenario generation state
+  const [scenarioGenerating, setScenarioGenerating] = useState(false)
+  const [scenarioStep, setScenarioStep] = useState<'idle' | 'desc' | 'diagram'>('idle')
 
   const loadProposal = useCallback(async () => {
     const res = await fetch(`/api/proposals/${id}`)
@@ -163,6 +229,41 @@ export default function ProposalDetailPage() {
       const product = (data.products ?? []).find((p: Product) => p.sku === sku)
       if (product) await handleAddProduct(product, 1)
     }
+  }
+
+  // Sequential AI scenario generation: description (if empty) → diagram
+  const handleGenerateScenario = async () => {
+    setScenarioGenerating(true)
+    const base = {
+      title: proposal?.title,
+      vertical: proposal?.vertical,
+      customer: proposal?.customer?.companyName,
+      items: proposal?.items?.map(i => ({
+        name: i.product.name, sku: i.product.sku,
+        category: i.product.category, brand: i.product.brand,
+        quantity: i.quantity, description: i.product.description?.slice(0, 120),
+      })),
+    }
+    try {
+      let desc = scenarioDesc
+      if (!desc.trim()) {
+        setScenarioStep('desc')
+        const r = await fetch('/api/ai/generate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'scenarioDescription', context: base }),
+        })
+        const d = await r.json()
+        if (d.text) { desc = d.text; setScenarioDesc(d.text) }
+      }
+      setScenarioStep('diagram')
+      const r2 = await fetch('/api/ai/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'scenarioDiagram', context: { ...base, description: desc } }),
+      })
+      const d2 = await r2.json()
+      if (d2.text) setScenarioDiagram(d2.text)
+    } catch { alert('Erro ao gerar cenário') }
+    finally { setScenarioGenerating(false); setScenarioStep('idle') }
   }
 
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -307,42 +408,86 @@ export default function ProposalDetailPage() {
                 </div>
               )}
 
-              {/* Texts editable in BOM tab */}
-              <div className="card p-5 space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-sm font-medium text-gray-700">Resumo Executivo</label>
-                    <AIGenerateButton
-                      type="executiveSummary"
-                      context={aiContext}
-                      onGenerated={setExecutiveSummary}
-                    />
+              {/* Resumo Executivo */}
+              <div className="card p-5">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="font-black text-gray-900 tracking-tight text-sm">Resumo Executivo</h3>
+                    <p className="text-xs text-gray-400 font-medium mt-0.5">Destaque o valor entregue e o diferencial da Plantec</p>
                   </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <AIGenerateButton type="executiveSummary" context={aiContext} onGenerated={(t) => { setExecutiveSummary(t); setEditingSummary(false) }} />
+                    {executiveSummary && (
+                      <button onClick={() => setEditingSummary(e => !e)} className="btn-secondary text-xs px-3 py-1.5">
+                        {editingSummary ? 'Ver' : 'Editar'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {editingSummary || !executiveSummary ? (
                   <textarea
                     value={executiveSummary}
                     onChange={e => setExecutiveSummary(e.target.value)}
                     rows={5}
-                    placeholder="Descreva o valor entregue..."
+                    placeholder="Descreva o valor entregue ao cliente, o diferencial da solução e os benefícios esperados..."
                     className="input"
+                    autoFocus={editingSummary}
                   />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-sm font-medium text-gray-700">Escopo do Projeto</label>
+                ) : (
+                  <div
+                    className="relative bg-brand-50/40 border border-brand-100 rounded-xl p-4 cursor-pointer group"
+                    onClick={() => setEditingSummary(true)}
+                  >
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-[10px] font-bold text-brand-500 bg-white px-2 py-0.5 rounded-full border border-brand-200">editar</span>
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{executiveSummary}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Escopo */}
+              <div className="card p-5">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="font-black text-gray-900 tracking-tight text-sm">Escopo do Projeto</h3>
+                    <p className="text-xs text-gray-400 font-medium mt-0.5">O que está e não está incluso nesta proposta</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <AIGenerateButton
                       type="scope"
-                      context={aiContext}
-                      onGenerated={setScope}
+                      context={{ ...aiContext, items: proposal.items.map(i => ({ name: i.product.name, category: i.product.category, quantity: i.quantity })) }}
+                      onGenerated={(t) => { setScope(t); setEditingScope(false) }}
                     />
+                    {scope && (
+                      <button onClick={() => setEditingScope(e => !e)} className="btn-secondary text-xs px-3 py-1.5">
+                        {editingScope ? 'Ver' : 'Editar'}
+                      </button>
+                    )}
                   </div>
+                </div>
+
+                {editingScope || !scope ? (
                   <textarea
                     value={scope}
                     onChange={e => setScope(e.target.value)}
-                    rows={5}
-                    placeholder="O que está incluso nesta proposta..."
-                    className="input"
+                    rows={8}
+                    placeholder={`Está incluso:\n• Item 1\n• Item 2\n\nNão está incluso:\n• Item A\n• Item B`}
+                    className="input font-medium text-sm"
+                    autoFocus={editingScope}
                   />
-                </div>
+                ) : (
+                  <div
+                    className="cursor-pointer group"
+                    onClick={() => setEditingScope(true)}
+                  >
+                    <div className="flex justify-end mb-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-[10px] font-bold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200">editar</span>
+                    </div>
+                    <ScopePreview text={scope} />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -526,15 +671,36 @@ export default function ProposalDetailPage() {
                 <div>
                   <h2 className="font-black text-gray-900 tracking-tight">Cenário Técnico</h2>
                   <p className="text-xs text-gray-400 font-medium mt-0.5">
-                    Descreva o ambiente físico, sistemas existentes e necessidades — a IA gera o diagrama de topologia com os equipamentos da BOM.
+                    Deixe em branco e clique em <strong className="text-brand-600">Gerar Tudo</strong> — a IA descreve o ambiente e cria o diagrama automaticamente.
                   </p>
                 </div>
-                <AIGenerateButton
-                  type="scenarioDiagram"
-                  context={scenarioAiContext}
-                  onGenerated={setScenarioDiagram}
-                  label="Gerar Diagrama"
-                />
+                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                  <button
+                    onClick={handleGenerateScenario}
+                    disabled={scenarioGenerating}
+                    className="btn-primary flex items-center gap-2 text-xs px-4 py-2"
+                  >
+                    {scenarioGenerating ? (
+                      <>
+                        <span className="animate-spin text-base">◌</span>
+                        {scenarioStep === 'desc' ? 'Descrevendo…' : 'Desenhando…'}
+                      </>
+                    ) : (
+                      <>✦ Gerar Tudo</>
+                    )}
+                  </button>
+                  {scenarioGenerating && (
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold">
+                      <span className={`px-2 py-0.5 rounded-full ${scenarioStep === 'desc' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                        1 Descrição
+                      </span>
+                      <span className="text-gray-300">→</span>
+                      <span className={`px-2 py-0.5 rounded-full ${scenarioStep === 'diagram' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                        2 Diagrama
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
               <textarea
                 value={scenarioDesc}
