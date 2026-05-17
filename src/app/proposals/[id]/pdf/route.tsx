@@ -7,7 +7,7 @@ async function mermaidToSvg(diagram: string): Promise<string | null> {
   try {
     const encoded = Buffer.from(diagram, 'utf-8').toString('base64url')
     const res = await fetch(`https://mermaid.ink/svg/${encoded}`, {
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
       headers: { Accept: 'image/svg+xml' },
     })
     if (!res.ok) return null
