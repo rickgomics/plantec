@@ -61,6 +61,26 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+        <script type="module" dangerouslySetInnerHTML={{ __html: `
+          import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+          mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+              primaryColor: '#E6F5F4',
+              primaryTextColor: '#002827',
+              primaryBorderColor: '#00928E',
+              lineColor: '#007B77',
+              secondaryColor: '#FFF7ED',
+              tertiaryColor: '#EFF6FF',
+              edgeLabelBackground: '#f8fffe',
+              clusterBkg: '#F8FAFC',
+              clusterBorder: '#E2E8F0',
+              fontFamily: 'Montserrat, Arial, sans-serif',
+              fontSize: '13px',
+            }
+          });
+        `}} />
         <style>{`
           :root {
             --teal-900: #002827;
@@ -585,6 +605,54 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
           }
           .validity-card strong { font-weight: 800; color: var(--teal-700); }
 
+          /* ─── SCENARIO / MERMAID ─────────────────────────── */
+          .scenario-desc {
+            background: var(--teal-50);
+            border-left: 4px solid var(--teal-400);
+            border-radius: 0 8px 8px 0;
+            padding: 16px 20px;
+            margin-bottom: 28px;
+            font-size: 9.5pt;
+            color: var(--teal-800);
+            line-height: 1.75;
+            font-weight: 500;
+            white-space: pre-line;
+          }
+          .mermaid-wrap {
+            border: 1px solid var(--gray-200);
+            border-radius: 10px;
+            padding: 24px;
+            background: white;
+            overflow: hidden;
+          }
+          .mermaid-wrap svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+          }
+          .diagram-legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 16px;
+            padding: 10px 16px;
+            background: var(--gray-50);
+            border-radius: 8px;
+            border: 1px solid var(--gray-100);
+          }
+          .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 8pt;
+            color: var(--gray-500);
+            font-weight: 600;
+          }
+          .legend-dot {
+            width: 12px; height: 12px; border-radius: 3px;
+            flex-shrink: 0;
+          }
+
           /* ─── PRINT ───────────────────────────────────────── */
           @media print {
             .toolbar { display: none !important; }
@@ -793,7 +861,76 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
           </div>
 
           {/* ══════════════════════════════════════════════════
-               PÁGINA 3 — BOM COMERCIAL
+               PÁGINA 3 — CENÁRIO TÉCNICO (condicional)
+          ══════════════════════════════════════════════════ */}
+          {(proposal.scenarioDesc || proposal.scenarioDiagram) && (
+            <div className="pdf-page">
+              <div className="inner-page">
+                <div className="page-header">
+                  {logoSrc
+                    ? <div className="page-header-logo"><img src={logoSrc} alt={companyName} /></div>
+                    : <div className="page-header-logo-text">{companyName}</div>
+                  }
+                  <div className="page-header-meta">
+                    <strong>{proposal.number}</strong>
+                    {proposal.customer.companyName}
+                  </div>
+                </div>
+
+                <div className="page-content">
+                  <div className="section">
+                    <div className="section-heading"><h2>Cenário Técnico</h2></div>
+
+                    {/* Description */}
+                    {proposal.scenarioDesc && (
+                      <div className="scenario-desc">{proposal.scenarioDesc}</div>
+                    )}
+
+                    {/* Mermaid diagram */}
+                    {proposal.scenarioDiagram && (
+                      <>
+                        <div style={{ marginBottom: 12, fontSize: '8.5pt', fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                          Diagrama de Topologia
+                        </div>
+                        <div className="mermaid-wrap">
+                          <pre className="mermaid">{proposal.scenarioDiagram}</pre>
+                        </div>
+
+                        {/* Legend */}
+                        <div className="diagram-legend">
+                          <div className="legend-item">
+                            <div className="legend-dot" style={{ background: '#E6F5F4', border: '1.5px solid #00928E' }} />
+                            Equipamentos propostos
+                          </div>
+                          <div className="legend-item">
+                            <div className="legend-dot" style={{ background: '#FFF7ED', border: '1.5px solid #EA580C' }} />
+                            Sistemas existentes
+                          </div>
+                          <div className="legend-item">
+                            <div className="legend-dot" style={{ background: 'white', border: '1.5px dashed #94A3B8' }} />
+                            Módulos externos / faltantes
+                          </div>
+                          <div className="legend-item">
+                            <div className="legend-dot" style={{ background: '#EFF6FF', border: '1.5px solid #3B82F6' }} />
+                            Internet / Nuvem
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="page-footer">
+                  <span>{companyName} · Proposta Comercial</span>
+                  <div className="footer-bar" />
+                  <span>{proposal.number} · {today}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════
+               PÁGINA 4 — BOM COMERCIAL
           ══════════════════════════════════════════════════ */}
           <div className="pdf-page">
             <div className="inner-page">
@@ -903,7 +1040,7 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
           </div>
 
           {/* ══════════════════════════════════════════════════
-               PÁGINA 4 — BOM TÉCNICA
+               PÁGINA 5 — BOM TÉCNICA
           ══════════════════════════════════════════════════ */}
           <div className="pdf-page">
             <div className="inner-page">
@@ -965,7 +1102,7 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
           </div>
 
           {/* ══════════════════════════════════════════════════
-               PÁGINA 5 — CONDIÇÕES & ACEITE
+               PÁGINA 6 — CONDIÇÕES & ACEITE
           ══════════════════════════════════════════════════ */}
           <div className="pdf-page">
             <div className="inner-page">

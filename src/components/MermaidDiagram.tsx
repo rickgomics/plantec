@@ -19,7 +19,25 @@ export default function MermaidDiagram({ code, className = '' }: Props) {
     async function render() {
       try {
         const mermaid = (await import('mermaid')).default
-        mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' })
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'base',
+          securityLevel: 'loose',
+          themeVariables: {
+            primaryColor: '#E6F5F4',
+            primaryTextColor: '#002827',
+            primaryBorderColor: '#00928E',
+            lineColor: '#007B77',
+            secondaryColor: '#F0FAF9',
+            tertiaryColor: '#ffffff',
+            edgeLabelBackground: '#f8fffe',
+            nodeBorder: '#007B77',
+            clusterBkg: '#F8FAFC',
+            clusterBorder: '#E2E8F0',
+            fontFamily: "'Montserrat', Arial, sans-serif",
+            fontSize: '13px',
+          }
+        })
 
         const id = `mermaid-${Date.now()}`
         const { svg } = await mermaid.render(id, code)
@@ -41,7 +59,7 @@ export default function MermaidDiagram({ code, className = '' }: Props) {
 
   if (error) {
     return (
-      <div className={`p-4 bg-red-50 border border-red-200 rounded-lg ${className}`}>
+      <div className={`p-4 bg-red-50 border border-red-100 rounded-xl text-xs ${className}`}>
         <p className="text-sm text-red-600 font-medium">Erro no diagrama</p>
         <pre className="text-xs text-red-500 mt-1 whitespace-pre-wrap">{error}</pre>
       </div>
@@ -51,7 +69,7 @@ export default function MermaidDiagram({ code, className = '' }: Props) {
   return (
     <div
       ref={ref}
-      className={`flex justify-center p-4 bg-white rounded-lg border border-gray-200 overflow-auto ${className}`}
+      className={`flex justify-center p-4 bg-white rounded-xl overflow-auto ${className}`}
     />
   )
 }

@@ -177,6 +177,18 @@ export default function ProposalDetailPage() {
     itemCount: proposal?.items?.length,
     totalPrice: totals?.totalPrice,
   }
+  const scenarioAiContext = {
+    ...aiContext,
+    description: scenarioDesc,
+    items: proposal?.items?.map(i => ({
+      name: i.product.name,
+      sku: i.product.sku,
+      category: i.product.category,
+      brand: i.product.brand,
+      quantity: i.quantity,
+      description: i.product.description?.slice(0, 120),
+    })),
+  }
 
   if (loading) {
     return <AppLayout><div className="p-10 text-center text-gray-400">Carregando proposta...</div></AppLayout>
@@ -506,51 +518,92 @@ export default function ProposalDetailPage() {
 
         {/* Tab: Cenário */}
         {activeTab === 'scenario' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="card p-6 space-y-4">
-                <h2 className="font-semibold text-gray-900">Descrição do Cenário</h2>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-sm font-medium text-gray-700">Descreva o ambiente técnico</label>
-                    <AIGenerateButton
-                      type="scenarioDiagram"
-                      context={{ description: scenarioDesc, ...aiContext }}
-                      onGenerated={setScenarioDiagram}
-                      label="Gerar Diagrama"
-                    />
-                  </div>
-                  <textarea
-                    value={scenarioDesc}
-                    onChange={e => setScenarioDesc(e.target.value)}
-                    rows={8}
-                    placeholder={`Descreva o cenário técnico. Exemplo:\n\nEdifício comercial de 5 andares com recepção, área de escritórios e estacionamento. Necessidade de 16 câmeras IP distribuídas pelos ambientes, conectadas a um NVR central com armazenamento de 30 dias. Rack instalado na central de TI no 2º andar.`}
-                    className="input"
-                  />
-                </div>
+          <div className="space-y-5">
 
+            {/* Description row */}
+            <div className="card p-6">
+              <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Código Mermaid (editar manualmente)</label>
-                  <textarea
-                    value={scenarioDiagram}
-                    onChange={e => setScenarioDiagram(e.target.value)}
-                    rows={10}
-                    placeholder={'graph LR\n  Camera --> Switch\n  Switch --> NVR'}
-                    className="input font-mono"
-                  />
+                  <h2 className="font-black text-gray-900 tracking-tight">Cenário Técnico</h2>
+                  <p className="text-xs text-gray-400 font-medium mt-0.5">
+                    Descreva o ambiente físico, sistemas existentes e necessidades — a IA gera o diagrama de topologia com os equipamentos da BOM.
+                  </p>
+                </div>
+                <AIGenerateButton
+                  type="scenarioDiagram"
+                  context={scenarioAiContext}
+                  onGenerated={setScenarioDiagram}
+                  label="Gerar Diagrama"
+                />
+              </div>
+              <textarea
+                value={scenarioDesc}
+                onChange={e => setScenarioDesc(e.target.value)}
+                rows={5}
+                placeholder={`Descreva o cenário técnico. Exemplo:\n\nEdifício comercial de 5 andares com recepção, escritórios e estacionamento. Rede IP existente com switch 24p no 2º andar. Necessidade de 16 câmeras IP conectadas a NVR central com 30 dias de retenção. Integração com DDNS para acesso remoto via app mobile.`}
+                className="input"
+              />
+              {/* BOM context badge */}
+              {proposal.items.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {proposal.items.map(i => (
+                    <span key={i.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 text-[10px] font-semibold ring-1 ring-inset ring-brand-200">
+                      <span className="font-mono text-brand-400">{i.quantity}×</span> {i.product.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Diagram row: code + preview */}
+            <div className="grid grid-cols-5 gap-5">
+
+              {/* Mermaid code editor */}
+              <div className="col-span-2 card p-5 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="label">Código Mermaid</span>
+                  <span className="text-[10px] text-gray-400 font-semibold font-mono bg-gray-100 px-2 py-0.5 rounded-md">
+                    editável
+                  </span>
+                </div>
+                <textarea
+                  value={scenarioDiagram}
+                  onChange={e => setScenarioDiagram(e.target.value)}
+                  rows={22}
+                  spellCheck={false}
+                  placeholder={'graph TD\n\n  subgraph Internet\n    CLOUD["☁ Nuvem"]\n  end\n\n  CAM["Câmera IP"] -->|"PoE"| SW\n  SW["Switch"] --> NVR\n  NVR --> CLOUD'}
+                  className="input font-mono text-xs leading-relaxed flex-1 resize-none"
+                  style={{ fontFamily: "'Courier New', monospace" }}
+                />
+                <div className="text-[10px] text-gray-400 font-medium space-y-0.5">
+                  <div><span className="inline-block w-3 h-3 rounded-sm bg-brand-50 border border-brand-300 mr-1" />Equipamentos propostos</div>
+                  <div><span className="inline-block w-3 h-3 rounded-sm bg-amber-50 border border-amber-300 mr-1" />Sistemas existentes</div>
+                  <div><span className="inline-block w-3 h-3 rounded-sm border border-gray-300 mr-1" style={{ background: 'repeating-linear-gradient(45deg,#f1f5f9,#f1f5f9 2px,#fff 2px,#fff 5px)' }} />Módulos externos/faltantes</div>
                 </div>
               </div>
 
-              <div className="card p-6">
-                <h2 className="font-semibold text-gray-900 mb-4">Pré-visualização do Diagrama</h2>
+              {/* Live preview */}
+              <div className="col-span-3 card p-5 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="label">Topologia de Rede</span>
+                  {scenarioDiagram && (
+                    <span className="text-[10px] font-bold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-full ring-1 ring-inset ring-brand-200">
+                      ● ao vivo
+                    </span>
+                  )}
+                </div>
+
                 {scenarioDiagram ? (
-                  <MermaidDiagram code={scenarioDiagram} className="min-h-[300px]" />
+                  <MermaidDiagram code={scenarioDiagram} className="min-h-[440px] flex-1" />
                 ) : (
-                  <div className="flex items-center justify-center min-h-[300px] text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-xl">
-                    Descreva o cenário e clique em &quot;Gerar Diagrama&quot;
+                  <div className="flex flex-col items-center justify-center flex-1 min-h-[440px] border-2 border-dashed border-gray-100 rounded-xl text-center">
+                    <div className="text-5xl mb-3 opacity-20 select-none">◈</div>
+                    <p className="text-sm font-semibold text-gray-400">Diagrama de topologia aparece aqui</p>
+                    <p className="text-xs text-gray-300 mt-1 font-medium">Descreva o cenário acima e clique em &quot;Gerar Diagrama&quot;</p>
                   </div>
                 )}
               </div>
+
             </div>
           </div>
         )}

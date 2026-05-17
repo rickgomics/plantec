@@ -14,11 +14,27 @@ Responda apenas com o texto do resumo, sem títulos ou formatação extra.`,
 Escreva o escopo técnico da proposta de forma clara e objetiva. Liste os principais entregáveis, o que está incluso e o que não está.
 Responda apenas com o texto do escopo, usando listas quando apropriado.`,
 
-  scenarioDiagram: `Você é um arquiteto de soluções especializado em sistemas de segurança eletrônica e redes.
-Gere um diagrama Mermaid que represente visualmente o cenário técnico descrito.
-Use diagramas de tipo 'graph LR' ou 'graph TD'.
-Responda APENAS com o código Mermaid puro, sem blocos de código, sem markdown, sem explicações.
-Comece diretamente com "graph " ou "flowchart ".`,
+  scenarioDiagram: `Você é um arquiteto de redes e segurança eletrônica sênior da Plantec Distribuidora.
+
+Sua tarefa: gerar um diagrama Mermaid que represente a TOPOLOGIA COMPLETA do cenário técnico descrito, usando os equipamentos da BOM e conectando-os a sistemas existentes e externos.
+
+REGRAS OBRIGATÓRIAS:
+1. Use APENAS "graph TD" (top-down) ou "graph LR" (left-right) — escolha com base na complexidade.
+2. Agrupe equipamentos em subgraph por FUNÇÃO (ex: subgraph Câmeras, subgraph Rede, subgraph Armazenamento, subgraph Controle de Acesso, subgraph Internet, subgraph Sistemas Existentes).
+3. Inclua os equipamentos PROPOSTOS (da BOM) com seus nomes reais e quantidades.
+4. Inclua SISTEMAS EXISTENTES mencionados na descrição (rede atual, internet, servidor, sistema de terceiros).
+5. Inclua MÓDULOS EXTERNOS ou de INTEGRAÇÃO necessários mas não listados (ex: PoE switch externo, cabeamento, DDNS, VPN, aplicativo mobile) — use estilo tracejado: nomeDoNo:::missing.
+6. Use SETAS ROTULADAS para indicar o tipo de conexão: -->|"PoE"| ou -->|"Fibra"| ou -->|"IP/LAN"| ou -->|"VPN"| ou -->|"RS-485"| etc.
+7. Use classDef para destacar visualmente:
+   - classDef proposed fill:#E6F5F4,stroke:#00928E,color:#002827,font-weight:bold
+   - classDef existing fill:#FFF7ED,stroke:#EA580C,color:#431407
+   - classDef missing fill:#fff,stroke:#94A3B8,color:#64748B,stroke-dasharray:5 5
+   - classDef internet fill:#EFF6FF,stroke:#3B82F6,color:#1E3A5F
+8. Aplique as classes nos nós: class NomeDaNó proposed
+9. Nomes dos nós: use IDs sem espaços (ex: NVR1, CAM_DOME, SW_CORE) e labels entre colchetes com nome real: NVR1["NVR 32ch Hikvision"]
+10. Máximo 25 nós para legibilidade.
+
+RESPONDA APENAS com o código Mermaid puro. Sem blocos de código (sem \`\`\`), sem markdown, sem explicações. Comece com "graph TD" ou "graph LR".`,
 
   introText: `Você é um redator especializado em comunicação corporativa B2B.
 Escreva uma introdução institucional para a empresa mencionada, adequada para uma proposta comercial formal.
@@ -39,8 +55,8 @@ export async function POST(req: NextRequest) {
     }
 
     const userMessage = context?.description
-      ? `Contexto da proposta: ${JSON.stringify(context)}`
-      : `Gere o conteúdo para: ${JSON.stringify(context)}`
+      ? `Contexto da proposta:\n${JSON.stringify(context, null, 2)}`
+      : `Gere o conteúdo para:\n${JSON.stringify(context, null, 2)}`
 
     const message = await client.messages.create({
       model: 'claude-opus-4-7',
