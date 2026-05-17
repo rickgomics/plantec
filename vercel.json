@@ -1,8 +1,3 @@
 {
-  "buildCommand": "cd bom-builder && npm install && npm run build",
-  "outputDirectory": "bom-builder/.next",
-  "installCommand": "cd bom-builder && npm install",
-  "devCommand": "cd bom-builder && npm run dev",
-  "framework": "nextjs",
-  "rootDirectory": "bom-builder"
+  "framework": "nextjs"
 }
