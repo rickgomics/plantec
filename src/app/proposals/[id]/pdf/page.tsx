@@ -1067,7 +1067,7 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
                         <th className="r" style={{ width: '7%' }}>Qtd</th>
                         <th style={{ width: '12%' }}>Categoria</th>
                         <th style={{ width: '18%' }}>Função na Solução</th>
-                        <th style={{ width: '21%' }}>Obs. Técnica</th>
+                        <th style={{ width: '21%' }}>Descritivo</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1085,7 +1085,7 @@ export default async function ProposalPDFPage({ params }: { params: { id: string
                           <td className="r" style={{ fontWeight: 700 }}>{item.quantity}{item.product.unit ? ` ${item.product.unit}` : ''}</td>
                           <td style={{ color: '#64748B', fontWeight: 600 }}>{item.product.category}</td>
                           <td>{item.role ?? '—'}</td>
-                          <td style={{ fontSize: '7.5pt', color: '#64748B' }}>{item.technicalNotes ?? '—'}</td>
+                          <td style={{ fontSize: '7pt', color: '#64748B', lineHeight: '1.4' }}>{item.technicalNotes ?? (item.product?.description ? item.product.description.slice(0, 180) + (item.product.description.length > 180 ? '…' : '') : '—')}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -42,6 +42,13 @@ REGRAS:
 
 Responda APENAS com o texto da descrição, sem títulos ou formatação extra.`,
 
+  bomRoles: `Você é um arquiteto de soluções da Plantec Distribuidora, especializada em segurança eletrônica, redes e infraestrutura.
+
+Para cada produto da lista, gere uma "Função na Solução" — uma frase técnica (máx 60 palavras) descrevendo ESPECIFICAMENTE o que esse produto faz NESTE projeto, considerando a vertical, o título da proposta e o contexto geral. Seja preciso, técnico e contextualizado (ex: não diga só "câmera IP" — diga "Câmera IP dome responsável pela vigilância da recepção e corredores internos").
+
+Responda APENAS com JSON puro e válido, sem markdown, sem blocos de código:
+[{"sku":"ABC123","role":"descrição da função na solução..."}]`,
+
   scenarioDiagram: `Você é um arquiteto de redes e segurança eletrônica sênior da Plantec Distribuidora.
 
 Sua tarefa: gerar um diagrama Mermaid que represente a TOPOLOGIA COMPLETA do cenário técnico descrito, usando os equipamentos da BOM e conectando-os a sistemas existentes e externos.

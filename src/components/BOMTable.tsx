@@ -113,8 +113,7 @@ export default function BOMTable({
                     <button
                       onClick={() => onRemove(item.id)}
                       className="w-6 h-6 rounded-full text-gray-300 hover:bg-red-50 hover:text-red-500
-                                 transition-all text-base leading-none flex items-center justify-center
-                                 opacity-0 group-hover:opacity-100"
+                                 transition-all text-base leading-none flex items-center justify-center"
                       title="Remover"
                     >
                       ×

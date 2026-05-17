@@ -156,8 +156,14 @@ export default function ProductsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => openEdit(p)} className="text-blue-600 hover:underline text-xs mr-3">Editar</button>
-                      <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:underline text-xs">Excluir</button>
+                      <button onClick={() => openEdit(p)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-brand-600 bg-brand-50 hover:bg-brand-100 transition-colors border border-brand-100 mr-2">Editar</button>
+                      <button
+                        onClick={() => handleDelete(p.id)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors border border-red-100"
+                        title="Excluir produto"
+                      >
+                        ✕ Excluir
+                      </button>
                     </td>
                   </tr>
                 ))}

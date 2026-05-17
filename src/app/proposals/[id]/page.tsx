@@ -266,6 +266,64 @@ export default function ProposalDetailPage() {
     finally { setScenarioGenerating(false); setScenarioStep('idle') }
   }
 
+  // Auto-fill BOM Técnica: AI roles + product descriptions as "Descritivo"
+  const [fillingBom, setFillingBom] = useState(false)
+  const handleFillBomTech = async () => {
+    if (!proposal || proposal.items.length === 0) return
+    setFillingBom(true)
+    try {
+      const res = await fetch('/api/ai/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'bomRoles',
+          context: {
+            title: proposal.title,
+            vertical: proposal.vertical,
+            customer: proposal.customer.companyName,
+            items: proposal.items.map(i => ({
+              sku: i.product.sku,
+              name: i.product.name,
+              category: i.product.category,
+              brand: i.product.brand,
+              quantity: i.quantity,
+              description: i.product.description?.slice(0, 200),
+            })),
+          },
+        }),
+      })
+      const data = await res.json()
+      let roles: { sku: string; role: string }[] = []
+      try { roles = JSON.parse(data.text || '[]') } catch { /* ignore */ }
+
+      for (const item of proposal.items) {
+        const matched = roles.find(r => r.sku === item.product.sku)
+        await fetch(`/api/proposals/${id}/items`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            itemId: item.id,
+            role: matched?.role ?? item.role,
+            technicalNotes: item.product.description ?? item.technicalNotes,
+          }),
+        })
+      }
+      await loadProposal()
+    } catch { alert('Erro ao preencher BOM técnica') }
+    finally { setFillingBom(false) }
+  }
+
+  // Save intro text back to the selected company profile
+  const [savingProfile, setSavingProfile] = useState(false)
+  const handleSaveProfileDesc = async () => {
+    if (!introProfileId) return
+    setSavingProfile(true)
+    await fetch(`/api/company-profiles/${introProfileId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: introText }),
+    })
+    setProfiles(prev => prev.map(p => p.id === introProfileId ? { ...p, description: introText } : p))
+    setSavingProfile(false)
+  }
+
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   const canAdvance = proposal && STATUS_FLOW[proposal.status] && !ruleResult?.isBlocked
 
@@ -358,11 +416,11 @@ export default function ProposalDetailPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
               <div className="card">
-                <div className="flex items-center justify-between px-5 py-4 border-b">
-                  <h2 className="font-semibold text-gray-900">BOM Comercial</h2>
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between px-5 py-4 border-b gap-3">
+                  <h2 className="font-black text-gray-900 tracking-tight">BOM Comercial</h2>
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
                     <div className="flex items-center gap-2 text-sm">
-                      <label className="text-gray-500">Desconto global:</label>
+                      <label className="text-gray-400 text-xs font-semibold">Desc. global:</label>
                       <input
                         type="number"
                         min={0}
@@ -370,11 +428,22 @@ export default function ProposalDetailPage() {
                         step={0.5}
                         value={globalDiscount}
                         onChange={(e) => setGlobalDiscount(parseFloat(e.target.value) || 0)}
-                        className="w-16 text-center border border-gray-200 rounded px-1.5 py-1 text-sm"
+                        className="w-14 text-center border border-gray-200 rounded-lg px-1.5 py-1 text-sm font-semibold focus:ring-2 focus:ring-brand-400 focus:outline-none"
                       />
-                      <span className="text-gray-400">%</span>
+                      <span className="text-gray-400 text-xs font-semibold">%</span>
                     </div>
-                    <button onClick={() => setShowAddProduct(true)} className="btn-primary text-sm">
+                    {proposal.items.length > 0 && (
+                      <button
+                        onClick={handleFillBomTech}
+                        disabled={fillingBom}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-brand-200 text-brand-600 bg-brand-50 hover:bg-brand-100 transition-colors disabled:opacity-50"
+                        title="Gera função de cada item com IA e preenche Descritivo com a descrição do produto"
+                      >
+                        {fillingBom ? <span className="animate-spin">◌</span> : '◈'}
+                        {fillingBom ? 'Preenchendo…' : 'Preencher BOM Técnica'}
+                      </button>
+                    )}
+                    <button onClick={() => setShowAddProduct(true)} className="btn-primary text-xs px-3 py-1.5">
                       + Adicionar Produto
                     </button>
                   </div>
@@ -634,8 +703,15 @@ export default function ProposalDetailPage() {
               )}
 
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm font-medium text-gray-700">Texto de Apresentação</label>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <label className="label">Texto de Apresentação</label>
+                    {introProfileId && (
+                      <p className="text-[10px] text-gray-400 font-medium mt-0.5">
+                        Edições aqui podem ser salvas de volta ao perfil
+                      </p>
+                    )}
+                  </div>
                   <AIGenerateButton
                     type="introText"
                     context={{ company: introProfile?.name ?? 'Plantec Distribuidora', ...aiContext }}
@@ -646,16 +722,35 @@ export default function ProposalDetailPage() {
                 <textarea
                   value={introText}
                   onChange={e => setIntroText(e.target.value)}
-                  rows={8}
+                  rows={10}
                   placeholder="Descreva a empresa apresentada nesta proposta..."
                   className="input"
                 />
+                {introProfileId && introText && (
+                  <div className="mt-3 flex items-center justify-between">
+                    <p className="text-xs text-gray-400 font-medium">
+                      Este texto será salvo na proposta. Para reutilizar em outras propostas, salve no perfil.
+                    </p>
+                    <button
+                      onClick={handleSaveProfileDesc}
+                      disabled={savingProfile}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-brand-200 text-brand-600 bg-brand-50 hover:bg-brand-100 transition-colors disabled:opacity-50 flex-shrink-0 ml-3"
+                    >
+                      {savingProfile ? '…' : '↑'} Salvar no Perfil
+                    </button>
+                  </div>
+                )}
               </div>
 
-              <div className="pt-2">
-                <Link href="/settings/profiles" className="text-sm text-blue-600 hover:underline">
+              <div className="pt-1 flex items-center justify-between border-t border-gray-100">
+                <Link href="/settings/profiles" className="text-xs font-semibold text-brand-600 hover:text-brand-700">
                   + Criar ou editar perfis de empresa →
                 </Link>
+                {introProfile && (
+                  <span className="text-[10px] text-gray-400 font-medium">
+                    Perfil: {introProfile.type === 'plantec' ? 'Plantec' : 'Parceiro'} · {introProfile.name}
+                  </span>
+                )}
               </div>
             </div>
           </div>
