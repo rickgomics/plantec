@@ -3,6 +3,21 @@ export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/prisma'
 import { renderToStaticMarkup } from 'react-dom/server'
 
+async function mermaidToSvg(diagram: string): Promise<string | null> {
+  try {
+    const encoded = Buffer.from(diagram, 'utf-8').toString('base64url')
+    const res = await fetch(`https://mermaid.ink/svg/${encoded}`, {
+      signal: AbortSignal.timeout(8000),
+      headers: { Accept: 'image/svg+xml' },
+    })
+    if (!res.ok) return null
+    const svg = await res.text()
+    return svg.includes('<svg') ? svg : null
+  } catch {
+    return null
+  }
+}
+
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const proposal = await prisma.proposal.findUnique({
     where: { id: params.id },
@@ -52,6 +67,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .replace(/^```\s*/i, '')
     .replace(/```\s*$/, '')
     .trim()
+
+  // Try server-side SVG rendering via mermaid.ink
+  const diagramSvg = cleanDiagram ? await mermaidToSvg(cleanDiagram) : null
 
   const statusLabel: Record<string, string> = {
     draft: 'Rascunho', generated: 'Gerada', sent: 'Enviada',
@@ -200,40 +218,39 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     }
   `
 
-  const mermaidScript = cleanDiagram ? `
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: 'base',
-      themeVariables: {
-        primaryColor: '#E6F5F4', primaryTextColor: '#002827', primaryBorderColor: '#00928E',
-        lineColor: '#007B77', secondaryColor: '#FFF7ED', tertiaryColor: '#EFF6FF',
-        edgeLabelBackground: '#f8fffe', clusterBkg: '#F8FAFC', clusterBorder: '#E2E8F0',
-        fontFamily: 'Montserrat, Arial, sans-serif', fontSize: '13px',
-      }
-    });
-    async function renderDiagrams() {
-      const els = document.querySelectorAll('pre.mermaid');
-      for (let i = 0; i < els.length; i++) {
-        const el = els[i];
-        const code = el.textContent || '';
-        if (!code.trim()) continue;
-        try {
-          const { svg } = await mermaid.render('mmd' + i, code);
-          const div = document.createElement('div');
-          div.innerHTML = svg;
-          el.replaceWith(div);
-        } catch(e) {
-          console.warn('Mermaid error:', e);
-          el.style.cssText = 'background:#fff3f3;padding:12px;border-radius:8px;font-size:9pt;color:#dc2626;white-space:pre-wrap';
+  // Only inject client-side Mermaid if server-side rendering failed
+  const mermaidUmdScript = (cleanDiagram && !diagramSvg) ? `
+    (function() {
+      function initMermaid() {
+        if (typeof mermaid === 'undefined') return;
+        mermaid.initialize({
+          startOnLoad: false, theme: 'base',
+          themeVariables: {
+            primaryColor: '#E6F5F4', primaryTextColor: '#002827', primaryBorderColor: '#00928E',
+            lineColor: '#007B77', secondaryColor: '#FFF7ED', tertiaryColor: '#EFF6FF',
+            edgeLabelBackground: '#f8fffe', clusterBkg: '#F8FAFC', clusterBorder: '#E2E8F0',
+            fontFamily: 'Montserrat, Arial, sans-serif', fontSize: '13px',
+          }
+        });
+        var els = document.querySelectorAll('pre.mermaid');
+        for (var i = 0; i < els.length; i++) {
+          (function(el, idx) {
+            var code = el.textContent || '';
+            if (!code.trim()) return;
+            mermaid.render('mmd' + idx, code).then(function(r) {
+              var d = document.createElement('div');
+              d.innerHTML = r.svg;
+              el.parentNode.replaceChild(d, el);
+            }).catch(function(e) { console.warn('Mermaid:', e); });
+          })(els[i], i);
         }
       }
-    }
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', renderDiagrams);
-    } else {
-      renderDiagrams();
-    }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMermaid);
+      } else {
+        initMermaid();
+      }
+    })();
   ` : ''
 
   const pageHeader = (
@@ -266,7 +283,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-        {mermaidScript && <script type="module" dangerouslySetInnerHTML={{ __html: mermaidScript }} />}
+        {cleanDiagram && !diagramSvg && (
+          <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" />
+        )}
+        {mermaidUmdScript && <script dangerouslySetInnerHTML={{ __html: mermaidUmdScript }} />}
         <style dangerouslySetInnerHTML={{ __html: css }} />
       </head>
       <body>
@@ -398,7 +418,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
                           Diagrama de Topologia
                         </div>
                         <div className="mermaid-wrap">
-                          <pre className="mermaid">{cleanDiagram}</pre>
+                          {diagramSvg
+                            ? <div dangerouslySetInnerHTML={{ __html: diagramSvg }} />
+                            : <pre className="mermaid">{cleanDiagram}</pre>
+                          }
                         </div>
                         <div className="diagram-legend">
                           <div className="legend-item"><div className="legend-dot" style={{ background: '#E6F5F4', border: '1.5px solid #00928E' }} />Equipamentos propostos</div>
