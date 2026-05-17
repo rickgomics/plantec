@@ -4,6 +4,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Decimal } from '@prisma/client/runtime/library'
 
+async function recalcProposal(proposalId: string) {
+  const items = await prisma.proposalItem.findMany({ where: { proposalId } })
+  const totalPrice = items.reduce((s, i) => s + Number(i.subtotal), 0)
+  const totalCost = items.reduce((s, i) => s + Number(i.cost) * i.quantity, 0)
+  const totalDiscount = items.reduce(
+    (s, i) => s + Number(i.unitPrice) * i.quantity * (Number(i.discount) / 100),
+    0
+  )
+  const margin = totalPrice > 0 ? ((totalPrice - totalCost) / totalPrice) * 100 : 0
+  await prisma.proposal.update({
+    where: { id: proposalId },
+    data: {
+      totalPrice: new Decimal(totalPrice),
+      totalCost: new Decimal(totalCost),
+      totalDiscount: new Decimal(totalDiscount),
+      margin: new Decimal(margin),
+    },
+  })
+}
+
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json()
   const { productId, quantity = 1, discount = 0, role, technicalNotes } = body
@@ -33,6 +53,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     include: { product: true },
   })
 
+  await recalcProposal(params.id)
+
   return NextResponse.json({ item }, { status: 201 })
 }
 
@@ -42,6 +64,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!itemId) return NextResponse.json({ error: 'itemId required' }, { status: 400 })
 
   await prisma.proposalItem.delete({ where: { id: itemId, proposalId: params.id } })
+  await recalcProposal(params.id)
+
   return NextResponse.json({ ok: true })
 }
 
@@ -76,6 +100,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     },
     include: { product: true },
   })
+
+  await recalcProposal(params.id)
 
   return NextResponse.json({ item })
 }
