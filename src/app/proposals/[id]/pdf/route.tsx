@@ -22,14 +22,26 @@ function esc(s: string | null | undefined): string {
   if (!s) return ''
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
-
 function fmt(v: number | string): string {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
-
 function fmtPct(v: number | string): string {
   return `${Number(v).toFixed(1)}%`
 }
+
+// ─── pagination constants (CSS px at 96 dpi) ───────────────────────────────
+// Page: 210mm × 297mm → 794 × 1122 px
+// Header: padding 28+20 + logo 32 + border = 81 px
+// Footer: padding 14+14 + text 13 + border = 42 px
+// .pc padding: 36 top + 36 bottom = 72 px
+// Usable content area: 1122 - 81 - 42 - 72 = 927 px
+const CONTENT_H = 927
+const BOM_ROW_H  = 44   // tbody tr (padding 8×2 + name 14 + badge 12 + gap 2)
+const TECH_ROW_H = 54   // tbody tr (same + description line)
+const S_HDG      = 44   // .section-heading + margin-bottom:20
+const TBL_HDR    = 30   // thead tr
+const TBL_FTR    = 37   // tfoot tr
+const TOTALS_BLK = 200  // .totals-wrap (margin-top:20 + card ~180)
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const proposal = await prisma.proposal.findUnique({
@@ -46,55 +58,61 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const coverSt = getCoverStyle(proposal.coverStyle ?? 'teal')
 
-  const subtotal = proposal.items.reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0)
+  const subtotal      = proposal.items.reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0)
   const totalDiscount = Number(proposal.totalDiscount)
-  const totalPrice = Number(proposal.totalPrice)
-  const margin = Number(proposal.margin)
+  const totalPrice    = Number(proposal.totalPrice)
+  const margin        = Number(proposal.margin)
 
   const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
   const validUntil = new Date(Date.now() + proposal.validityDays * 24 * 60 * 60 * 1000)
     .toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
-  const companyProfile = proposal.coverProfile ?? proposal.introProfile
-  const logoSrc = companyProfile?.logoBase64 ?? null
-  const companyName = companyProfile?.name ?? 'Plantec'
-  const companyWebsite = companyProfile?.website ?? 'www.plantec.co'
-  const companyEmail = companyProfile?.email ?? 'comercial@plantec.co'
-  const companyPhone = companyProfile?.phone ?? ''
-  const companyAddress = companyProfile?.address ?? ''
+  const companyProfile  = proposal.coverProfile ?? proposal.introProfile
+  const logoSrc         = companyProfile?.logoBase64 ?? null
+  const companyName     = companyProfile?.name ?? 'Plantec'
+  const companyWebsite  = companyProfile?.website ?? 'www.plantec.co'
+  const companyEmail    = companyProfile?.email ?? 'comercial@plantec.co'
+  const companyPhone    = companyProfile?.phone ?? ''
+  const companyAddress  = companyProfile?.address ?? ''
   const companyDescription = proposal.introProfile?.description ?? ''
 
-  const rawDiagram = proposal.scenarioDiagram ?? ''
+  const rawDiagram  = proposal.scenarioDiagram ?? ''
   const cleanDiagram = rawDiagram.replace(/^```mermaid\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim()
-  const diagramSvg = cleanDiagram ? await mermaidToSvg(cleanDiagram) : null
+  const diagramSvg  = cleanDiagram ? await mermaidToSvg(cleanDiagram) : null
 
   const statusLabel: Record<string, string> = { draft: 'Rascunho', generated: 'Gerada', sent: 'Enviada', approved: 'Aprovada', rejected: 'Recusada' }
   const statusColor: Record<string, string> = { draft: '#6b7280', generated: '#007B77', sent: '#b45309', approved: '#15803d', rejected: '#dc2626' }
 
   const logoHtml = logoSrc
     ? `<img src="${esc(logoSrc)}" alt="${esc(companyName)}" style="max-height:32px;object-fit:contain">`
-    : `<div class="page-header-logo-text">${esc(companyName)}</div>`
+    : `<div class="ph-logo-text">${esc(companyName)}</div>`
 
-  const pageHeader = `
-    <div class="page-header">
-      ${logoHtml}
-      <div class="page-header-meta"><strong>${esc(proposal.number)}</strong>${esc(proposal.customer.companyName)}</div>
-    </div>`
+  const hdr = `<div class="ph">
+    ${logoHtml}
+    <div class="ph-meta"><strong>${esc(proposal.number)}</strong>${esc(proposal.customer.companyName)}</div>
+  </div>`
 
-  const pageFooter = `
-    <div class="page-footer">
-      <span>${esc(companyName)} · Proposta Comercial</span>
-      <div class="footer-bar"></div>
-      <span>${esc(proposal.number)} · ${esc(today)}</span>
-    </div>`
+  const ftr = `<div class="pf">
+    <span>${esc(companyName)} · Proposta Comercial</span>
+    <div class="footer-bar"></div>
+    <span>${esc(proposal.number)} · ${esc(today)}</span>
+  </div>`
 
-  const bomRows = proposal.items.map(item => {
+  // ─── page factory ────────────────────────────────────────────────────────
+  function pg(content: string): string {
+    return `\n<div class="page">${hdr}<div class="pc">${content}</div>${ftr}</div>`
+  }
+
+  // ─── item row generators ─────────────────────────────────────────────────
+  type Item = typeof proposal.items[0]
+
+  function bomRow(item: Item): string {
     const price = Number(item.unitPrice)
-    const disc = Number(item.discount)
-    const sub = price * item.quantity * (1 - disc / 100)
-    const cost = Number(item.cost) * item.quantity
-    const marg = sub > 0 ? ((sub - cost) / sub) * 100 : 0
-    const margColor = marg >= 15 ? '#15803d' : marg >= 10 ? '#b45309' : '#dc2626'
+    const disc  = Number(item.discount)
+    const sub   = price * item.quantity * (1 - disc / 100)
+    const cost  = Number(item.cost) * item.quantity
+    const marg  = sub > 0 ? ((sub - cost) / sub) * 100 : 0
+    const mc    = marg >= 15 ? '#15803d' : marg >= 10 ? '#b45309' : '#dc2626'
     return `<tr>
       <td class="mono">${esc(item.product.sku)}</td>
       <td><span style="font-weight:700;color:#0F172A">${esc(item.product.name)}</span>${item.product.brand ? `<span style="display:block;font-size:7.5pt;color:#94A3B8;font-weight:500;margin-top:1px">${esc(item.product.brand)} · ${esc(item.product.category)}</span>` : ''}</td>
@@ -102,14 +120,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       <td class="r">${fmt(price)}</td>
       <td class="r" style="color:${disc > 0 ? '#dc2626' : '#94A3B8'}">${disc > 0 ? `${disc}%` : '—'}</td>
       <td class="r" style="font-weight:800;color:#0F172A">${fmt(sub)}</td>
-      <td class="r" style="font-weight:700;color:${margColor}">${fmtPct(marg)}</td>
+      <td class="r" style="font-weight:700;color:${mc}">${fmtPct(marg)}</td>
     </tr>`
-  }).join('')
+  }
 
-  const techRows = proposal.items.map(item => {
-    const desc = item.product.description ?? ''
+  function techRow(item: Item): string {
+    const desc      = item.product.description ?? ''
     const descShort = desc.length > 100 ? desc.slice(0, 100) + '…' : desc
-    const notes = item.technicalNotes ?? (desc ? (desc.length > 180 ? desc.slice(0, 180) + '…' : desc) : '—')
+    const notes     = item.technicalNotes ?? (desc ? (desc.length > 180 ? desc.slice(0, 180) + '…' : desc) : '—')
     return `<tr>
       <td class="mono">${esc(item.product.sku)}</td>
       <td><span style="font-weight:700;color:#0F172A">${esc(item.product.name)}</span>${descShort ? `<div style="font-size:7.5pt;color:#94A3B8;margin-top:2px;font-weight:500;line-height:1.4">${esc(descShort)}</div>` : ''}</td>
@@ -118,25 +136,81 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       <td>${esc(item.role ?? '—')}</td>
       <td style="font-size:7pt;color:#64748B;line-height:1.4">${esc(notes)}</td>
     </tr>`
-  }).join('')
+  }
 
-  const diagramSection = cleanDiagram ? `
-    <div class="diagram-block">
-      <div style="margin-bottom:12px;font-size:8.5pt;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:1px">Diagrama de Topologia</div>
-      <div class="mermaid-wrap">
-        ${diagramSvg
-          ? diagramSvg
-          : `<pre class="mermaid" style="white-space:pre;font-family:monospace;font-size:9pt;padding:8px">${esc(cleanDiagram)}</pre>`
-        }
-      </div>
-      <div class="diagram-legend">
-        <div class="legend-item"><div class="legend-dot" style="background:#E6F5F4;border:1.5px solid #00928E"></div>Equipamentos propostos</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#FFF7ED;border:1.5px solid #EA580C"></div>Sistemas existentes</div>
-        <div class="legend-item"><div class="legend-dot" style="background:white;border:1.5px dashed #94A3B8"></div>Módulos externos</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#EFF6FF;border:1.5px solid #3B82F6"></div>Internet / Nuvem</div>
-      </div>
-    </div>` : ''
+  // ─── shared table markup ─────────────────────────────────────────────────
+  const bomThead = `<thead><tr>
+    <th style="width:9%">SKU</th><th style="width:38%">Produto</th>
+    <th class="r" style="width:6%">Qtd</th><th class="r" style="width:14%">Preço Unit.</th>
+    <th class="r" style="width:8%">Desc.</th><th class="r" style="width:14%">Subtotal</th>
+    <th class="r" style="width:8%">Margem</th>
+  </tr></thead>`
 
+  const techThead = `<thead><tr>
+    <th style="width:10%">SKU</th><th style="width:32%">Produto</th>
+    <th class="r" style="width:7%">Qtd</th><th style="width:12%">Categoria</th>
+    <th style="width:18%">Função na Solução</th><th style="width:21%">Descritivo</th>
+  </tr></thead>`
+
+  const bomTfoot = `<tfoot><tr>
+    <td colspan="5" class="r">Total da Proposta</td>
+    <td class="r" style="font-size:10.5pt">${fmt(totalPrice)}</td>
+    <td class="r" style="color:${margin >= 15 ? '#15803d' : margin >= 10 ? '#b45309' : '#dc2626'}">${fmtPct(margin)}</td>
+  </tr></tfoot>`
+
+  const totalsCard = `<div class="totals-wrap"><div class="totals-card">
+    <div class="totals-head">Resumo Financeiro</div>
+    <div class="totals-body">
+      <div class="total-row"><span class="lbl">Subtotal</span><span class="val">${fmt(subtotal)}</span></div>
+      ${totalDiscount > 0 ? `<div class="total-row disc"><span class="lbl">Descontos</span><span class="val">– ${fmt(totalDiscount)}</span></div>` : ''}
+      <div class="total-row grand"><span class="lbl">Total</span><span class="val">${fmt(totalPrice)}</span></div>
+      <div class="total-row marg"><span class="lbl">Margem estimada</span><span class="val">${fmtPct(margin)}</span></div>
+    </div>
+  </div></div>`
+
+  // ─── BOM commercial pages (auto-split) ───────────────────────────────────
+  function buildBomPages(): string {
+    const items = proposal!.items
+    if (!items.length) return ''
+    const out: string[] = []
+    let rem = [...items]
+    let first = true
+    while (rem.length > 0) {
+      const base    = first ? S_HDG : 0
+      const capFull = Math.max(1, Math.floor((CONTENT_H - base - TBL_HDR - TBL_FTR - TOTALS_BLK) / BOM_ROW_H))
+      const capMore = Math.max(1, Math.floor((CONTENT_H - base - TBL_HDR) / BOM_ROW_H))
+      const isLast  = rem.length <= capFull
+      const chunk   = isLast ? rem : rem.slice(0, capMore)
+      rem           = isLast ? [] : rem.slice(capMore)
+      const hdg     = first ? `<div class="section-heading"><h2>BOM Comercial</h2></div>` : ''
+      const rows    = chunk.map(bomRow).join('')
+      out.push(pg(`${hdg}<table class="data-table">${bomThead}<tbody>${rows}</tbody>${isLast ? bomTfoot : ''}</table>${isLast ? totalsCard : ''}`))
+      first = false
+    }
+    return out.join('')
+  }
+
+  // ─── BOM technical pages (auto-split) ────────────────────────────────────
+  function buildTechPages(): string {
+    const items = proposal!.items
+    if (!items.length) return ''
+    const out: string[] = []
+    let rem = [...items]
+    let first = true
+    while (rem.length > 0) {
+      const base  = first ? S_HDG : 0
+      const cap   = Math.max(1, Math.floor((CONTENT_H - base - TBL_HDR) / TECH_ROW_H))
+      const chunk = rem.slice(0, cap)
+      rem         = rem.slice(cap)
+      const hdg   = first ? `<div class="section-heading"><h2>BOM Técnica — Anexo</h2></div>` : ''
+      const rows  = chunk.map(techRow).join('')
+      out.push(pg(`${hdg}<table class="data-table">${techThead}<tbody>${rows}</tbody></table>`))
+      first = false
+    }
+    return out.join('')
+  }
+
+  // ─── mermaid fallback script ──────────────────────────────────────────────
   const mermaidFallback = (cleanDiagram && !diagramSvg) ? `
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <script>
@@ -161,11 +235,30 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       });
     </script>` : ''
 
+  // ─── diagram block ────────────────────────────────────────────────────────
+  const diagramBlock = cleanDiagram ? `
+    <div class="diagram-block">
+      <div style="margin-bottom:12px;font-size:8.5pt;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:1px">Diagrama de Topologia</div>
+      <div class="mermaid-wrap">
+        ${diagramSvg
+          ? diagramSvg
+          : `<pre class="mermaid" style="white-space:pre;font-family:monospace;font-size:9pt;padding:8px">${esc(cleanDiagram)}</pre>`
+        }
+      </div>
+      <div class="diagram-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#E6F5F4;border:1.5px solid #00928E"></div>Equipamentos propostos</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#FFF7ED;border:1.5px solid #EA580C"></div>Sistemas existentes</div>
+        <div class="legend-item"><div class="legend-dot" style="background:white;border:1.5px dashed #94A3B8"></div>Módulos externos</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#EFF6FF;border:1.5px solid #3B82F6"></div>Internet / Nuvem</div>
+      </div>
+    </div>` : ''
+
+  // ─── HTML ─────────────────────────────────────────────────────────────────
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Proposta ${esc(proposal.number)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -175,6 +268,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     :root{--t900:#002827;--t800:#004341;--t700:#005F5C;--t600:#007B77;--t500:#00928E;--t400:#26A39F;--t300:#4DB4B2;--t100:#B3DFDD;--t50:#E6F5F4;--g50:#F8FAFC;--g100:#F1F5F9;--g200:#E2E8F0;--g400:#94A3B8;--g500:#64748B;--g700:#334155;--g900:#0F172A}
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Montserrat',Arial,sans-serif;font-size:10pt;color:var(--g900);background:#f0f4f4;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+    /* ── toolbar ─────────────────────────────────────────────── */
     .toolbar{position:fixed;top:0;left:0;right:0;z-index:999;background:var(--t900);display:flex;align-items:center;justify-content:space-between;padding:12px 24px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
     .toolbar-left{display:flex;align-items:center;gap:12px}
     .toolbar-logo{width:32px;height:32px;border-radius:6px;background:var(--t600);display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:14px}
@@ -185,12 +280,29 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .btn-toolbar:hover{opacity:.85}
     .btn-print{background:var(--t500);color:white}
     .btn-close{background:rgba(255,255,255,.1);color:white}
-    .outer{padding:72px 24px 40px;max-width:900px;margin:0 auto}
-    .pdf-page{background:white;border-radius:4px;box-shadow:0 4px 24px rgba(0,40,39,.12);margin-bottom:24px;overflow:hidden}
-    .cover{min-height:1122px;display:flex;flex-direction:column;background:linear-gradient(160deg,var(--t900) 0%,var(--t800) 45%,var(--t700) 100%);position:relative;overflow:hidden}
+
+    /* ── page scaffold ───────────────────────────────────────── */
+    .outer{padding:72px 0 40px;display:flex;flex-direction:column;align-items:center;gap:24px}
+    .page{background:white;width:210mm;height:297mm;overflow:hidden;display:flex;flex-direction:column;position:relative;border-radius:4px;box-shadow:0 4px 24px rgba(0,40,39,.12);flex-shrink:0}
+
+    /* ── page header / footer ────────────────────────────────── */
+    .ph{padding:28px 56px 20px;border-bottom:1px solid var(--g200);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .ph-logo-text{font-size:13pt;font-weight:900;color:var(--t700);letter-spacing:-.5px}
+    .ph-meta{text-align:right;font-size:8pt;color:var(--g400);font-weight:600}
+    .ph-meta strong{display:block;color:var(--t600);font-size:9pt}
+    .pf{padding:14px 56px;border-top:1px solid var(--g200);display:flex;align-items:center;justify-content:space-between;background:var(--g50);flex-shrink:0}
+    .pf span{font-size:7.5pt;color:var(--g400);font-weight:600}
+    .footer-bar{width:40px;height:3px;background:var(--t500);border-radius:2px}
+
+    /* ── page content area ───────────────────────────────────── */
+    .pc{flex:1;padding:36px 56px;overflow:hidden}
+
+    /* ── cover ───────────────────────────────────────────────── */
+    .cover{height:100%;display:flex;flex-direction:column;background:linear-gradient(160deg,var(--t900) 0%,var(--t800) 45%,var(--t700) 100%);position:relative;overflow:hidden}
     .cover::before{content:'';position:absolute;top:-160px;right:-160px;width:520px;height:520px;border-radius:50%;background:rgba(255,255,255,.03)}
     .cover::after{content:'';position:absolute;bottom:-80px;left:-80px;width:360px;height:360px;border-radius:50%;background:rgba(0,146,142,.12)}
-    .cover-top{padding:48px 56px 0;display:flex;justify-content:space-between;align-items:flex-start}
+    .cover-pattern{position:absolute;inset:0;pointer-events:none}
+    .cover-top{padding:48px 56px 0;display:flex;justify-content:space-between;align-items:flex-start;flex-shrink:0;position:relative;z-index:1}
     .cover-logo-wrap img{max-height:52px;max-width:200px;object-fit:contain;filter:brightness(0) invert(1)}
     .cover-logo-text{font-size:22pt;font-weight:900;color:white;letter-spacing:-1px;line-height:1}
     .cover-logo-sub{font-size:8.5pt;color:var(--t300);font-weight:600;text-transform:uppercase;letter-spacing:2px;margin-top:4px}
@@ -202,19 +314,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .cover-divider{width:56px;height:3px;background:var(--t400);border-radius:2px;margin-bottom:24px}
     .cover-client-label{font-size:7.5pt;font-weight:700;color:var(--t300);text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}
     .cover-client-name{font-size:14pt;font-weight:800;color:white}
-    .cover-footer{padding:24px 56px;background:rgba(0,0,0,.25);border-top:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;position:relative;z-index:1}
+    .cover-footer{padding:24px 56px;background:rgba(0,0,0,.25);border-top:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;position:relative;z-index:1;flex-shrink:0}
     .cover-footer-item label{display:block;font-size:7pt;font-weight:700;color:var(--t300);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px}
     .cover-footer-item span{font-size:10pt;font-weight:600;color:rgba(255,255,255,.9)}
-    .inner-page{min-height:1122px;display:flex;flex-direction:column}
-    .page-header{padding:28px 56px 20px;border-bottom:1px solid var(--g200);display:flex;align-items:center;justify-content:space-between}
-    .page-header-logo-text{font-size:13pt;font-weight:900;color:var(--t700);letter-spacing:-.5px}
-    .page-header-meta{text-align:right;font-size:8pt;color:var(--g400);font-weight:600}
-    .page-header-meta strong{display:block;color:var(--t600);font-size:9pt}
-    .page-content{flex:1;padding:36px 56px}
-    .page-footer{padding:14px 56px;border-top:1px solid var(--g200);display:flex;align-items:center;justify-content:space-between;background:var(--g50)}
-    .page-footer span{font-size:7.5pt;color:var(--g400);font-weight:600}
-    .footer-bar{width:40px;height:3px;background:var(--t500);border-radius:2px}
-    .section{margin-bottom:36px}
+
+    /* ── content elements ────────────────────────────────────── */
+    .section{margin-bottom:28px}
+    .section:last-child{margin-bottom:0}
     .section-heading{display:flex;align-items:center;gap:12px;margin-bottom:20px}
     .section-heading::before{content:'';display:block;width:4px;height:22px;background:var(--t500);border-radius:2px;flex-shrink:0}
     .section-heading h2{font-size:11pt;font-weight:800;color:var(--t800);text-transform:uppercase;letter-spacing:1.5px}
@@ -264,40 +370,24 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .scenario-desc{background:var(--t50);border-left:4px solid var(--t400);border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:28px;font-size:9.5pt;color:var(--t800);line-height:1.75;font-weight:500;white-space:pre-line}
     .mermaid-wrap{border:1px solid var(--g200);border-radius:10px;padding:24px;background:white;overflow:hidden;min-height:80px}
     .mermaid-wrap svg{max-width:100%;height:auto;display:block;margin:0 auto}
+    .diagram-block{margin-top:4px}
     .diagram-legend{display:flex;gap:20px;margin-top:16px;padding:10px 16px;background:var(--g50);border-radius:8px;border:1px solid var(--g100)}
     .legend-item{display:flex;align-items:center;gap:6px;font-size:8pt;color:var(--g500);font-weight:600}
     .legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+
+    /* ── print ───────────────────────────────────────────────── */
     @page{size:A4 portrait;margin:0}
     @media print{
       .toolbar{display:none!important}
       body{background:white}
-      .outer{padding:0;max-width:none}
-      .pdf-page{box-shadow:none;border-radius:0;margin-bottom:0}
-      .pdf-page+.pdf-page{break-before:page;page-break-before:always}
-      .pdf-page:first-child{height:297mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid}
-      .cover{height:100%;min-height:0}
-      .cover-footer{position:absolute;bottom:0;left:0;right:0}
-      .cover-body{padding-bottom:90px}
-      .inner-page{min-height:0}
-      .section-heading{break-after:avoid;page-break-after:avoid}
-      .diagram-block{break-inside:avoid;page-break-inside:avoid}
-      .mermaid-wrap{break-inside:avoid;page-break-inside:avoid}
-      .diagram-legend{break-inside:avoid;page-break-inside:avoid}
-      .scenario-desc{break-inside:avoid;page-break-inside:avoid}
-      .info-grid{break-inside:avoid;page-break-inside:avoid}
-      .info-card{break-inside:avoid;page-break-inside:avoid}
-      .totals-wrap{break-inside:avoid;page-break-inside:avoid}
-      .totals-card{break-inside:avoid;page-break-inside:avoid}
-      .validity-card{break-inside:avoid;page-break-inside:avoid}
-      .sig-section{break-inside:avoid;page-break-inside:avoid}
-      .sig-box{break-inside:avoid;page-break-inside:avoid}
-      table.data-table{break-inside:auto;page-break-inside:auto}
-      table.data-table thead{display:table-header-group}
-      table.data-table tr{break-inside:avoid;page-break-inside:avoid}
+      .outer{padding:0;gap:0}
+      .page{border-radius:0;box-shadow:none;break-after:page;page-break-after:always}
+      .page:last-child{break-after:auto;page-break-after:auto}
     }
-    /* Cover style overrides */
+
+    /* ── cover style overrides ───────────────────────────────── */
     .cover{background:${coverSt.bg}!important}
-    .cover-pattern{position:absolute;inset:0;pointer-events:none;${coverSt.pattern ? `background:${coverSt.pattern}` : 'display:none'}}
+    .cover-pattern{${coverSt.pattern ? `background:${coverSt.pattern}` : 'display:none'}}
     .cover-logo-text{color:${coverSt.text}!important}
     .cover-logo-sub{color:${coverSt.subText}!important}
     .cover-badge{color:${coverSt.accentLight}!important;background:rgba(${coverSt.dark?'255,255,255':'0,0,0'},.1)!important;border-color:rgba(${coverSt.dark?'255,255,255':'0,0,0'},.15)!important}
@@ -331,7 +421,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 <div class="outer">
 
   <!-- CAPA -->
-  <div class="pdf-page">
+  <div class="page">
     <div class="cover">
       <div class="cover-pattern"></div>
       <div class="cover-top">
@@ -359,148 +449,76 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   </div>
 
   <!-- DADOS & RESUMO -->
-  <div class="pdf-page">
-    <div class="inner-page">
-      ${pageHeader}
-      <div class="page-content">
-        <div class="section">
-          <div class="section-heading"><h2>Dados da Proposta</h2></div>
-          <div class="info-grid">
-            <div class="info-card">
-              <div class="info-card-head">Fornecedor</div>
-              <div class="info-card-body">
-                <div class="info-row"><span class="info-label">Empresa</span><span class="info-val">${esc(companyName)}</span></div>
-                ${companyWebsite ? `<div class="info-row"><span class="info-label">Site</span><span class="info-val">${esc(companyWebsite)}</span></div>` : ''}
-                ${companyEmail ? `<div class="info-row"><span class="info-label">E-mail</span><span class="info-val">${esc(companyEmail)}</span></div>` : ''}
-                ${companyPhone ? `<div class="info-row"><span class="info-label">Telefone</span><span class="info-val">${esc(companyPhone)}</span></div>` : ''}
-                ${companyAddress ? `<div class="info-row"><span class="info-label">Endereço</span><span class="info-val">${esc(companyAddress)}</span></div>` : ''}
-              </div>
-            </div>
-            <div class="info-card">
-              <div class="info-card-head">Cliente</div>
-              <div class="info-card-body">
-                <div class="info-row"><span class="info-label">Razão Social</span><span class="info-val">${esc(proposal.customer.companyName)}</span></div>
-                ${proposal.customer.tradeName ? `<div class="info-row"><span class="info-label">Fantasia</span><span class="info-val">${esc(proposal.customer.tradeName)}</span></div>` : ''}
-                ${proposal.customer.cnpj ? `<div class="info-row"><span class="info-label">CNPJ</span><span class="info-val">${esc(proposal.customer.cnpj)}</span></div>` : ''}
-                ${proposal.customer.contactName ? `<div class="info-row"><span class="info-label">Contato</span><span class="info-val">${esc(proposal.customer.contactName)}</span></div>` : ''}
-                ${proposal.customer.email ? `<div class="info-row"><span class="info-label">E-mail</span><span class="info-val">${esc(proposal.customer.email)}</span></div>` : ''}
-                ${proposal.customer.city ? `<div class="info-row"><span class="info-label">Cidade</span><span class="info-val">${esc(proposal.customer.city)}${proposal.customer.state ? '/' + esc(proposal.customer.state) : ''}</span></div>` : ''}
-              </div>
-            </div>
+  ${pg(`
+    <div class="section">
+      <div class="section-heading"><h2>Dados da Proposta</h2></div>
+      <div class="info-grid">
+        <div class="info-card">
+          <div class="info-card-head">Fornecedor</div>
+          <div class="info-card-body">
+            <div class="info-row"><span class="info-label">Empresa</span><span class="info-val">${esc(companyName)}</span></div>
+            ${companyWebsite ? `<div class="info-row"><span class="info-label">Site</span><span class="info-val">${esc(companyWebsite)}</span></div>` : ''}
+            ${companyEmail ? `<div class="info-row"><span class="info-label">E-mail</span><span class="info-val">${esc(companyEmail)}</span></div>` : ''}
+            ${companyPhone ? `<div class="info-row"><span class="info-label">Telefone</span><span class="info-val">${esc(companyPhone)}</span></div>` : ''}
+            ${companyAddress ? `<div class="info-row"><span class="info-label">Endereço</span><span class="info-val">${esc(companyAddress)}</span></div>` : ''}
           </div>
         </div>
-        ${proposal.executiveSummary ? `<div class="section"><div class="section-heading"><h2>Resumo Executivo</h2></div><div class="text-content">${esc(proposal.executiveSummary)}</div></div>` : ''}
-        ${proposal.scope ? `<div class="section"><div class="section-heading"><h2>Escopo do Projeto</h2></div><div class="text-content">${esc(proposal.scope)}</div></div>` : ''}
-        ${companyDescription ? `<div class="section"><div class="section-heading"><h2>Sobre a ${esc(companyName)}</h2></div>${logoSrc ? `<div class="intro-grid"><div class="intro-logo-box"><img src="${esc(logoSrc)}" alt="${esc(companyName)}"></div><div class="text-content">${esc(companyDescription)}</div></div>` : `<div class="text-content">${esc(companyDescription)}</div>`}</div>` : ''}
+        <div class="info-card">
+          <div class="info-card-head">Cliente</div>
+          <div class="info-card-body">
+            <div class="info-row"><span class="info-label">Razão Social</span><span class="info-val">${esc(proposal.customer.companyName)}</span></div>
+            ${proposal.customer.tradeName ? `<div class="info-row"><span class="info-label">Fantasia</span><span class="info-val">${esc(proposal.customer.tradeName)}</span></div>` : ''}
+            ${proposal.customer.cnpj ? `<div class="info-row"><span class="info-label">CNPJ</span><span class="info-val">${esc(proposal.customer.cnpj)}</span></div>` : ''}
+            ${proposal.customer.contactName ? `<div class="info-row"><span class="info-label">Contato</span><span class="info-val">${esc(proposal.customer.contactName)}</span></div>` : ''}
+            ${proposal.customer.email ? `<div class="info-row"><span class="info-label">E-mail</span><span class="info-val">${esc(proposal.customer.email)}</span></div>` : ''}
+            ${proposal.customer.city ? `<div class="info-row"><span class="info-label">Cidade</span><span class="info-val">${esc(proposal.customer.city)}${proposal.customer.state ? '/' + esc(proposal.customer.state) : ''}</span></div>` : ''}
+          </div>
+        </div>
       </div>
-      ${pageFooter}
     </div>
-  </div>
+    ${proposal.executiveSummary ? `<div class="section"><div class="section-heading"><h2>Resumo Executivo</h2></div><div class="text-content">${esc(proposal.executiveSummary)}</div></div>` : ''}
+    ${proposal.scope ? `<div class="section"><div class="section-heading"><h2>Escopo do Projeto</h2></div><div class="text-content">${esc(proposal.scope)}</div></div>` : ''}
+    ${companyDescription ? `<div class="section"><div class="section-heading"><h2>Sobre a ${esc(companyName)}</h2></div>${logoSrc ? `<div class="intro-grid"><div class="intro-logo-box"><img src="${esc(logoSrc)}" alt="${esc(companyName)}"></div><div class="text-content">${esc(companyDescription)}</div></div>` : `<div class="text-content">${esc(companyDescription)}</div>`}</div>` : ''}
+  `)}
 
   <!-- CENÁRIO TÉCNICO -->
-  ${(proposal.scenarioDesc || cleanDiagram) ? `
-  <div class="pdf-page">
-    <div class="inner-page">
-      ${pageHeader}
-      <div class="page-content">
-        <div class="section">
-          <div class="section-heading"><h2>Cenário Técnico</h2></div>
-          ${proposal.scenarioDesc ? `<div class="scenario-desc">${esc(proposal.scenarioDesc)}</div>` : ''}
-          ${diagramSection}
-        </div>
-      </div>
-      ${pageFooter}
+  ${(proposal.scenarioDesc || cleanDiagram) ? pg(`
+    <div class="section">
+      <div class="section-heading"><h2>Cenário Técnico</h2></div>
+      ${proposal.scenarioDesc ? `<div class="scenario-desc">${esc(proposal.scenarioDesc)}</div>` : ''}
+      ${diagramBlock}
     </div>
-  </div>` : ''}
+  `) : ''}
 
-  <!-- BOM COMERCIAL -->
-  <div class="pdf-page">
-    <div class="inner-page">
-      ${pageHeader}
-      <div class="page-content">
-        <div class="section">
-          <div class="section-heading"><h2>BOM Comercial</h2></div>
-          <table class="data-table">
-            <thead><tr>
-              <th style="width:9%">SKU</th><th style="width:38%">Produto</th>
-              <th class="r" style="width:6%">Qtd</th><th class="r" style="width:14%">Preço Unit.</th>
-              <th class="r" style="width:8%">Desc.</th><th class="r" style="width:14%">Subtotal</th>
-              <th class="r" style="width:8%">Margem</th>
-            </tr></thead>
-            <tbody>${bomRows}</tbody>
-            <tfoot><tr>
-              <td colspan="5" class="r">Total da Proposta</td>
-              <td class="r" style="font-size:10.5pt">${fmt(totalPrice)}</td>
-              <td class="r" style="color:${margin >= 15 ? '#15803d' : margin >= 10 ? '#b45309' : '#dc2626'}">${fmtPct(margin)}</td>
-            </tr></tfoot>
-          </table>
-          <div class="totals-wrap">
-            <div class="totals-card">
-              <div class="totals-head">Resumo Financeiro</div>
-              <div class="totals-body">
-                <div class="total-row"><span class="lbl">Subtotal</span><span class="val">${fmt(subtotal)}</span></div>
-                ${totalDiscount > 0 ? `<div class="total-row disc"><span class="lbl">Descontos</span><span class="val">– ${fmt(totalDiscount)}</span></div>` : ''}
-                <div class="total-row grand"><span class="lbl">Total</span><span class="val">${fmt(totalPrice)}</span></div>
-                <div class="total-row marg"><span class="lbl">Margem estimada</span><span class="val">${fmtPct(margin)}</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      ${pageFooter}
-    </div>
-  </div>
+  <!-- BOM COMERCIAL (auto-paginado) -->
+  ${buildBomPages()}
 
-  <!-- BOM TÉCNICA -->
-  <div class="pdf-page">
-    <div class="inner-page">
-      ${pageHeader}
-      <div class="page-content">
-        <div class="section">
-          <div class="section-heading"><h2>BOM Técnica — Anexo</h2></div>
-          <table class="data-table">
-            <thead><tr>
-              <th style="width:10%">SKU</th><th style="width:32%">Produto</th>
-              <th class="r" style="width:7%">Qtd</th><th style="width:12%">Categoria</th>
-              <th style="width:18%">Função na Solução</th><th style="width:21%">Descritivo</th>
-            </tr></thead>
-            <tbody>${techRows}</tbody>
-          </table>
-        </div>
-      </div>
-      ${pageFooter}
-    </div>
-  </div>
+  <!-- BOM TÉCNICA (auto-paginado) -->
+  ${buildTechPages()}
 
   <!-- CONDIÇÕES & ACEITE -->
-  <div class="pdf-page">
-    <div class="inner-page">
-      ${pageHeader}
-      <div class="page-content">
-        ${proposal.commercialTerms ? `<div class="section"><div class="section-heading"><h2>Condições Comerciais</h2></div><div class="text-content">${esc(proposal.commercialTerms)}</div></div>` : ''}
-        <div class="section">
-          <div class="section-heading"><h2>Validade e Aceite</h2></div>
-          <div class="validity-card">Esta proposta é válida por <strong>${proposal.validityDays} dias</strong> a partir de ${esc(today)}, ou seja, até <strong>${esc(validUntil)}</strong>. Após este prazo, os valores e condições aqui descritos estão sujeitos a revisão.</div>
-          <div class="sig-section">
-            <div class="sig-box">
-              <div class="sig-head">Fornecedor</div>
-              <div class="sig-body"><div class="sig-line">${esc(companyName)}</div><div class="sig-sub">Responsável comercial</div></div>
-            </div>
-            <div class="sig-box">
-              <div class="sig-head">Cliente</div>
-              <div class="sig-body"><div class="sig-line">${esc(proposal.customer.companyName)}</div><div class="sig-sub">${esc(proposal.customer.contactName ?? 'Representante autorizado')}</div></div>
-            </div>
-          </div>
+  ${pg(`
+    ${proposal.commercialTerms ? `<div class="section"><div class="section-heading"><h2>Condições Comerciais</h2></div><div class="text-content">${esc(proposal.commercialTerms)}</div></div>` : ''}
+    <div class="section">
+      <div class="section-heading"><h2>Validade e Aceite</h2></div>
+      <div class="validity-card">Esta proposta é válida por <strong>${proposal.validityDays} dias</strong> a partir de ${esc(today)}, ou seja, até <strong>${esc(validUntil)}</strong>. Após este prazo, os valores e condições aqui descritos estão sujeitos a revisão.</div>
+      <div class="sig-section">
+        <div class="sig-box">
+          <div class="sig-head">Fornecedor</div>
+          <div class="sig-body"><div class="sig-line">${esc(companyName)}</div><div class="sig-sub">Responsável comercial</div></div>
         </div>
-        <div style="margin-top:40px;text-align:center">
-          <span style="display:inline-block;padding:4px 16px;border-radius:20px;font-size:9pt;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${statusColor[proposal.status] ?? '#6b7280'};border:1.5px solid ${statusColor[proposal.status] ?? '#6b7280'};background:transparent">
-            ${statusLabel[proposal.status] ?? esc(proposal.status)}
-          </span>
+        <div class="sig-box">
+          <div class="sig-head">Cliente</div>
+          <div class="sig-body"><div class="sig-line">${esc(proposal.customer.companyName)}</div><div class="sig-sub">${esc(proposal.customer.contactName ?? 'Representante autorizado')}</div></div>
         </div>
       </div>
-      ${pageFooter}
     </div>
-  </div>
+    <div style="margin-top:32px;text-align:center">
+      <span style="display:inline-block;padding:4px 16px;border-radius:20px;font-size:9pt;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${statusColor[proposal.status] ?? '#6b7280'};border:1.5px solid ${statusColor[proposal.status] ?? '#6b7280'}">
+        ${statusLabel[proposal.status] ?? esc(proposal.status)}
+      </span>
+    </div>
+  `)}
 
 </div>
 
