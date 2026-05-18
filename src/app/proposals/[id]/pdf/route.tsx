@@ -272,9 +272,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       .toolbar{display:none!important}
       body{background:white}
       .outer{padding:0;max-width:none}
-      .pdf-page{box-shadow:none;border-radius:0;margin-bottom:0;break-before:page;page-break-before:always}
-      .pdf-page:first-child{break-before:auto;page-break-before:auto}
-      .cover{break-after:page;page-break-after:always}
+      .pdf-page{box-shadow:none;border-radius:0;margin-bottom:0}
+      .pdf-page+.pdf-page{break-before:page;page-break-before:always}
+      .cover{height:297mm;min-height:0;break-inside:avoid;page-break-inside:avoid}
       .inner-page{min-height:0}
       .section-heading{break-after:avoid;page-break-after:avoid}
       .diagram-block{break-inside:avoid;page-break-inside:avoid}
