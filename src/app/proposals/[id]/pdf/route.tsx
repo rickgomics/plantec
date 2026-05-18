@@ -121,18 +121,20 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }).join('')
 
   const diagramSection = cleanDiagram ? `
-    <div style="margin-bottom:12px;font-size:8.5pt;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:1px">Diagrama de Topologia</div>
-    <div class="mermaid-wrap">
-      ${diagramSvg
-        ? diagramSvg
-        : `<pre class="mermaid" style="white-space:pre;font-family:monospace;font-size:9pt;padding:8px">${esc(cleanDiagram)}</pre>`
-      }
-    </div>
-    <div class="diagram-legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#E6F5F4;border:1.5px solid #00928E"></div>Equipamentos propostos</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#FFF7ED;border:1.5px solid #EA580C"></div>Sistemas existentes</div>
-      <div class="legend-item"><div class="legend-dot" style="background:white;border:1.5px dashed #94A3B8"></div>Módulos externos</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#EFF6FF;border:1.5px solid #3B82F6"></div>Internet / Nuvem</div>
+    <div class="diagram-block">
+      <div style="margin-bottom:12px;font-size:8.5pt;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:1px">Diagrama de Topologia</div>
+      <div class="mermaid-wrap">
+        ${diagramSvg
+          ? diagramSvg
+          : `<pre class="mermaid" style="white-space:pre;font-family:monospace;font-size:9pt;padding:8px">${esc(cleanDiagram)}</pre>`
+        }
+      </div>
+      <div class="diagram-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#E6F5F4;border:1.5px solid #00928E"></div>Equipamentos propostos</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#FFF7ED;border:1.5px solid #EA580C"></div>Sistemas existentes</div>
+        <div class="legend-item"><div class="legend-dot" style="background:white;border:1.5px dashed #94A3B8"></div>Módulos externos</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#EFF6FF;border:1.5px solid #3B82F6"></div>Internet / Nuvem</div>
+      </div>
     </div>` : ''
 
   const mermaidFallback = (cleanDiagram && !diagramSvg) ? `
@@ -266,7 +268,30 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .legend-item{display:flex;align-items:center;gap:6px;font-size:8pt;color:var(--g500);font-weight:600}
     .legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
     @page{size:A4 portrait;margin:0}
-    @media print{.toolbar{display:none!important}body{background:white}.outer{padding:0;max-width:none}.pdf-page{box-shadow:none;border-radius:0;margin-bottom:0;page-break-after:always;break-after:page}.pdf-page:last-child{page-break-after:auto;break-after:auto}.cover{min-height:297mm}.inner-page{min-height:297mm}}
+    @media print{
+      .toolbar{display:none!important}
+      body{background:white}
+      .outer{padding:0;max-width:none}
+      .pdf-page{box-shadow:none;border-radius:0;margin-bottom:0;break-before:page;page-break-before:always}
+      .pdf-page:first-child{break-before:auto;page-break-before:auto}
+      .cover{break-after:page;page-break-after:always}
+      .inner-page{min-height:0}
+      .section-heading{break-after:avoid;page-break-after:avoid}
+      .diagram-block{break-inside:avoid;page-break-inside:avoid}
+      .mermaid-wrap{break-inside:avoid;page-break-inside:avoid}
+      .diagram-legend{break-inside:avoid;page-break-inside:avoid}
+      .scenario-desc{break-inside:avoid;page-break-inside:avoid}
+      .info-grid{break-inside:avoid;page-break-inside:avoid}
+      .info-card{break-inside:avoid;page-break-inside:avoid}
+      .totals-wrap{break-inside:avoid;page-break-inside:avoid}
+      .totals-card{break-inside:avoid;page-break-inside:avoid}
+      .validity-card{break-inside:avoid;page-break-inside:avoid}
+      .sig-section{break-inside:avoid;page-break-inside:avoid}
+      .sig-box{break-inside:avoid;page-break-inside:avoid}
+      table.data-table{break-inside:auto;page-break-inside:auto}
+      table.data-table thead{display:table-header-group}
+      table.data-table tr{break-inside:avoid;page-break-inside:avoid}
+    }
     /* Cover style overrides */
     .cover{background:${coverSt.bg}!important}
     .cover-pattern{position:absolute;inset:0;pointer-events:none;${coverSt.pattern ? `background:${coverSt.pattern}` : 'display:none'}}
