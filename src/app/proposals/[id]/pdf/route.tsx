@@ -368,8 +368,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .validity-card{border-left:4px solid var(--t500);background:var(--t50);border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:28px;font-size:9.5pt;color:var(--t800);line-height:1.6;font-weight:500}
     .validity-card strong{font-weight:800;color:var(--t700)}
     .scenario-desc{background:var(--t50);border-left:4px solid var(--t400);border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:28px;font-size:9.5pt;color:var(--t800);line-height:1.75;font-weight:500;white-space:pre-line}
-    .mermaid-wrap{border:1px solid var(--g200);border-radius:10px;padding:24px;background:white;overflow:hidden;min-height:80px}
-    .mermaid-wrap svg{max-width:100%;height:auto;display:block;margin:0 auto}
+    .mermaid-wrap{border:1px solid var(--g200);border-radius:10px;padding:16px;background:white;overflow:hidden}
+    .mermaid-wrap svg{max-width:100%;max-height:420px;width:auto;height:auto;display:block;margin:0 auto}
     .diagram-block{margin-top:4px}
     .diagram-legend{display:flex;gap:20px;margin-top:16px;padding:10px 16px;background:var(--g50);border-radius:8px;border:1px solid var(--g100)}
     .legend-item{display:flex;align-items:center;gap:6px;font-size:8pt;color:var(--g500);font-weight:600}
@@ -448,7 +448,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     </div>
   </div>
 
-  <!-- DADOS & RESUMO -->
+  <!-- DADOS DA PROPOSTA -->
   ${pg(`
     <div class="section">
       <div class="section-heading"><h2>Dados da Proposta</h2></div>
@@ -476,10 +476,31 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         </div>
       </div>
     </div>
-    ${proposal.executiveSummary ? `<div class="section"><div class="section-heading"><h2>Resumo Executivo</h2></div><div class="text-content">${esc(proposal.executiveSummary)}</div></div>` : ''}
-    ${proposal.scope ? `<div class="section"><div class="section-heading"><h2>Escopo do Projeto</h2></div><div class="text-content">${esc(proposal.scope)}</div></div>` : ''}
-    ${companyDescription ? `<div class="section"><div class="section-heading"><h2>Sobre a ${esc(companyName)}</h2></div>${logoSrc ? `<div class="intro-grid"><div class="intro-logo-box"><img src="${esc(logoSrc)}" alt="${esc(companyName)}"></div><div class="text-content">${esc(companyDescription)}</div></div>` : `<div class="text-content">${esc(companyDescription)}</div>`}</div>` : ''}
   `)}
+
+  <!-- RESUMO EXECUTIVO (página própria se presente) -->
+  ${proposal.executiveSummary ? pg(`
+    <div class="section">
+      <div class="section-heading"><h2>Resumo Executivo</h2></div>
+      <div class="text-content">${esc(proposal.executiveSummary)}</div>
+    </div>
+  `) : ''}
+
+  <!-- ESCOPO (página própria se presente) -->
+  ${proposal.scope ? pg(`
+    <div class="section">
+      <div class="section-heading"><h2>Escopo do Projeto</h2></div>
+      <div class="text-content">${esc(proposal.scope)}</div>
+    </div>
+  `) : ''}
+
+  <!-- SOBRE A EMPRESA (página própria se presente) -->
+  ${companyDescription ? pg(`
+    <div class="section">
+      <div class="section-heading"><h2>Sobre a ${esc(companyName)}</h2></div>
+      ${logoSrc ? `<div class="intro-grid"><div class="intro-logo-box"><img src="${esc(logoSrc)}" alt="${esc(companyName)}"></div><div class="text-content">${esc(companyDescription)}</div></div>` : `<div class="text-content">${esc(companyDescription)}</div>`}
+    </div>
+  `) : ''}
 
   <!-- CENÁRIO TÉCNICO -->
   ${(proposal.scenarioDesc || cleanDiagram) ? pg(`
