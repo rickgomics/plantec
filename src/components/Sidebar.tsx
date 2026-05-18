@@ -17,11 +17,10 @@ export default function Sidebar() {
   return (
     <aside className="w-64 min-h-screen bg-brand-900 flex flex-col">
       {/* Logo */}
-      <div className="px-6 py-6 border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center">
-            <span className="text-white font-black text-sm">P</span>
-          </div>
+      <div className="px-6 py-5 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/plantec-icon.svg" alt="Plantec" className="w-9 h-9 flex-shrink-0" />
           <div>
             <div className="text-white font-black text-base tracking-tight leading-none">PLANTEC</div>
             <div className="text-brand-400 text-[10px] font-semibold tracking-widest uppercase mt-0.5">BOM Builder</div>

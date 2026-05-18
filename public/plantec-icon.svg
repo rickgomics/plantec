@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 112" fill="none">
+  <defs>
+    <clipPath id="pt">
+      <polygon points="10,32 55,8 100,32 55,56"/>
+    </clipPath>
+    <clipPath id="pl">
+      <polygon points="10,32 55,56 55,104 10,80"/>
+    </clipPath>
+    <clipPath id="pr">
+      <polygon points="100,32 55,56 55,104 100,80"/>
+    </clipPath>
+  </defs>
+  <!-- Top face: 3 vertical columns -->
+  <g clip-path="url(#pt)">
+    <g transform="matrix(1,-0.533,0.9375,0.5,10,32)">
+      <rect x="2"  y="2" width="11" height="44" rx="3" fill="white"/>
+      <rect x="17" y="2" width="11" height="44" rx="3" fill="white"/>
+      <rect x="32" y="2" width="11" height="44" rx="3" fill="white"/>
+    </g>
+  </g>
+  <!-- Left face: 3 horizontal rows -->
+  <g clip-path="url(#pl)">
+    <g transform="matrix(1,0.533,0,1,10,32)">
+      <rect x="2" y="2"  width="41" height="12" rx="4" fill="white"/>
+      <rect x="2" y="18" width="41" height="12" rx="4" fill="white"/>
+      <rect x="2" y="34" width="41" height="12" rx="4" fill="white"/>
+    </g>
+  </g>
+  <!-- Right face: 3 horizontal rows -->
+  <g clip-path="url(#pr)">
+    <g transform="matrix(-1,0.533,0,1,100,32)">
+      <rect x="2" y="2"  width="41" height="12" rx="4" fill="white"/>
+      <rect x="2" y="18" width="41" height="12" rx="4" fill="white"/>
+      <rect x="2" y="34" width="41" height="12" rx="4" fill="white"/>
+    </g>
+  </g>
+</svg>
