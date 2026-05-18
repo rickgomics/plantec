@@ -185,7 +185,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .btn-close{background:rgba(255,255,255,.1);color:white}
     .outer{padding:72px 24px 40px;max-width:900px;margin:0 auto}
     .pdf-page{background:white;border-radius:4px;box-shadow:0 4px 24px rgba(0,40,39,.12);margin-bottom:24px;overflow:hidden}
-    .cover{min-height:1056px;display:flex;flex-direction:column;background:linear-gradient(160deg,var(--t900) 0%,var(--t800) 45%,var(--t700) 100%);position:relative;overflow:hidden}
+    .cover{min-height:1122px;display:flex;flex-direction:column;background:linear-gradient(160deg,var(--t900) 0%,var(--t800) 45%,var(--t700) 100%);position:relative;overflow:hidden}
     .cover::before{content:'';position:absolute;top:-160px;right:-160px;width:520px;height:520px;border-radius:50%;background:rgba(255,255,255,.03)}
     .cover::after{content:'';position:absolute;bottom:-80px;left:-80px;width:360px;height:360px;border-radius:50%;background:rgba(0,146,142,.12)}
     .cover-top{padding:48px 56px 0;display:flex;justify-content:space-between;align-items:flex-start}
@@ -203,7 +203,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .cover-footer{padding:24px 56px;background:rgba(0,0,0,.25);border-top:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;position:relative;z-index:1}
     .cover-footer-item label{display:block;font-size:7pt;font-weight:700;color:var(--t300);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px}
     .cover-footer-item span{font-size:10pt;font-weight:600;color:rgba(255,255,255,.9)}
-    .inner-page{min-height:1056px;display:flex;flex-direction:column}
+    .inner-page{min-height:1122px;display:flex;flex-direction:column}
     .page-header{padding:28px 56px 20px;border-bottom:1px solid var(--g200);display:flex;align-items:center;justify-content:space-between}
     .page-header-logo-text{font-size:13pt;font-weight:900;color:var(--t700);letter-spacing:-.5px}
     .page-header-meta{text-align:right;font-size:8pt;color:var(--g400);font-weight:600}
@@ -265,7 +265,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .diagram-legend{display:flex;gap:20px;margin-top:16px;padding:10px 16px;background:var(--g50);border-radius:8px;border:1px solid var(--g100)}
     .legend-item{display:flex;align-items:center;gap:6px;font-size:8pt;color:var(--g500);font-weight:600}
     .legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
-    @media print{.toolbar{display:none!important}body{background:white}.outer{padding:0;max-width:none}.pdf-page{box-shadow:none;border-radius:0;margin-bottom:0;page-break-after:always}.pdf-page:last-child{page-break-after:auto}.inner-page{min-height:100vh}}
+    @page{size:A4 portrait;margin:0}
+    @media print{.toolbar{display:none!important}body{background:white}.outer{padding:0;max-width:none}.pdf-page{box-shadow:none;border-radius:0;margin-bottom:0;page-break-after:always;break-after:page}.pdf-page:last-child{page-break-after:auto;break-after:auto}.cover{min-height:297mm}.inner-page{min-height:297mm}}
     /* Cover style overrides */
     .cover{background:${coverSt.bg}!important}
     .cover-pattern{position:absolute;inset:0;pointer-events:none;${coverSt.pattern ? `background:${coverSt.pattern}` : 'display:none'}}
