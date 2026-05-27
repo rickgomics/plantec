@@ -2,13 +2,21 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import {
+  HiSquares2X2,
+  HiDocumentText,
+  HiArchiveBox,
+  HiBuildingOffice2,
+  HiIdentification,
+} from 'react-icons/hi2'
+import { IconType } from 'react-icons'
 
-const navItems = [
-  { href: '/dashboard',         label: 'Dashboard',  icon: '◈' },
-  { href: '/proposals',         label: 'Propostas',  icon: '◻' },
-  { href: '/products',          label: 'Produtos',   icon: '▦' },
-  { href: '/customers',         label: 'Clientes',   icon: '◎' },
-  { href: '/settings/profiles', label: 'Perfis',     icon: '◉' },
+const navItems: { href: string; label: string; icon: IconType }[] = [
+  { href: '/dashboard',         label: 'Dashboard',  icon: HiSquares2X2 },
+  { href: '/proposals',         label: 'Propostas',  icon: HiDocumentText },
+  { href: '/products',          label: 'Produtos',   icon: HiArchiveBox },
+  { href: '/customers',         label: 'Clientes',   icon: HiBuildingOffice2 },
+  { href: '/settings/profiles', label: 'Perfis',     icon: HiIdentification },
 ]
 
 export default function Sidebar() {
@@ -32,13 +40,14 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 py-5 space-y-0.5">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+          const Icon = item.icon
           return (
             <Link
               key={item.href}
               href={item.href}
               className={`sidebar-link ${isActive ? 'active' : ''}`}
             >
-              <span className="text-lg w-5 text-center leading-none">{item.icon}</span>
+              <Icon className="w-5 h-5 flex-shrink-0" />
               <span className="tracking-wide">{item.label}</span>
             </Link>
           )
