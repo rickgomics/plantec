@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import AppLayout from '@/components/AppLayout'
+import { HiPencilSquare, HiTrash, HiXMark } from 'react-icons/hi2'
 import { Customer } from '@/types'
 
 const emptyForm = {
@@ -10,6 +11,18 @@ const emptyForm = {
 }
 
 const STATES = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
+
+function SkeletonRow() {
+  return (
+    <tr className="animate-pulse">
+      {[160, 110, 110, 140, 80, 40, 60].map((w, i) => (
+        <td key={i} className="px-4 py-3.5">
+          <div className="h-3.5 bg-gray-100 rounded-full" style={{ width: w }} />
+        </td>
+      ))}
+    </tr>
+  )
+}
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<(Customer & { _count?: { proposals: number } })[]>([])
@@ -71,14 +84,18 @@ export default function CustomersPage() {
   return (
     <AppLayout>
       <div className="p-6 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
-            <p className="text-gray-500 text-sm mt-0.5">{customers.length} cliente(s)</p>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Clientes</h1>
+            <p className="text-sm text-gray-400 mt-0.5 font-medium">
+              {loading ? 'Carregando...' : `${customers.length} cliente${customers.length !== 1 ? 's' : ''}`}
+            </p>
           </div>
           <button onClick={openCreate} className="btn-primary">+ Novo Cliente</button>
         </div>
 
+        {/* Filtro */}
         <div className="card mb-4 p-4">
           <input
             className="input max-w-sm"
@@ -88,61 +105,85 @@ export default function CustomersPage() {
           />
         </div>
 
+        {/* Tabela */}
         <div className="card overflow-hidden">
-          {loading ? (
-            <div className="py-16 text-center text-gray-400">Carregando...</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-gray-100">
+              <tr>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Razão Social</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">CNPJ</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Contato</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">E-mail</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Cidade/UF</th>
+                <th className="px-4 py-3 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Propostas</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
+              ) : customers.length === 0 ? (
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Razão Social</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">CNPJ</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Contato</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">E-mail</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Cidade/UF</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500">Propostas</th>
-                  <th className="px-4 py-3"></th>
+                  <td colSpan={7} className="px-4 py-14 text-center text-sm font-semibold text-gray-400">
+                    Nenhum cliente encontrado.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {customers.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{c.companyName}</div>
-                      {c.tradeName && <div className="text-xs text-gray-400">{c.tradeName}</div>}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{c.cnpj ?? '-'}</td>
-                    <td className="px-4 py-3 text-gray-500">{c.contactName ?? '-'}</td>
-                    <td className="px-4 py-3 text-gray-500">{c.email ?? '-'}</td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {c.city && c.state ? `${c.city}/${c.state}` : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                        {c._count?.proposals ?? 0}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => openEdit(c)} className="text-blue-600 hover:underline text-xs mr-3">Editar</button>
-                      <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:underline text-xs">Excluir</button>
-                    </td>
-                  </tr>
-                ))}
-                {customers.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400">Nenhum cliente encontrado.</td></tr>
-                )}
-              </tbody>
-            </table>
-          )}
+              ) : customers.map((c) => (
+                <tr key={c.id} className="hover:bg-brand-50/30 transition-colors group">
+                  <td className="px-4 py-3.5">
+                    <div className="font-semibold text-gray-900 leading-tight">{c.companyName}</div>
+                    {c.tradeName && <div className="text-[11px] text-gray-400 mt-0.5">{c.tradeName}</div>}
+                  </td>
+                  <td className="px-4 py-3.5 font-mono text-[11px] text-gray-400 font-semibold">{c.cnpj ?? '—'}</td>
+                  <td className="px-4 py-3.5 text-gray-500 font-medium">{c.contactName ?? '—'}</td>
+                  <td className="px-4 py-3.5 text-gray-500 font-medium">{c.email ?? '—'}</td>
+                  <td className="px-4 py-3.5 text-gray-500 font-medium">
+                    {c.city && c.state ? `${c.city}/${c.state}` : '—'}
+                  </td>
+                  <td className="px-4 py-3.5 text-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">
+                      {c._count?.proposals ?? 0}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => openEdit(c)}
+                        className="p-1.5 rounded-lg text-brand-600 hover:bg-brand-50 transition-colors"
+                        title="Editar"
+                      >
+                        <HiPencilSquare className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(c.id)}
+                        className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        title="Excluir"
+                      >
+                        <HiTrash className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between px-5 py-4 border-b">
-              <h2 className="text-lg font-semibold">{editing ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 className="text-base font-black text-gray-900 tracking-tight">
+                {editing ? 'Editar Cliente' : 'Novo Cliente'}
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <HiXMark className="w-5 h-5" />
+              </button>
             </div>
             <div className="p-5 space-y-4">
               <div>
@@ -186,7 +227,7 @@ export default function CustomersPage() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-3 justify-end px-5 py-4 border-t">
+            <div className="flex gap-3 justify-end px-5 py-4 border-t border-gray-100">
               <button onClick={() => setShowModal(false)} className="btn-secondary">Cancelar</button>
               <button onClick={handleSave} disabled={saving || !form.companyName} className="btn-primary">
                 {saving ? 'Salvando...' : 'Salvar'}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import AppLayout from '@/components/AppLayout'
+import { HiPencilSquare, HiTrash, HiXMark } from 'react-icons/hi2'
 import { Product } from '@/types'
 
 const CATEGORIES = ['CFTV', 'Energia', 'Redes', 'Controle de Acesso', 'Cabeamento', 'Nobreaks', 'Racks', 'Serviços']
@@ -9,19 +10,31 @@ const CATEGORIES = ['CFTV', 'Energia', 'Redes', 'Controle de Acesso', 'Cabeament
 function marginColor(cost: number, price: number) {
   if (price === 0) return 'text-gray-400'
   const m = ((price - cost) / price) * 100
-  if (m >= 15) return 'text-green-600'
-  if (m >= 10) return 'text-yellow-600'
-  return 'text-red-600'
+  if (m >= 15) return 'text-emerald-600'
+  if (m >= 10) return 'text-amber-600'
+  return 'text-red-500'
 }
 
 function margin(cost: number, price: number) {
-  if (price === 0) return '-'
+  if (price === 0) return '—'
   return (((price - cost) / price) * 100).toFixed(1) + '%'
 }
 
 const emptyForm = {
   sku: '', name: '', description: '', brand: '', category: 'CFTV', subcategory: '',
   basePrice: '', cost: '', stock: '', unit: 'un', active: true,
+}
+
+function SkeletonRow() {
+  return (
+    <tr className="animate-pulse">
+      {[60, 160, 90, 80, 80, 55, 40, 50, 60].map((w, i) => (
+        <td key={i} className="px-4 py-3.5">
+          <div className="h-3.5 bg-gray-100 rounded-full" style={{ width: w }} />
+        </td>
+      ))}
+    </tr>
+  )
 }
 
 export default function ProductsPage() {
@@ -94,94 +107,118 @@ export default function ProductsPage() {
   return (
     <AppLayout>
       <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
-            <p className="text-gray-500 text-sm mt-0.5">{products.length} produto(s) encontrado(s)</p>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Produtos</h1>
+            <p className="text-sm text-gray-400 mt-0.5 font-medium">
+              {loading ? 'Carregando...' : `${products.length} produto${products.length !== 1 ? 's' : ''}`}
+            </p>
           </div>
           <button onClick={openCreate} className="btn-primary">+ Novo Produto</button>
         </div>
 
-        <div className="card mb-4">
-          <div className="flex gap-3 p-4">
-            <input
-              className="input flex-1"
-              placeholder="Buscar por nome, SKU ou marca..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select className="input w-48" value={category} onChange={(e) => setCategory(e.target.value)}>
-              <option value="">Todas categorias</option>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
+        {/* Filtros */}
+        <div className="card mb-4 p-4 flex gap-3">
+          <input
+            className="input flex-1"
+            placeholder="Buscar por nome, SKU ou marca..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select className="input w-48" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="">Todas categorias</option>
+            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
 
+        {/* Tabela */}
         <div className="card overflow-hidden">
-          {loading ? (
-            <div className="py-16 text-center text-gray-400">Carregando...</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-gray-100">
+              <tr>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">SKU</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Produto</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Categoria</th>
+                <th className="px-4 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Preço</th>
+                <th className="px-4 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Custo</th>
+                <th className="px-4 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Margem</th>
+                <th className="px-4 py-3 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Estoque</th>
+                <th className="px-4 py-3 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {loading ? (
+                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
+              ) : products.length === 0 ? (
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">SKU</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Produto</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Categoria</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">Preço</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">Custo</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">Margem</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500">Estoque</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500">Status</th>
-                  <th className="px-4 py-3"></th>
+                  <td colSpan={9} className="px-4 py-14 text-center text-sm font-semibold text-gray-400">
+                    Nenhum produto encontrado.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {products.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono text-xs text-gray-400">{p.sku}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{p.name}</div>
-                      <div className="text-xs text-gray-400">{p.brand}</div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{p.category}</td>
-                    <td className="px-4 py-3 text-right text-gray-900">{fmt(Number(p.basePrice))}</td>
-                    <td className="px-4 py-3 text-right text-gray-500">{fmt(Number(p.cost))}</td>
-                    <td className={`px-4 py-3 text-right font-medium ${marginColor(Number(p.cost), Number(p.basePrice))}`}>
-                      {margin(Number(p.cost), Number(p.basePrice))}
-                    </td>
-                    <td className="px-4 py-3 text-center text-gray-500">{p.stock}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {p.active ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => openEdit(p)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-brand-600 bg-brand-50 hover:bg-brand-100 transition-colors border border-brand-100 mr-2">Editar</button>
+              ) : products.map((p) => (
+                <tr key={p.id} className="hover:bg-brand-50/30 transition-colors group">
+                  <td className="px-4 py-3.5 font-mono text-[11px] text-gray-400 font-semibold">{p.sku}</td>
+                  <td className="px-4 py-3.5">
+                    <div className="font-semibold text-gray-900 leading-tight">{p.name}</div>
+                    {p.brand && <div className="text-[11px] text-gray-400 mt-0.5">{p.brand}</div>}
+                  </td>
+                  <td className="px-4 py-3.5 text-gray-500 font-medium">{p.category}</td>
+                  <td className="px-4 py-3.5 text-right font-bold text-gray-900">{fmt(Number(p.basePrice))}</td>
+                  <td className="px-4 py-3.5 text-right text-gray-500 font-medium">{fmt(Number(p.cost))}</td>
+                  <td className={`px-4 py-3.5 text-right font-semibold ${marginColor(Number(p.cost), Number(p.basePrice))}`}>
+                    {margin(Number(p.cost), Number(p.basePrice))}
+                  </td>
+                  <td className="px-4 py-3.5 text-center text-gray-500 font-medium">{p.stock}</td>
+                  <td className="px-4 py-3.5 text-center">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide ${
+                      p.active
+                        ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
+                        : 'bg-gray-100 text-gray-500 ring-1 ring-inset ring-gray-200'
+                    }`}>
+                      {p.active ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => openEdit(p)}
+                        className="p-1.5 rounded-lg text-brand-600 hover:bg-brand-50 transition-colors"
+                        title="Editar"
+                      >
+                        <HiPencilSquare className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => handleDelete(p.id)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors border border-red-100"
-                        title="Excluir produto"
+                        className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        title="Excluir"
                       >
-                        ✕ Excluir
+                        <HiTrash className="w-4 h-4" />
                       </button>
-                    </td>
-                  </tr>
-                ))}
-                {products.length === 0 && (
-                  <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400">Nenhum produto encontrado.</td></tr>
-                )}
-              </tbody>
-            </table>
-          )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white">
-              <h2 className="text-lg font-semibold">{editing ? 'Editar Produto' : 'Novo Produto'}</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
+              <h2 className="text-base font-black text-gray-900 tracking-tight">
+                {editing ? 'Editar Produto' : 'Novo Produto'}
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <HiXMark className="w-5 h-5" />
+              </button>
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -229,11 +266,12 @@ export default function ProductsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <input type="checkbox" id="active" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-                <label htmlFor="active" className="text-sm text-gray-700">Produto ativo</label>
+                <input type="checkbox" id="active" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                  className="w-4 h-4 accent-brand-500" />
+                <label htmlFor="active" className="text-sm font-medium text-gray-700">Produto ativo</label>
               </div>
             </div>
-            <div className="flex gap-3 justify-end px-5 py-4 border-t">
+            <div className="flex gap-3 justify-end px-5 py-4 border-t border-gray-100">
               <button onClick={() => setShowModal(false)} className="btn-secondary">Cancelar</button>
               <button onClick={handleSave} disabled={saving || !form.sku || !form.name} className="btn-primary">
                 {saving ? 'Salvando...' : 'Salvar'}
