@@ -226,8 +226,8 @@ function ProductDrawer({ product, onClose, onEdit }: {
 
         {/* Footer actions */}
         <div className="px-5 py-4 border-t border-line/10 shrink-0 flex gap-3">
-          <button onClick={onClose} className="btn-secondary flex-1">Fechar</button>
-          <button onClick={onEdit} className="btn-primary flex-1 flex items-center justify-center gap-2">
+          <button onClick={onClose} className="btn-secondary btn-block">Fechar</button>
+          <button onClick={onEdit} className="btn-primary btn-block">
             <HiPencilSquare className="w-4 h-4" /> Editar
           </button>
         </div>
@@ -418,7 +418,7 @@ export default function ProductsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={handleSync}
-              className="btn-secondary flex items-center gap-2"
+              className="btn-secondary"
               title="Importar todos os produtos do catálogo Plantec / Magento"
             >
               <HiArrowPath className="w-4 h-4" />
@@ -693,7 +693,7 @@ export default function ProductsPage() {
                       )}
                     </p>
                   </div>
-                  <button onClick={closeSync} className="btn-primary w-full">Fechar</button>
+                  <button onClick={closeSync} className="btn-primary btn-block">Fechar</button>
                 </div>
               )}
               {syncStatus === 'error' && (
@@ -711,8 +711,8 @@ export default function ProductsPage() {
                     )}
                   </div>
                   <div className="flex gap-3">
-                    <button onClick={closeSync} className="btn-secondary flex-1">Fechar</button>
-                    <button onClick={handleSync} className="btn-primary flex-1">Tentar novamente</button>
+                    <button onClick={closeSync} className="btn-secondary btn-block">Fechar</button>
+                    <button onClick={handleSync} className="btn-primary btn-block">Tentar novamente</button>
                   </div>
                 </div>
               )}

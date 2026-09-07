@@ -244,7 +244,7 @@ export default function ProfilesPage() {
                       type="button"
                       onClick={handleGenerateDesc}
                       disabled={generatingDesc || importingLogo}
-                      className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-brand-200 bg-brand-50 hover:bg-brand-100 text-sm font-medium text-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="btn-ai btn-block"
                     >
                       <HiSparkles className="w-4 h-4" />
                       {generatingDesc ? 'Gerando descrição…' : 'Gerar descrição com IA'}

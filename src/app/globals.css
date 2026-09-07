@@ -398,6 +398,50 @@ table.data-table tbody tr:hover { background: var(--pt-surface-2); }
 .sidebar-link.active { background: rgba(255, 255, 255, 0.12); color: #fff; }
 
 
+
+/* ── Botões: uma forma só ─────────────────────────────────────────────────────
+   Antes cada chamada empilhava override próprio sobre .btn-primary
+   ("flex items-center gap-2 text-xs px-3 py-1.5 disabled:opacity-50"...),
+   e o resultado era 20 tamanhos diferentes na mesma tela. A base já traz
+   layout, alinhamento e estado desabilitado; o tamanho sai de modificador,
+   nunca de utilitária solta. */
+
+.btn-primary, .btn-primario, .btn-secondary, .btn-voltar, .btn-danger, .btn-ai {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  line-height: 1.2;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled, .btn-ai:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Modificadores de tamanho e largura — substituem os overrides ad hoc. */
+.btn-sm { font-size: 12px; padding: 7px 14px; border-radius: 8px; }
+.btn-xs { font-size: 11px; padding: 5px 11px; border-radius: 7px; }
+.btn-block { display: flex; width: 100%; }
+
+/* Ação de IA: sempre a mesma, em qualquer tela. Fica em brand-soft com
+   contorno, e não no teal cheio, porque é ação assistiva ao lado do campo —
+   nunca a ação principal do formulário, que é Salvar. */
+.btn-ai {
+  font-family: var(--font-body), sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 8px;
+  color: var(--pt-brand-ink);
+  background: var(--pt-brand-soft);
+  border: 1px solid var(--pt-brand);
+  cursor: pointer;
+}
+.btn-ai:hover:not(:disabled) { background: var(--pt-brand); color: #fff; }
+
 /* ── Compatibilidade: utilitárias Tailwind soltas → tokens do Portal ──────────
    As telas ainda carregam classes de cor cruas no JSX. Em vez de editar as
    nove uma a uma (e reintroduzir a divergência no próximo componente novo),

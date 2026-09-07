@@ -159,7 +159,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   function nameCell(item: Item, extraText?: string): string {
     const img  = productImg(item)
     const text = `<div style="min-width:0;flex:1;overflow:hidden">
-      <span style="font-weight:700;color:#0F172A;font-size:8.5pt;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px">${esc(item.product.name)}</span>
+      <span style="font-weight:700;color:#0F172A;font-size:8.5pt;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${esc(item.product.name)}</span>
       ${item.product.brand
         ? `<span style="display:block;font-size:7pt;color:#94A3B8;font-weight:500;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.product.brand)} · ${esc(item.product.category)}</span>`
         : ''}
@@ -203,10 +203,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       : ''
     const clamp3 = 'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden'
     return `<tr>
-      <td class="mono" style="white-space:nowrap">${esc(item.product.sku)}</td>
+      <td class="mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.product.sku)}</td>
       ${nameCell(item, extra)}
       <td class="r" style="font-weight:700;white-space:nowrap">${item.quantity}${item.product.unit ? ` ${esc(item.product.unit)}` : ''}</td>
-      <td style="color:#64748B;font-weight:600;white-space:nowrap">${esc(item.product.category)}</td>
+      <td style="color:#64748B;font-weight:600">${esc(item.product.category)}</td>
       <td style="${clamp3}">${esc(item.role ?? '—')}</td>
       <td style="font-size:7pt;color:#64748B;line-height:1.4;${clamp3}">${esc(notes)}</td>
     </tr>`
@@ -531,11 +531,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .intro-grid{display:grid;grid-template-columns:200px 1fr;gap:32px;align-items:start}
     .intro-logo-box{border:1px solid var(--g200);border-radius:10px;padding:20px;display:flex;align-items:center;justify-content:center;min-height:100px;background:var(--g50)}
     .intro-logo-box img{max-width:140px;max-height:70px;object-fit:contain}
-    table.data-table{width:100%;border-collapse:collapse;font-size:8.5pt}
+    table.data-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:8.5pt}
     table.data-table thead tr{background:var(--t800)}
     table.data-table th{padding:9px 12px;text-align:left;font-size:7.5pt;font-weight:800;color:white;letter-spacing:.8px;text-transform:uppercase}
     table.data-table th.r{text-align:right}
-    table.data-table td{padding:8px 12px;border-bottom:1px solid var(--g100);color:var(--g700);vertical-align:top}
+    table.data-table td{padding:8px 12px;border-bottom:1px solid var(--g100);color:var(--g700);vertical-align:top;overflow-wrap:anywhere;word-break:normal}
     table.data-table td.r{text-align:right}
     table.data-table td.mono{font-family:'IBM Plex Mono','SFMono-Regular',Consolas,monospace;font-size:7.5pt;color:var(--g400);font-weight:600}
     table.data-table tbody tr:nth-child(even) td{background:var(--g50)}

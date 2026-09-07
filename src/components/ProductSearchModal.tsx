@@ -492,7 +492,7 @@ export default function ProductSearchModal({ onClose, onAdd }: ProductSearchModa
             <button
               onClick={handleAdd}
               disabled={adding}
-              className="btn-primary shrink-0 flex items-center gap-2"
+              className="btn-primary shrink-0"
             >
               {adding && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
               {adding ? 'Adicionando...' : 'Adicionar'}

@@ -158,7 +158,7 @@ export default function AIProjectModal({ onClose, onImport }: AIProjectModalProp
           <button
             onClick={handleImport}
             disabled={importing}
-            className="btn-primary flex items-center gap-1.5 text-sm py-1.5 px-3 disabled:opacity-50"
+            className="btn-primary btn-sm"
           >
             {importing
               ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -204,7 +204,7 @@ export default function AIProjectModal({ onClose, onImport }: AIProjectModalProp
             <button
               onClick={analyze}
               disabled={!description.trim()}
-              className="btn-primary flex items-center gap-2 disabled:opacity-50"
+              className="btn-primary"
             >
               <HiSparkles className="w-4 h-4" />
               Analisar Projeto
@@ -372,7 +372,7 @@ export default function AIProjectModal({ onClose, onImport }: AIProjectModalProp
           <button
             onClick={handleImport}
             disabled={importing}
-            className="btn-primary flex items-center gap-2 disabled:opacity-50"
+            className="btn-primary"
           >
             {importing
               ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

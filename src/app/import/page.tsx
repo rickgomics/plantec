@@ -134,7 +134,7 @@ export default function ImportPage() {
           <button
             onClick={load}
             disabled={loading}
-            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50"
+            className="btn-secondary"
           >
             <span className={loading ? 'animate-spin inline-block' : ''}>↺</span>
             Atualizar
@@ -205,7 +205,7 @@ export default function ImportPage() {
             <button
               onClick={handleImport}
               disabled={selected.size === 0 || importing}
-              className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50"
+              className="btn-primary"
             >
               {importing
                 ? <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />

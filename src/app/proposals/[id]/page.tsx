@@ -759,7 +759,7 @@ export default function ProposalDetailPage() {
             <Link href={`/proposals/${id}/pdf`} target="_blank" className="btn-secondary">
               👁 Preview
             </Link>
-            <a href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/proposals/${id}/download`} download className="btn-primary flex items-center gap-1.5 text-sm">
+            <a href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/proposals/${id}/download`} download className="btn-primary">
               ⬇ Baixar PDF
             </a>
           </div>
@@ -812,7 +812,7 @@ export default function ProposalDetailPage() {
                       <button
                         onClick={handleFillBomTech}
                         disabled={fillingBom}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-brand-200 text-brand-600 bg-brand-50 hover:bg-brand-100 transition-colors disabled:opacity-50"
+                        className="btn-ai btn-xs"
                         title="Gera função de cada item com IA e preenche Descritivo com a descrição do produto"
                       >
                         {fillingBom ? <span className="animate-spin">◌</span> : '◈'}
@@ -841,7 +841,7 @@ export default function ProposalDetailPage() {
                       <HiArrowDownTray className="w-3.5 h-3.5" />
                       Portal Plantec
                     </button>
-                    <button onClick={() => setShowAddProduct(true)} className="btn-primary text-xs px-3 py-1.5">
+                    <button onClick={() => setShowAddProduct(true)} className="btn-primary btn-xs">
                       + Adicionar Produto
                     </button>
                   </div>
@@ -886,7 +886,7 @@ export default function ProposalDetailPage() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <AIGenerateButton type="executiveSummary" context={aiContext} onGenerated={(t) => { setExecutiveSummary(t); setEditingSummary(false) }} />
                     {executiveSummary && (
-                      <button onClick={() => setEditingSummary(e => !e)} className="btn-secondary text-xs px-3 py-1.5">
+                      <button onClick={() => setEditingSummary(e => !e)} className="btn-secondary btn-xs">
                         {editingSummary ? 'Ver' : 'Editar'}
                       </button>
                     )}
@@ -929,7 +929,7 @@ export default function ProposalDetailPage() {
                       onGenerated={(t) => { setScope(t); setEditingScope(false) }}
                     />
                     {scope && (
-                      <button onClick={() => setEditingScope(e => !e)} className="btn-secondary text-xs px-3 py-1.5">
+                      <button onClick={() => setEditingScope(e => !e)} className="btn-secondary btn-xs">
                         {editingScope ? 'Ver' : 'Editar'}
                       </button>
                     )}
@@ -1219,7 +1219,7 @@ export default function ProposalDetailPage() {
                     <button
                       onClick={handleSaveProfileDesc}
                       disabled={savingProfile}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-brand-200 text-brand-600 bg-brand-50 hover:bg-brand-100 transition-colors disabled:opacity-50 flex-shrink-0 ml-3"
+                      className="btn-secondary btn-xs shrink-0 ml-3"
                     >
                       {savingProfile ? '…' : '↑'} Salvar no Perfil
                     </button>
@@ -1297,7 +1297,7 @@ export default function ProposalDetailPage() {
                   <button
                     onClick={handleGenerateScenario}
                     disabled={scenarioGenerating}
-                    className="btn-primary flex items-center gap-2 text-xs px-4 py-2 whitespace-nowrap"
+                    className="btn-primary btn-sm"
                   >
                     {scenarioGenerating ? (
                       <>
@@ -1313,14 +1313,14 @@ export default function ProposalDetailPage() {
                       <button
                         onClick={handleGenerateDesc}
                         disabled={scenarioGenerating}
-                        className="btn-secondary text-[10px] px-3 py-1.5 whitespace-nowrap"
+                        className="btn-secondary btn-xs"
                       >
                         ↺ Só Descrição
                       </button>
                       <button
                         onClick={() => handleGenerateDiagram()}
                         disabled={scenarioGenerating || !scenarioDesc.trim()}
-                        className="btn-secondary text-[10px] px-3 py-1.5 whitespace-nowrap disabled:opacity-40"
+                        className="btn-secondary btn-xs"
                       >
                         ↺ Só Diagrama
                       </button>
@@ -1444,7 +1444,7 @@ export default function ProposalDetailPage() {
                     <button
                       onClick={handleEraserPreview}
                       disabled={eraserPreviewing || !scenarioDiagram.trim()}
-                      className="btn-primary text-xs py-2 flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="btn-primary btn-sm"
                     >
                       {eraserPreviewing ? (
                         <><span className="animate-spin">◌</span> Gerando…</>
@@ -1596,14 +1596,14 @@ export default function ProposalDetailPage() {
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={() => { setShowPortalImport(false); setPortalError('') }}
-                    className="flex-1 btn-secondary"
+                    className="btn-secondary btn-block"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={handlePortalFetch}
                     disabled={portalImporting || !portalQuotationId.trim()}
-                    className="flex-1 btn-primary flex items-center justify-center gap-2"
+                    className="btn-primary btn-block"
                   >
                     {portalImporting ? (
                       <><span className="animate-spin">◌</span> Buscando...</>
@@ -1648,14 +1648,14 @@ export default function ProposalDetailPage() {
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={() => { setPortalStep('input'); setPortalItems([]) }}
-                    className="flex-1 btn-secondary"
+                    className="btn-secondary btn-block"
                   >
                     ← Voltar
                   </button>
                   <button
                     onClick={handlePortalImport}
                     disabled={portalImporting}
-                    className="flex-1 btn-primary flex items-center justify-center gap-2"
+                    className="btn-primary btn-block"
                   >
                     {portalImporting ? (
                       <><span className="animate-spin">◌</span> Importando...</>
