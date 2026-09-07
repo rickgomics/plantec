@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { buildSpecAttributes, fetchSpecOptionMaps, type SpecOptionMaps } from '@/lib/magentoSpecs'
 
 const BASE   = (process.env.MAGENTO_URL  ?? '').replace(/\/$/, '')
 const TOKEN  = process.env.MAGENTO_TOKEN ?? ''
@@ -130,6 +131,9 @@ export async function GET(req: NextRequest) {
         send({ type: 'start', total, totalPages })
 
         const mfr = await fetchManufacturers()
+        // Mapas de opção da ficha técnica: buscados uma vez e reaproveitados
+        // nas ~44 páginas do catálogo (atributo select vem como ID, não rótulo).
+        const specMaps: SpecOptionMaps = await fetchSpecOptionMaps(BASE, HDRS)
 
         let synced = 0
         let errors = 0
@@ -167,6 +171,7 @@ export async function GET(req: NextRequest) {
                       magento_price:   p.price,
                       image_url:       image,
                       ncm:             attr(p, 'ncm'),
+                      ...buildSpecAttributes(p.custom_attributes, specMaps),
                     },
                     compatible: [],
                     required:   [],
@@ -184,6 +189,7 @@ export async function GET(req: NextRequest) {
                       magento_price:   p.price,
                       image_url:       image,
                       ncm:             attr(p, 'ncm'),
+                      ...buildSpecAttributes(p.custom_attributes, specMaps),
                     },
                   },
                 })

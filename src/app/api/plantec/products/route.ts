@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+import { buildSpecAttributes, fetchSpecOptionMaps, type SpecOptionMaps } from '@/lib/magentoSpecs'
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,15 @@ const SEGMENT_MAP: Record<string, string> = {
 // ── Manufacturer label cache (in-process, reloads on server restart) ──────────
 
 let mfrCache: Record<string, string> | null = null
+// Mesma estratégia do cache de fabricantes: os rótulos das opções da ficha
+// técnica não mudam entre buscas, e são ~24 requisições se refeitos toda vez.
+let specCache: SpecOptionMaps | null = null
+
+async function getSpecMaps(): Promise<SpecOptionMaps> {
+  if (specCache) return specCache
+  specCache = await fetchSpecOptionMaps(BASE, HEADERS)
+  return specCache
+}
 
 async function getManufacturers(): Promise<Record<string, string>> {
   if (mfrCache) return mfrCache
@@ -109,7 +119,7 @@ async function fetchStock(sku: string): Promise<number> {
   }
 }
 
-function normalize(p: MagentoProduct, mfr: Record<string, string>, qty: number) {
+function normalize(p: MagentoProduct, mfr: Record<string, string>, qty: number, specMaps: SpecOptionMaps) {
   const nseg  = attr(p, 'nsegmento')
   const mfrId = attr(p, 'manufacturer')
   const desc  = attr(p, 'description')
@@ -134,6 +144,7 @@ function normalize(p: MagentoProduct, mfr: Record<string, string>, qty: number) 
       magento_price:   p.price,
       image_url:       image,
       ncm:             attr(p, 'ncm'),
+      ...buildSpecAttributes(p.custom_attributes, specMaps),
     },
     image,
     compatible: [] as string[],
@@ -189,13 +200,14 @@ export async function GET(req: NextRequest) {
     const data = await res.json()
     const items: MagentoProduct[] = data.items ?? []
 
-    // Manufacturer labels + stock — all in parallel
-    const [mfr, stocks] = await Promise.all([
+    // Manufacturer labels + ficha técnica + stock — all in parallel
+    const [mfr, specMaps, stocks] = await Promise.all([
       getManufacturers(),
+      getSpecMaps(),
       Promise.all(items.map(item => fetchStock(item.sku))),
     ])
 
-    const products = items.map((item, i) => normalize(item, mfr, stocks[i]))
+    const products = items.map((item, i) => normalize(item, mfr, stocks[i], specMaps))
 
     return NextResponse.json({ products, total: data.total_count ?? products.length })
   } catch (err) {

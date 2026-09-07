@@ -22,14 +22,14 @@ interface ImportResult {
 }
 
 const VERTICAL_COLOR: Record<string, string> = {
-  CFTV:          'bg-teal-50 text-teal-700 ring-teal-200',
-  Redes:         'bg-blue-50 text-blue-700 ring-blue-200',
-  Telecom:       'bg-violet-50 text-violet-700 ring-violet-200',
+  CFTV:          'bg-brand-50 text-brand-700 ring-brand-200',
+  Redes:         'bg-brand-50 text-brand-700 ring-brand-200',
+  Telecom:       'bg-brand-50 text-brand-700 ring-brand-200',
   Infraestrutura:'bg-amber-50 text-amber-700 ring-amber-200',
   Alarme:        'bg-red-50 text-red-700 ring-red-200',
 }
 function verticalBadge(v: string) {
-  const cls = VERTICAL_COLOR[v] ?? 'bg-ink/5 text-ink/65 ring-gray-200'
+  const cls = VERTICAL_COLOR[v] ?? 'bg-ink/5 text-ink/65 ring-line/15'
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ring-1 ring-inset ${cls}`}>
       {v}
@@ -164,18 +164,18 @@ export default function ImportPage() {
               {results.map(r => {
                 const proj = projects.find(p => p.id === r.projectId)
                 return (
-                  <div key={r.projectId} className={`flex items-center gap-3 p-3 rounded-lg ${r.success ? 'bg-teal-50' : 'bg-red-50'}`}>
+                  <div key={r.projectId} className={`flex items-center gap-3 p-3 rounded-lg ${r.success ? 'bg-brand-50' : 'bg-red-50'}`}>
                     {r.success
-                      ? <HiCheckCircle className="w-5 h-5 text-teal-500 flex-shrink-0" />
+                      ? <HiCheckCircle className="w-5 h-5 text-brand-500 flex-shrink-0" />
                       : <HiXCircle    className="w-5 h-5 text-red-500 flex-shrink-0" />}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-ink/80 truncate">{proj?.title ?? r.projectId}</div>
                       {r.success
-                        ? <div className="text-xs text-teal-700">Proposta criada: <span className="font-mono font-bold">{r.proposalNumber}</span></div>
+                        ? <div className="text-xs text-brand-700">Proposta criada: <span className="font-mono font-bold">{r.proposalNumber}</span></div>
                         : <div className="text-xs text-red-700">{r.error}</div>}
                     </div>
                     {r.success && r.proposalId && (
-                      <Link href={`/proposals/${r.proposalId}`} className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-800 font-semibold whitespace-nowrap">
+                      <Link href={`/proposals/${r.proposalId}`} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 font-semibold whitespace-nowrap">
                         Abrir <HiArrowTopRightOnSquare className="w-3.5 h-3.5" />
                       </Link>
                     )}
@@ -253,7 +253,7 @@ export default function ImportPage() {
                       key={p.id}
                       className={`transition-colors cursor-pointer ${
                         result?.success
-                          ? 'bg-teal-50/60'
+                          ? 'bg-brand-50/60'
                           : isSelected
                           ? 'bg-brand-50'
                           : 'hover:bg-background'
@@ -262,7 +262,7 @@ export default function ImportPage() {
                     >
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         {result?.success ? (
-                          <HiCheckCircle className="w-5 h-5 text-teal-500" />
+                          <HiCheckCircle className="w-5 h-5 text-brand-500" />
                         ) : (
                           <input
                             type="checkbox"
@@ -278,7 +278,7 @@ export default function ImportPage() {
                         {result?.success && (
                           <Link
                             href={`/proposals/${result.proposalId}`}
-                            className="inline-flex items-center gap-1 text-[10px] text-teal-600 hover:underline font-bold mt-0.5"
+                            className="inline-flex items-center gap-1 text-[10px] text-brand-600 hover:underline font-bold mt-0.5"
                             onClick={e => e.stopPropagation()}
                           >
                             {result.proposalNumber} <HiArrowTopRightOnSquare className="w-3 h-3" />

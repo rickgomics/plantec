@@ -172,7 +172,7 @@ export default function ProfilesPage() {
           <h1 className="text-2xl font-bold text-ink">Perfis de Empresa</h1>
           <p className="text-sm text-ink/55 mt-1">Gerencie perfis para capas e introduções de propostas</p>
         </div>
-        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors">
           <FaPlus /> Novo Perfil
         </button>
       </div>
@@ -289,7 +289,7 @@ export default function ProfilesPage() {
 
             <div className="p-6 border-t flex gap-3 justify-end">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 border rounded-lg text-sm hover:bg-background">Cancelar</button>
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-60">
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-brand-500 text-white rounded-lg text-sm hover:bg-brand-600 disabled:opacity-60">
                 {saving ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
@@ -329,7 +329,7 @@ function ProfileGroup({ title, profiles, onEdit, onDelete }: {
                 {p.description && <div className="text-sm text-ink/55 truncate">{p.description}</div>}
               </div>
               <div className="flex-shrink-0 flex gap-1">
-                <button onClick={() => onEdit(p)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar"><FaEdit /></button>
+                <button onClick={() => onEdit(p)} className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg" title="Editar"><FaEdit /></button>
                 <button onClick={() => onDelete(p.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg" title="Excluir"><FaTrash /></button>
               </div>
             </div>

@@ -21,5 +21,8 @@ npm-debug.log*
 prisma/generated/
 tsconfig.tsbuildinfo
 
-# build da variante plantecia
+# build da variante plantecia (.next-plantecia-old = build anterior,
+# guardado no deploy pra permitir rollback sem rebuildar)
 .next-plantecia/
+.next-plantecia-old/
+.next-plantecia-new/

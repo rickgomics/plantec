@@ -13,7 +13,7 @@ Gerador de propostas comerciais para distribuidoras de tecnologia (CFTV, redes, 
 | Fonte | Montserrat (Google Fonts) |
 | Banco | PostgreSQL via Neon (serverless) |
 | ORM | Prisma 5 |
-| IA | Anthropic SDK (`claude-opus-4-7`) |
+| IA | Anthropic SDK (`claude-opus-5`) |
 | Deploy | Vercel (functions + edge) |
 | PDF | HTML/CSS server-rendered (Route Handler) |
 | Diagramas | Mermaid via mermaid.ink (server-side SVG) |
@@ -84,7 +84,8 @@ src/
     StatusBadge.tsx                     # Badge colorido de status
   lib/
     prisma.ts                           # Singleton PrismaClient (globalThis)
-    coverStyles.ts                      # 5 temas de capa do PDF
+    coverStyles.ts                      # 10 temas de capa do PDF (5 clássicos + 5 por vertical)
+    magentoSpecs.ts                     # Ficha técnica dos attribute sets do Magento
   services/
     ruleEngine.ts                       # Motor de regras puro (sem BD)
   types/
@@ -233,7 +234,7 @@ Body: `{ type, context }`. Tipos disponíveis:
 - `scenarioDiagram` — código Mermaid puro (graph TD/LR com classDef e subgraphs)
 - `introText` — texto institucional da empresa
 
-Usa `claude-opus-4-7` com `thinking: { type: 'adaptive' }` e `max_tokens: 1500`.
+Usa `claude-opus-5` com `thinking: { type: 'adaptive' }` e `max_tokens: 1500`.
 
 ---
 
@@ -304,7 +305,12 @@ const TOTALS_BLK = 200  // card de resumo financeiro
 
 ## Temas de Capa (`src/lib/coverStyles.ts`)
 
-5 temas: `teal` (Emerald), `carbon`, `ocean`, `burgundy` (Executive), `pearl`.
+10 temas: `teal` (Emerald), `carbon`, `ocean`, `burgundy` (Executive), `pearl` e cinco por
+vertical — `security`, `networks`, `access`, `energy`, `comms`.
+
+**Todos usam a mesma paleta da marca.** A vertical é identificada pelo desenho SVG (mira,
+topologia, biometria, raio, ondas de sinal), nunca pela cor — a regra VIS-02 do gate de
+propostas exige um primário só, da capa ao rodapé. `pearl` é a única capa clara.
 
 Cada tema tem: `bg` (gradient), `pattern` (overlay CSS), `accent`, `accentLight`, `text`, `subText`, `footerBg`, `dark` (boolean para contraste).
 
@@ -318,11 +324,18 @@ O tema é injetado como override CSS direto no `<style>` do PDF:
 ## Design System
 
 ### Cores de marca
+Mesma escala do Cockpit — os dois apps compartilham o sistema visual.
 ```
-brand-50  → #E6F5F4
-brand-500 → #00928E (primária)
-brand-900 → #002827 (sidebar, headers escuros)
+brand-50  → #EEF0FC
+brand-500 → #3547C8 (primária, .btn-primary)
+brand-600 → #2A38A3 (hover da primária)
+brand-900 → #0F1438 (sidebar, headers escuros)
 ```
+Tokens reativos ao tema: `ink` (texto/borda), `surface` (card/modal), `line` (hairline).
+Semânticas: `red` erro, `amber` alerta, `emerald` sucesso — nunca a escala `brand`.
+
+O PDF repete a escala em `--b900`…`--b50`, porque documento impresso não herda os tokens
+do Tailwind.
 
 ### Componentes globais (globals.css)
 - `.sidebar-link` / `.sidebar-link.active` — nav lateral
@@ -463,7 +476,7 @@ Necessário em todos os Route Handlers que acessam o banco, para evitar caching 
 Sempre feito no servidor via `recalcProposal()` após qualquer mudança em itens. Nunca confiar em cálculos do cliente.
 
 ### IA com thinking
-O modelo `claude-opus-4-7` é usado com `thinking: { type: 'adaptive' }`. O conteúdo de thinking não é retornado ao cliente — apenas o bloco `text`.
+O modelo `claude-opus-5` é usado com `thinking: { type: 'adaptive' }`. O conteúdo de thinking não é retornado ao cliente — apenas o bloco `text`.
 
 ### PDF e iOS Safari
 iOS Safari ignora `overflow:hidden` em modo print. Por isso cada página deve ter conteúdo que cabe naturalmente em 297mm — não depender de clipping CSS. Seções longas (resumo executivo, escopo) devem ser páginas separadas.

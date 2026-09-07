@@ -165,7 +165,7 @@ function ProductDrawer({ product, onClose, onEdit }: {
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
                   product.active
                     ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
-                    : 'bg-ink/5 text-ink/55 ring-1 ring-inset ring-gray-200'
+                    : 'bg-ink/5 text-ink/55 ring-1 ring-inset ring-line/15'
                 }`}>
                   {product.active ? 'Ativo' : 'Inativo'}
                 </span>
@@ -177,6 +177,21 @@ function ProductDrawer({ product, onClose, onEdit }: {
               <div>
                 <p className="text-[10px] font-black text-ink/45 uppercase tracking-widest mb-2">Descrição</p>
                 <p className="text-sm text-ink/65 leading-relaxed">{product.description}</p>
+              </div>
+            )}
+
+            {/* Ficha técnica do attribute set do Magento (câmeras, gravadores, switches) */}
+            {!!attrs.specs && Object.keys(attrs.specs as Record<string, string>).length > 0 && (
+              <div>
+                <p className="text-[10px] font-black text-ink/45 uppercase tracking-widest mb-2">Ficha técnica</p>
+                <div className="space-y-1.5">
+                  {Object.entries(attrs.specs as Record<string, string>).map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-4 text-sm">
+                      <span className="text-ink/45 font-medium">{SPEC_LABELS[k] ?? k}</span>
+                      <span className="text-ink/75 font-semibold text-xs text-right">{v}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -234,6 +249,38 @@ function Row({ icon, label, value }: { icon: JSX.Element; label: string; value: 
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+
+/** Rótulos da ficha técnica — espelham SPEC_DEFS em @/lib/magentoSpecs */
+const SPEC_LABELS: Record<string, string> = {
+  canais: 'Quantidade de canais',
+  baias: 'HDs suportados',
+  capacidadeMaxima: 'Capacidade máxima total',
+  armazenamento: 'Armazenamento',
+  ssd: 'Compatibilidade SSD',
+  resolucao: 'Resolução de vídeo',
+  lente: 'Tamanho da lente',
+  anguloDeVisao: 'Ângulo de visão',
+  sensor: 'Sensor de imagem',
+  visaoNoturna: 'Visão noturna',
+  grauDeProtecao: 'Grau de proteção',
+  alimentacao: 'Alimentação de entrada',
+  zoom: 'Zoom',
+  tipoDeCase: 'Tipo de case',
+  localDeInstalacao: 'Local de instalação',
+  modelo: 'Modelo da câmera',
+  smart: 'Smart',
+  starlight: 'Função Starlight',
+  microfoneEmbutido: 'Microfone embutido',
+  wifi: 'Conexão WiFi',
+  portas: 'Quantidade de portas',
+  portasUplink: 'Portas uplink',
+  redeEthernet: 'Rede Ethernet',
+  poe: 'Portas PoE',
+  gerenciavel: 'Gerenciável',
+  protocoloDeVideo: 'Protocolo de vídeo',
+  inteligenciaDeVideo: 'Inteligência de vídeo',
+  analiseDeVideo: 'Análise de vídeo',
+}
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -465,7 +512,7 @@ export default function ProductsPage() {
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide ${
                         p.active
                           ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
-                          : 'bg-ink/5 text-ink/55 ring-1 ring-inset ring-gray-200'
+                          : 'bg-ink/5 text-ink/55 ring-1 ring-inset ring-line/15'
                       }`}>
                         {p.active ? 'Ativo' : 'Inativo'}
                       </span>

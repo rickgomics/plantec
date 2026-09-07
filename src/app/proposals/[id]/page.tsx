@@ -820,14 +820,14 @@ export default function ProposalDetailPage() {
                     )}
                     <button
                       onClick={() => setShowAIProject(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors"
                       title="Montar BOM automaticamente com IA"
                     >
                       ✨ IA
                     </button>
                     <button
                       onClick={() => setShowIntelbras(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors"
                       title="Buscar produtos no catálogo Intelbras"
                     >
                       📷 Intelbras
@@ -867,7 +867,7 @@ export default function ProposalDetailPage() {
                       <div className="flex justify-between font-bold text-ink text-base pt-2 border-t border-line/15">
                         <span>Total:</span><span>{fmt(totals.totalPrice)}</span>
                       </div>
-                      <div className={`flex justify-between font-medium ${totals.margin >= 15 ? 'text-green-600' : totals.margin >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>
+                      <div className={`flex justify-between font-medium ${totals.margin >= 15 ? 'text-emerald-600' : totals.margin >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>
                         <span>Margem estimada:</span><span>{totals.margin.toFixed(1)}%</span>
                       </div>
                     </div>
@@ -1011,7 +1011,7 @@ export default function ProposalDetailPage() {
                     )}
                     <div>
                       <div className="font-semibold">{coverProfile.name}</div>
-                      {coverProfile.website && <div className="text-xs text-blue-600">{coverProfile.website}</div>}
+                      {coverProfile.website && <div className="text-xs text-brand-600">{coverProfile.website}</div>}
                       {coverProfile.phone && <div className="text-xs text-ink/55">{coverProfile.phone}</div>}
                     </div>
                   </div>
@@ -1022,7 +1022,7 @@ export default function ProposalDetailPage() {
               )}
 
               <div className="pt-2">
-                <Link href="/settings/profiles" className="text-sm text-blue-600 hover:underline">
+                <Link href="/settings/profiles" className="text-sm text-brand-600 hover:underline">
                   + Criar ou editar perfis de empresa →
                 </Link>
               </div>
@@ -1245,7 +1245,7 @@ export default function ProposalDetailPage() {
 
               <label className="flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all select-none
                   hover:border-brand-200 hover:bg-brand-50/40"
-                style={{ borderColor: showUnitPrice ? 'var(--brand-500, #00928E)' : '#E2E8F0',
+                style={{ borderColor: showUnitPrice ? 'var(--brand-500, #3547C8)' : '#E2E8F0',
                          background:   showUnitPrice ? '#F0FAFA' : 'white' }}
                 onClick={async () => {
                   const next = !showUnitPrice
@@ -1468,7 +1468,7 @@ export default function ProposalDetailPage() {
                     </span>
                   )}
                   {eraserPreviewUrl && (
-                    <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full ring-1 ring-inset ring-violet-200">
+                    <span className="text-[10px] font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full ring-1 ring-inset ring-brand-200">
                       ✦ Eraser
                     </span>
                   )}
@@ -1479,7 +1479,7 @@ export default function ProposalDetailPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={eraserPreviewUrl} alt="Diagrama Eraser" className="w-full rounded-lg border border-line/10 object-contain" style={{ maxHeight: 480 }} />
                   ) : (
-                    <div className="flex flex-col items-center justify-center flex-1 min-h-[440px] border-2 border-dashed border-violet-100 rounded-xl text-center bg-violet-50/30">
+                    <div className="flex flex-col items-center justify-center flex-1 min-h-[440px] border-2 border-dashed border-brand-100 rounded-xl text-center bg-brand-50/30">
                       <div className="text-4xl mb-3 opacity-30 select-none">✦</div>
                       <p className="text-sm font-semibold text-ink/45">Preview do Eraser</p>
                       <p className="text-xs text-ink/35 mt-1 font-medium">

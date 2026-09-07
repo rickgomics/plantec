@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     ]
 
     let response = await client.messages.create({
-      model:      'claude-sonnet-5',
+      model:      'claude-opus-5',
       max_tokens: 4000,
       system:     SYSTEM,
       tools:      [SEARCH_TOOL],
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
       )
 
       response = await client.messages.create({
-        model:      'claude-sonnet-5',
+        model:      'claude-opus-5',
         max_tokens: 4000,
         system:     SYSTEM,
         tools:      [SEARCH_TOOL],
@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
       )
 
       const retryResp = await client.messages.create({
-        model:      'claude-sonnet-5',
+        model:      'claude-opus-5',
         max_tokens: 4000,
         system:     SYSTEM,
         tools:      [SEARCH_TOOL],

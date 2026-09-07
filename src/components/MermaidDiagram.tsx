@@ -32,9 +32,9 @@ export default function MermaidDiagram({ code, className = '' }: Props) {
           theme: 'base',
           securityLevel: 'loose',
           themeVariables: {
-            primaryColor: '#E6F5F4',
-            primaryTextColor: '#002827',
-            primaryBorderColor: '#00928E',
+            primaryColor: '#EEF0FC',
+            primaryTextColor: '#0F1438',
+            primaryBorderColor: '#3547C8',
             lineColor: '#007B77',
             secondaryColor: '#F0FAF9',
             tertiaryColor: '#ffffff',
@@ -67,9 +67,9 @@ export default function MermaidDiagram({ code, className = '' }: Props) {
 
   if (isEraser) {
     return (
-      <div className={`p-5 bg-violet-50 border border-violet-100 rounded-xl text-sm ${className}`}>
-        <p className="font-semibold text-violet-700">Conteúdo é Eraser DSL</p>
-        <p className="text-violet-500 text-xs mt-1">Alterne para o modo <strong>✦ Eraser</strong> no seletor acima para visualizar este diagrama.</p>
+      <div className={`p-5 bg-brand-50 border border-brand-100 rounded-xl text-sm ${className}`}>
+        <p className="font-semibold text-brand-700">Conteúdo é Eraser DSL</p>
+        <p className="text-brand-500 text-xs mt-1">Alterne para o modo <strong>✦ Eraser</strong> no seletor acima para visualizar este diagrama.</p>
       </div>
     )
   }

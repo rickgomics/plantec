@@ -435,7 +435,7 @@ export default function ProductSearchModal({ onClose, onAdd }: ProductSearchModa
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         {p.stock > 0
-                          ? <span className="text-green-600 font-semibold">{p.stock}</span>
+                          ? <span className="text-emerald-600 font-semibold">{p.stock}</span>
                           : <span className="text-ink/35 text-xs">—</span>
                         }
                       </td>
