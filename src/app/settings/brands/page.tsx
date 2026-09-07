@@ -101,7 +101,7 @@ export default function BrandsPage() {
           <h1 className="text-2xl font-black text-ink tracking-tight">Fabricantes Parceiros</h1>
           <p className="text-sm text-ink/55 mt-1.5">Logotipos e descrições exibidos na página de fabricantes das propostas PDF</p>
         </div>
-        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors text-sm font-semibold shadow-sm">
+        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-semibold shadow-sm">
           <FaPlus size={12} /> Novo Fabricante
         </button>
       </div>
@@ -120,7 +120,7 @@ export default function BrandsPage() {
             <div>
               <div className="flex items-center gap-3 mb-5">
                 <h2 className="text-xs font-bold text-ink/45 uppercase tracking-wider">Ativos — aparecem na proposta</h2>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-100">{active.length} marcas</span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-100">{active.length} marcas</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-4 gap-5">
                 {active.map(b => <BrandCard key={b.id} brand={b} onEdit={openEdit} onDelete={handleDelete} onToggle={toggleActive} />)}
@@ -196,7 +196,7 @@ export default function BrandsPage() {
 
             <div className="p-6 border-t flex gap-3 justify-end">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 border rounded-lg text-sm hover:bg-background">Cancelar</button>
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-brand-500 text-white rounded-lg text-sm hover:bg-brand-600 disabled:opacity-60">
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-60">
                 {saving ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
@@ -217,7 +217,7 @@ function BrandCard({ brand, onEdit, onDelete, onToggle }: {
   return (
     <div className={`bg-surface border rounded-xl shadow-sm overflow-hidden group flex flex-col transition-all hover:shadow-md ${!brand.active ? 'opacity-50 grayscale' : ''}`}>
       {/* teal accent bar */}
-      <div className="h-1 bg-gradient-to-r from-brand-600 to-brand-300" />
+      <div className="h-1 bg-gradient-to-r from-teal-600 to-teal-300" />
 
       {/* logo area */}
       <div className="h-24 flex items-center justify-center px-5 py-4 bg-surface">
@@ -236,12 +236,12 @@ function BrandCard({ brand, onEdit, onDelete, onToggle }: {
 
       {/* info */}
       <div className="px-4 pt-3 pb-2 flex-1 flex flex-col">
-        <div className="font-black text-sm text-brand-800 leading-tight mb-1">{brand.name}</div>
+        <div className="font-black text-sm text-teal-800 leading-tight mb-1">{brand.name}</div>
         {brand.description && (
           <p className="text-xs text-ink/55 leading-relaxed line-clamp-3 flex-1">{brand.description}</p>
         )}
         {site && (
-          <div className="text-xs text-brand-600 font-semibold mt-2 pt-2 border-t border-line/10 truncate">
+          <div className="text-xs text-teal-600 font-semibold mt-2 pt-2 border-t border-line/10 truncate">
             {site}
           </div>
         )}
@@ -253,14 +253,14 @@ function BrandCard({ brand, onEdit, onDelete, onToggle }: {
           onClick={() => onToggle(brand)}
           className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${
             brand.active
-              ? 'bg-brand-50 text-brand-700 hover:bg-brand-100'
+              ? 'bg-teal-50 text-teal-700 hover:bg-teal-100'
               : 'bg-ink/5 text-ink/55 hover:bg-ink/10'
           }`}
         >
           {brand.active ? '● Ativo' : '○ Inativo'}
         </button>
         <div className="flex gap-1">
-          <button onClick={() => onEdit(brand)} className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"><FaEdit size={12} /></button>
+          <button onClick={() => onEdit(brand)} className="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"><FaEdit size={12} /></button>
           <button onClick={() => onDelete(brand.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FaTrash size={12} /></button>
         </div>
       </div>

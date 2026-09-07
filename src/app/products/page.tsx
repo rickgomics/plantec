@@ -165,7 +165,7 @@ function ProductDrawer({ product, onClose, onEdit }: {
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
                   product.active
                     ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
-                    : 'bg-ink/5 text-ink/55 ring-1 ring-inset ring-line/15'
+                    : 'bg-ink/5 text-ink/55 ring-1 ring-inset ring-gray-200'
                 }`}>
                   {product.active ? 'Ativo' : 'Inativo'}
                 </span>
@@ -512,7 +512,7 @@ export default function ProductsPage() {
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide ${
                         p.active
                           ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
-                          : 'bg-ink/5 text-ink/55 ring-1 ring-inset ring-line/15'
+                          : 'bg-ink/5 text-ink/55 ring-1 ring-inset ring-gray-200'
                       }`}>
                         {p.active ? 'Ativo' : 'Inativo'}
                       </span>

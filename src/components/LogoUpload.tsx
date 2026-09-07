@@ -39,7 +39,7 @@ export default function LogoUpload({ value, onChange, label = 'Logo' }: Props) {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-sm"
+            className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
           >
             <FaSyncAlt size={12} /> Trocar
           </button>
@@ -56,7 +56,7 @@ export default function LogoUpload({ value, onChange, label = 'Logo' }: Props) {
           type="button"
           onClick={() => inputRef.current?.click()}
           className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-line/20
-            rounded-lg text-sm text-ink/65 hover:border-brand-400 hover:text-brand-600 transition-colors"
+            rounded-lg text-sm text-ink/65 hover:border-blue-400 hover:text-blue-600 transition-colors"
         >
           <FaUpload />
           Enviar logo (PNG/JPG, max 2MB)
