@@ -119,7 +119,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const diagramSvg = (diagramType === 'mermaid' && cleanDiagram) ? await mermaidToSvg(cleanDiagram) : null
 
   const statusLabel: Record<string, string> = { draft: 'Rascunho', generated: 'Gerada', sent: 'Enviada', approved: 'Aprovada', rejected: 'Recusada' }
-  const statusColor: Record<string, string> = { draft: '#6b7280', generated: '#007B77', sent: '#b45309', approved: '#15803d', rejected: '#dc2626' }
+  const statusColor: Record<string, string> = { draft: '#6b7280', generated: '#0b8f88', sent: '#b45309', approved: '#15803d', rejected: '#dc2626' }
 
   const logoHtml = logoSrc
     ? `<img src="${esc(logoSrc)}" alt="${esc(companyName)}" style="max-height:32px;object-fit:contain">`
@@ -344,9 +344,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       document.addEventListener('DOMContentLoaded', function() {
         if (typeof mermaid === 'undefined') return;
         mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
-          primaryColor:'#E6F5F4',primaryTextColor:'#002827',primaryBorderColor:'#00928E',
-          lineColor:'#007B77',secondaryColor:'#FFF7ED',tertiaryColor:'#EFF6FF',
-          fontFamily:'Montserrat,Arial,sans-serif',fontSize:'13px'
+          primaryColor:'#e0f3f1',primaryTextColor:'#04322F',primaryBorderColor:'#0b8f88',
+          lineColor:'#0b8f88',secondaryColor:'#FFF7ED',tertiaryColor:'#EFF6FF',
+          fontFamily:'Work Sans,sans-serif',fontSize:'13px'
         }});
         var els = document.querySelectorAll('pre.mermaid');
         for (var i = 0; i < els.length; i++) {
@@ -438,7 +438,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       <div style="flex:1;display:flex;flex-direction:column;min-height:0">
         ${buildDiagramInner()}
         ${diagramType === 'mermaid' ? `<div class="diagram-legend" style="margin-top:12px">
-          <div class="legend-item"><div class="legend-dot" style="background:#E6F5F4;border:1.5px solid #00928E"></div>Equipamentos propostos</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#e0f3f1;border:1.5px solid #0b8f88"></div>Equipamentos propostos</div>
           <div class="legend-item"><div class="legend-dot" style="background:#FFF7ED;border:1.5px solid #EA580C"></div>Sistemas existentes</div>
           <div class="legend-item"><div class="legend-dot" style="background:white;border:1.5px dashed #94A3B8"></div>Módulos externos</div>
           <div class="legend-item"><div class="legend-dot" style="background:#EFF6FF;border:1.5px solid #3B82F6"></div>Internet / Nuvem</div>
@@ -456,12 +456,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   <title>Proposta ${esc(proposal.number)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   ${mermaidFallback}
-  <style>
-    :root{--t900:#002827;--t800:#004341;--t700:#005F5C;--t600:#007B77;--t500:#00928E;--t400:#26A39F;--t300:#4DB4B2;--t100:#B3DFDD;--t50:#E6F5F4;--g50:#F8FAFC;--g100:#F1F5F9;--g200:#E2E8F0;--g400:#94A3B8;--g500:#64748B;--g700:#334155;--g900:#0F172A}
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+    :root{--t900:#04322F;--t800:#054A45;--t700:#075F59;--t600:#0b8f88;--t500:#0b8f88;--t400:#28b3aa;--t300:#5FCCC4;--t100:#b6e6e1;--t50:#e0f3f1;--g50:#F8FAFC;--g100:#F1F5F9;--g200:#E2E8F0;--g400:#94A3B8;--g500:#64748B;--g700:#334155;--g900:#0F172A}
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Montserrat',Arial,sans-serif;font-size:10pt;color:var(--g900);background:#f0f4f4;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{font-family:'Work Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:10pt;color:var(--g900);background:#f0f4f4;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 
     /* ── toolbar ─────────────────────────────────────────────── */
     .toolbar{position:fixed;top:0;left:0;right:0;z-index:999;background:var(--t900);display:flex;align-items:center;justify-content:space-between;padding:12px 24px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
@@ -470,7 +470,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .toolbar-title{color:white;font-size:12px;font-weight:700}
     .toolbar-sub{color:var(--t300);font-size:10px;font-weight:500;margin-top:1px}
     .toolbar-right{display:flex;gap:8px}
-    .btn-toolbar{border:none;border-radius:6px;padding:8px 18px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:opacity .15s}
+    .btn-toolbar{border:none;border-radius:6px;padding:8px 18px;font-family:'Work Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:opacity .15s}
     .btn-toolbar:hover{opacity:.85}
     .btn-print{background:var(--t500);color:white}
     .btn-close{background:rgba(255,255,255,.1);color:white}
@@ -518,7 +518,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .section:last-child{margin-bottom:0}
     .section-heading{display:flex;align-items:center;gap:12px;margin-bottom:20px}
     .section-heading::before{content:'';display:block;width:4px;height:22px;background:var(--t500);border-radius:2px;flex-shrink:0}
-    .section-heading h2{font-size:11pt;font-weight:800;color:var(--t800);text-transform:uppercase;letter-spacing:0.08em}
+    .section-heading h2{font-family:'Big Shoulders Display','Arial Narrow',sans-serif;font-size:12pt;font-weight:800;color:var(--t800);text-transform:uppercase;letter-spacing:0.08em}
     .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
     .info-card{border:1px solid var(--g200);border-radius:10px;overflow:hidden}
     .info-card-head{background:var(--t50);border-bottom:1px solid var(--t100);padding:10px 16px;font-size:8pt;font-weight:800;color:var(--t700);text-transform:uppercase;letter-spacing:0.08em}
@@ -537,7 +537,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     table.data-table th.r{text-align:right}
     table.data-table td{padding:8px 12px;border-bottom:1px solid var(--g100);color:var(--g700);vertical-align:top}
     table.data-table td.r{text-align:right}
-    table.data-table td.mono{font-family:'Courier New',monospace;font-size:7.5pt;color:var(--g400);font-weight:600}
+    table.data-table td.mono{font-family:'IBM Plex Mono','SFMono-Regular',Consolas,monospace;font-size:7.5pt;color:var(--g400);font-weight:600}
     table.data-table tbody tr:nth-child(even) td{background:var(--g50)}
     table.data-table tfoot td{padding:10px 12px;font-weight:800;font-size:9pt;color:var(--t800);background:var(--t50);border-top:2px solid var(--t400)}
     table.data-table tfoot td.r{text-align:right}

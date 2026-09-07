@@ -95,10 +95,11 @@ export default function BrandsPage() {
   const inactive = brands.filter(b => !b.active)
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="shell">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-black text-ink tracking-tight">Fabricantes Parceiros</h1>
+          <div className="eyebrow">Configurações</div>
+            <h1 className="page-title">Fabricantes Parceiros</h1>
           <p className="text-sm text-ink/55 mt-1.5">Logotipos e descrições exibidos na página de fabricantes das propostas PDF</p>
         </div>
         <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-semibold shadow-sm">

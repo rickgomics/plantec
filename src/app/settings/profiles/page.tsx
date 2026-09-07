@@ -166,10 +166,11 @@ export default function ProfilesPage() {
   const partnerProfiles = profiles.filter(p => p.type === 'partner')
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="shell">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Perfis de Empresa</h1>
+          <div className="eyebrow">Configurações</div>
+            <h1 className="page-title">Perfis de Empresa</h1>
           <p className="text-sm text-ink/55 mt-1">Gerencie perfis para capas e introduções de propostas</p>
         </div>
         <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">

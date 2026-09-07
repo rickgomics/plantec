@@ -12,19 +12,14 @@ function StatCard({ title, value, sub, accent = false }: {
   sub?: string
   accent?: boolean
 }) {
+  // .info-card do Padrão Visual do Portal. O cartão de destaque troca só o
+  // fundo pelo brand-soft — o padrão reserva o teal cheio para ação, não
+  // para superfície de leitura.
   return (
-    <div className={`card p-5 ${accent ? 'bg-brand-500 border-brand-400 text-white' : ''}`}>
-      <p className={`text-xs font-semibold uppercase tracking-widest mb-1 ${accent ? 'text-brand-100' : 'text-ink/45'}`}>
-        {title}
-      </p>
-      <p className={`text-2xl font-black tracking-tight ${accent ? 'text-white' : 'text-ink'}`}>
-        {value}
-      </p>
-      {sub && (
-        <p className={`text-xs mt-1 font-medium ${accent ? 'text-brand-200' : 'text-ink/45'}`}>
-          {sub}
-        </p>
-      )}
+    <div className="info-card" style={accent ? { background: 'var(--pt-brand-soft)', borderColor: 'var(--pt-brand)' } : undefined}>
+      <div className="info-label" style={accent ? { color: 'var(--pt-brand-ink)' } : undefined}>{title}</div>
+      <div className="info-value" style={accent ? { color: 'var(--pt-brand-ink)' } : undefined}>{value}</div>
+      {sub && <div className="info-sub">{sub}</div>}
     </div>
   )
 }
@@ -45,7 +40,7 @@ export default function DashboardPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="shell">
         {/* Page header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -65,7 +60,7 @@ export default function DashboardPage() {
         ) : stats ? (
           <>
             {/* Stats grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+            <div className="cards-5">
               <StatCard
                 title="Propostas"
                 value={stats.totalProposals}

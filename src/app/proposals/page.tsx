@@ -61,12 +61,13 @@ export default function ProposalsPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="shell">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-black text-ink tracking-tight">Propostas</h1>
-            <p className="text-sm text-ink/45 mt-0.5 font-medium">
+            <div className="eyebrow">BOM Builder</div>
+            <h1 className="page-title">Propostas</h1>
+            <p className="page-subtitle">
               {loading ? 'Carregando...' : `${proposals.length} proposta${proposals.length !== 1 ? 's' : ''}`}
             </p>
           </div>

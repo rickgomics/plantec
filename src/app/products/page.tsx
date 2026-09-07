@@ -405,12 +405,13 @@ export default function ProductsPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="shell">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-black text-ink tracking-tight">Produtos</h1>
-            <p className="text-sm text-ink/45 mt-0.5 font-medium">
+            <div className="eyebrow">BOM Builder</div>
+            <h1 className="page-title">Produtos</h1>
+            <p className="page-subtitle">
               {loading ? 'Carregando...' : `${products.length} produto${products.length !== 1 ? 's' : ''}`}
             </p>
           </div>

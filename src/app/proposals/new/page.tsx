@@ -53,9 +53,10 @@ export default function NewProposalPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-2xl mx-auto">
+      <div className="shell">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-ink">Nova Proposta</h1>
+          <div className="eyebrow">BOM Builder</div>
+            <h1 className="page-title">Nova Proposta</h1>
           <p className="text-ink/55 text-sm mt-0.5">Preencha os dados para iniciar a proposta</p>
         </div>
 

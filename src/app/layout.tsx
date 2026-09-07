@@ -1,6 +1,26 @@
 import type { Metadata } from 'next'
+import { Big_Shoulders_Display, IBM_Plex_Mono, Work_Sans } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
+
+// Fontes do Padrão Visual do Portal, via next/font — self-hosted no build,
+// sem chamada ao Google Fonts em runtime. Viram variáveis CSS consumidas
+// pelos tokens --pt-* em globals.css.
+const fontDisplay = Big_Shoulders_Display({
+  subsets: ['latin'],
+  weight: ['600', '700', '800'],
+  variable: '--font-display',
+})
+const fontBody = Work_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-body',
+})
+const fontMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-mono',
+})
 
 export const metadata: Metadata = {
   title: 'Plantec BOM Builder',
@@ -23,7 +43,11 @@ const FETCH_PATCH_SCRIPT = BASE_PATH
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html
+      lang="pt-BR"
+      suppressHydrationWarning
+      className={`${fontDisplay.variable} ${fontBody.variable} ${fontMono.variable}`}
+    >
       <body className="min-h-screen">
         {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />

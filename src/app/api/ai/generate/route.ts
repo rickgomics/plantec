@@ -93,7 +93,7 @@ REGRAS OBRIGATÓRIAS:
 5. Inclua MÓDULOS EXTERNOS ou de INTEGRAÇÃO necessários mas não listados (ex: PoE switch externo, cabeamento, DDNS, VPN, aplicativo mobile) — use estilo tracejado: nomeDoNo:::missing.
 6. Use SETAS ROTULADAS para indicar o tipo de conexão: -->|"PoE"| ou -->|"Fibra"| ou -->|"IP/LAN"| ou -->|"VPN"| ou -->|"RS-485"| etc.
 7. Use classDef para destacar visualmente:
-   - classDef proposed fill:#E6F5F4,stroke:#00928E,color:#002827,font-weight:bold
+   - classDef proposed fill:#e0f3f1,stroke:#0b8f88,color:#04322F,font-weight:bold
    - classDef existing fill:#FFF7ED,stroke:#EA580C,color:#431407
    - classDef missing fill:#fff,stroke:#94A3B8,color:#64748B,stroke-dasharray:5 5
    - classDef internet fill:#EFF6FF,stroke:#3B82F6,color:#1E3A5F

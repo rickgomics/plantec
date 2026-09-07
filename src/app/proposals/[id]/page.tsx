@@ -659,7 +659,7 @@ export default function ProposalDetailPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="shell">
         {/* Header */}
         <div className="flex items-start justify-between mb-6 gap-4">
           <div className="min-w-0">
@@ -667,7 +667,8 @@ export default function ProposalDetailPage() {
               <span className="font-mono text-sm text-ink/45">{proposal.number}</span>
               <StatusBadge status={proposal.status} />
             </div>
-            <h1 className="text-xl font-bold text-ink truncate">{proposal.title}</h1>
+            <div className="eyebrow">Proposta</div>
+            <h1 className="page-title truncate">{proposal.title}</h1>
             <p className="text-ink/55 text-sm">
               {proposal.customer.companyName} · {proposal.vertical} ·{' '}
               Válida por {proposal.validityDays} dias

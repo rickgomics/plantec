@@ -120,12 +120,13 @@ export default function ImportPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="shell">
 
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-black text-ink tracking-tight">Importar Projetos</h1>
+            <div className="eyebrow">BOM Builder</div>
+            <h1 className="page-title">Importar Projetos</h1>
             <p className="text-sm text-ink/55 mt-1">
               Projetos pendentes no sistema de registro. Selecione e importe para criar propostas no BOM Builder.
             </p>
