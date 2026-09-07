@@ -56,7 +56,11 @@ export async function PUT(
       introProfileId,
       scenarioDesc,
       scenarioDiagram,
+      diagramType,
+      eraserImageUrl,
       coverStyle,
+      showUnitPrice,
+      externalProjectId,
     } = body
 
     const proposal = await prisma.proposal.update({
@@ -75,11 +79,15 @@ export async function PUT(
         totalDiscount,
         margin,
         notes,
-        coverProfileId: coverProfileId !== undefined ? coverProfileId : undefined,
-        introProfileId: introProfileId !== undefined ? introProfileId : undefined,
-        scenarioDesc: scenarioDesc !== undefined ? scenarioDesc : undefined,
+        coverProfileId:  coverProfileId  !== undefined ? coverProfileId  : undefined,
+        introProfileId:  introProfileId  !== undefined ? introProfileId  : undefined,
+        scenarioDesc:    scenarioDesc    !== undefined ? scenarioDesc    : undefined,
         scenarioDiagram: scenarioDiagram !== undefined ? scenarioDiagram : undefined,
-        coverStyle: coverStyle !== undefined ? coverStyle : undefined,
+        diagramType:     diagramType     !== undefined ? diagramType     : undefined,
+        eraserImageUrl:  eraserImageUrl  !== undefined ? eraserImageUrl  : undefined,
+        coverStyle:      coverStyle      !== undefined ? coverStyle      : undefined,
+        showUnitPrice:      showUnitPrice      !== undefined ? showUnitPrice      : undefined,
+        externalProjectId:  externalProjectId  !== undefined ? externalProjectId  : undefined,
       },
       include: {
         customer: true,

@@ -3,9 +3,14 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const typeFilter = searchParams.get('type')
+
   const profiles = await prisma.companyProfile.findMany({
-    where: { active: true },
+    where: typeFilter
+      ? { type: typeFilter }
+      : { active: true },
     orderBy: [{ type: 'asc' }, { name: 'asc' }],
   })
   return NextResponse.json({ profiles })

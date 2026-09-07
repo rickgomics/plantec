@@ -2,124 +2,204 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 
-interface HubProduct {
-  id?: string | number
-  sku?: string
-  codigo?: string
-  code?: string
-  name?: string
-  nome?: string
-  title?: string
-  description?: string
-  descricao?: string
-  short_description?: string
-  brand?: string
-  marca?: string
-  manufacturer?: string
-  category?: string
-  categoria?: string
-  category_name?: string
-  price?: number
-  preco?: number
-  basePrice?: number
-  sale_price?: number
-  regular_price?: number
-  cost?: number
-  custo?: number
-  stock?: number
-  estoque?: number
-  stock_quantity?: number
-  unit?: string
-  unidade?: string
-  attributes?: Record<string, unknown>
-  atributos?: Record<string, unknown>
-  meta?: Record<string, unknown>
+// ── Config ────────────────────────────────────────────────────────────────────
+
+const BASE  = (process.env.MAGENTO_URL  ?? '').replace(/\/$/, '')  // https://www.plantec.com
+const TOKEN = process.env.MAGENTO_TOKEN ?? ''
+
+const HEADERS = {
+  Authorization: `Bearer ${TOKEN}`,
+  Accept: 'application/json',
 }
 
-function normalizeProduct(p: HubProduct, idx: number) {
-  const sku = String(p.sku ?? p.codigo ?? p.code ?? `HUB-${idx}`)
-  const basePrice =
-    p.price ?? p.preco ?? p.basePrice ?? p.sale_price ?? p.regular_price ?? 0
-  const attrs = p.attributes ?? p.atributos ?? p.meta ?? {}
+// ── Category mapping ──────────────────────────────────────────────────────────
 
-  return {
-    id: `hub_${sku}`,
-    sku,
-    name: p.name ?? p.nome ?? p.title ?? sku,
-    description: p.description ?? p.short_description ?? p.descricao ?? null,
-    brand: p.brand ?? p.marca ?? p.manufacturer ?? null,
-    category: p.category ?? p.category_name ?? p.categoria ?? 'Outros',
-    subcategory: null,
-    basePrice: Number(basePrice),
-    cost: Number(p.cost ?? p.custo ?? 0),
-    stock: Number(p.stock ?? p.estoque ?? p.stock_quantity ?? 0),
-    unit: String(p.unit ?? p.unidade ?? 'un'),
-    active: true,
-    attributes: typeof attrs === 'object' && attrs !== null ? attrs : {},
-    compatible: [] as string[],
-    required: [] as string[],
-    suggested: [] as string[],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+const SEGMENT_MAP: Record<string, string> = {
+  '1': 'Telecom',
+  '2': 'CFTV',       // Segurança geral — câmeras, gravadores
+  '3': 'Redes',
+  '4': 'Alarme',     // Security Intrusão
+  '5': 'CFTV',       // Security CFTV
+  '6': 'Energia',
+}
+
+// ── Manufacturer label cache (in-process, reloads on server restart) ──────────
+
+let mfrCache: Record<string, string> | null = null
+
+async function getManufacturers(): Promise<Record<string, string>> {
+  if (mfrCache) return mfrCache
+  try {
+    const res = await fetch(`${BASE}/rest/V1/products/attributes/manufacturer`, {
+      headers: HEADERS, signal: AbortSignal.timeout(6_000),
+    })
+    if (!res.ok) return {}
+    const data = await res.json()
+    const map: Record<string, string> = {}
+    for (const o of (data.options ?? []) as { value: string; label: string }[]) {
+      if (o.value && o.label) map[o.value] = o.label
+    }
+    mfrCache = map
+    return map
+  } catch {
+    return {}
   }
 }
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface MagentoProduct {
+  id: number
+  sku: string
+  name: string
+  price: number
+  tier_prices?: { customer_group_id: number; qty: number; value: number }[]
+  media_gallery_entries?: { file: string; types: string[]; disabled?: boolean }[]
+  custom_attributes?: { attribute_code: string; value: string }[]
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function attr(p: MagentoProduct, code: string): string {
+  return p.custom_attributes?.find(a => a.attribute_code === code)?.value ?? ''
+}
+
+function bestPrice(base: number, tiers: MagentoProduct['tier_prices']): number {
+  if (!tiers?.length) return base
+  const qty1 = tiers.filter(t => t.qty === 1).map(t => t.value)
+  return qty1.length ? Math.min(base, ...qty1) : base
+}
+
+function primaryImage(p: MagentoProduct): string | null {
+  const entry =
+    p.media_gallery_entries?.find(m => !m.disabled && m.types?.includes('image') && m.file) ??
+    p.media_gallery_entries?.find(m => !m.disabled && m.file)
+  return entry ? `${BASE}/media/catalog/product${entry.file}` : null
+}
+
+// "INTELBRAS COMUNICAÇÃO" → "Intelbras"  |  "HIKVISION" → "Hikvision"
+function cleanBrand(raw: string): string {
+  if (!raw) return raw
+  // Take only the first word and title-case it (removes division suffixes)
+  const first = raw.trim().split(/\s+/)[0]
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z#\d]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 600)
+}
+
+async function fetchStock(sku: string): Promise<number> {
+  try {
+    const res = await fetch(`${BASE}/rest/V1/stockItems/${encodeURIComponent(sku)}`, {
+      headers: HEADERS, signal: AbortSignal.timeout(5_000),
+    })
+    if (!res.ok) return 0
+    const d = await res.json()
+    return Number(d.qty ?? 0)
+  } catch {
+    return 0
+  }
+}
+
+function normalize(p: MagentoProduct, mfr: Record<string, string>, qty: number) {
+  const nseg  = attr(p, 'nsegmento')
+  const mfrId = attr(p, 'manufacturer')
+  const desc  = attr(p, 'description')
+  const image = primaryImage(p)
+
+  return {
+    id:          `magento_${p.sku}`,
+    sku:         p.sku,
+    name:        p.name,
+    description: desc ? stripHtml(desc) : null,
+    brand:       mfr[mfrId] ? cleanBrand(mfr[mfrId]) : null,
+    category:    SEGMENT_MAP[nseg] ?? 'Outros',
+    subcategory: null,
+    basePrice:   bestPrice(p.price, p.tier_prices),
+    cost:        0,
+    stock:       qty,
+    unit:        'un',
+    active:      true,
+    attributes: {
+      nsegmento:       nseg,
+      manufacturer_id: mfrId,
+      magento_price:   p.price,
+      image_url:       image,
+      ncm:             attr(p, 'ncm'),
+    },
+    image,
+    compatible: [] as string[],
+    required:   [] as string[],
+    suggested:  [] as string[],
+    createdAt:  new Date(),
+    updatedAt:  new Date(),
+  }
+}
+
+// ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const s = searchParams.get('s') ?? ''
-  const limit = searchParams.get('limit') ?? '20'
+  const query = (searchParams.get('s') ?? searchParams.get('search') ?? '').trim()
+  const limit = Math.min(Number(searchParams.get('limit') ?? '20'), 50)
 
-  const hubUrl = process.env.PLANTEC_HUB_URL
-  const hubToken = process.env.PLANTEC_HUB_TOKEN
-
-  if (!hubUrl || !hubToken) {
-    return NextResponse.json({ error: 'Hub API not configured' }, { status: 503 })
+  if (!BASE || !TOKEN) {
+    return NextResponse.json(
+      { error: 'Magento não configurado (MAGENTO_URL / MAGENTO_TOKEN)' },
+      { status: 503 }
+    )
   }
 
-  if (!s.trim()) {
-    return NextResponse.json({ products: [] })
-  }
+  if (!query) return NextResponse.json({ products: [] })
+
+  // (name OR sku LIKE %query%) AND status=1
+  const sp = new URLSearchParams()
+  sp.set('searchCriteria[filter_groups][0][filters][0][field]',          'name')
+  sp.set('searchCriteria[filter_groups][0][filters][0][value]',          `%${query}%`)
+  sp.set('searchCriteria[filter_groups][0][filters][0][condition_type]', 'like')
+  sp.set('searchCriteria[filter_groups][0][filters][1][field]',          'sku')
+  sp.set('searchCriteria[filter_groups][0][filters][1][value]',          `%${query}%`)
+  sp.set('searchCriteria[filter_groups][0][filters][1][condition_type]', 'like')
+  sp.set('searchCriteria[filter_groups][1][filters][0][field]',          'status')
+  sp.set('searchCriteria[filter_groups][1][filters][0][value]',          '1')
+  sp.set('searchCriteria[filter_groups][1][filters][0][condition_type]', 'eq')
+  sp.set('searchCriteria[pageSize]',    String(limit))
+  sp.set('searchCriteria[currentPage]', '1')
+  sp.set('fields', 'items[id,sku,name,price,tier_prices,media_gallery_entries,custom_attributes],total_count')
 
   try {
-    const url = `${hubUrl}/api/ai/products?s=${encodeURIComponent(s)}&limit=${limit}`
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${hubToken}`,
-        Accept: 'application/json',
-      },
-      cache: 'no-store',
+    const res = await fetch(`${BASE}/rest/V1/products?${sp}`, {
+      headers: HEADERS,
+      signal: AbortSignal.timeout(15_000),
     })
 
     if (!res.ok) {
-      const text = await res.text()
-      console.error('[Plantec Hub]', res.status, text.slice(0, 200))
-      return NextResponse.json({ error: `Hub API error: ${res.status}` }, { status: res.status })
+      const body = await res.text()
+      return NextResponse.json({ error: `Magento ${res.status}: ${body}` }, { status: res.status })
     }
 
-    const raw = await res.json()
+    const data = await res.json()
+    const items: MagentoProduct[] = data.items ?? []
 
-    // Handle multiple response shapes
-    let items: HubProduct[]
-    if (Array.isArray(raw)) {
-      items = raw
-    } else if (Array.isArray(raw.data)) {
-      items = raw.data
-    } else if (Array.isArray(raw.products)) {
-      items = raw.products
-    } else if (Array.isArray(raw.items)) {
-      items = raw.items
-    } else if (Array.isArray(raw.results)) {
-      items = raw.results
-    } else {
-      items = []
-    }
+    // Manufacturer labels + stock — all in parallel
+    const [mfr, stocks] = await Promise.all([
+      getManufacturers(),
+      Promise.all(items.map(item => fetchStock(item.sku))),
+    ])
 
-    const products = items.map((p, i) => normalizeProduct(p, i))
+    const products = items.map((item, i) => normalize(item, mfr, stocks[i]))
 
-    return NextResponse.json({ products })
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    console.error('[Plantec Hub]', msg)
+    return NextResponse.json({ products, total: data.total_count ?? products.length })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Erro desconhecido'
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

@@ -23,7 +23,7 @@ export default function AIGenerateButton({
   async function handleGenerate() {
     setLoading(true)
     try {
-      const res = await fetch('/api/ai/generate', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/ai/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, context }),

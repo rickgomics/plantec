@@ -17,7 +17,7 @@ function SkeletonRow() {
     <tr className="animate-pulse">
       {[160, 110, 110, 140, 80, 40, 60].map((w, i) => (
         <td key={i} className="px-4 py-3.5">
-          <div className="h-3.5 bg-gray-100 rounded-full" style={{ width: w }} />
+          <div className="h-3.5 bg-ink/5 rounded-full" style={{ width: w }} />
         </td>
       ))}
     </tr>
@@ -37,7 +37,7 @@ export default function CustomersPage() {
     setLoading(true)
     const p = new URLSearchParams()
     if (search) p.set('search', search)
-    const res = await fetch(`/api/customers?${p}`)
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/customers?${p}`)
     const data = await res.json()
     setCustomers(data.customers ?? [])
     setLoading(false)
@@ -77,7 +77,7 @@ export default function CustomersPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Remover cliente?')) return
-    await fetch(`/api/customers/${id}`, { method: 'DELETE' })
+    await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/customers/${id}`, { method: 'DELETE' })
     load()
   }
 
@@ -87,8 +87,8 @@ export default function CustomersPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Clientes</h1>
-            <p className="text-sm text-gray-400 mt-0.5 font-medium">
+            <h1 className="text-2xl font-black text-ink tracking-tight">Clientes</h1>
+            <p className="text-sm text-ink/45 mt-0.5 font-medium">
               {loading ? 'Carregando...' : `${customers.length} cliente${customers.length !== 1 ? 's' : ''}`}
             </p>
           </div>
@@ -108,36 +108,36 @@ export default function CustomersPage() {
         {/* Tabela */}
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-gray-100">
+            <thead className="bg-background border-b border-line/10">
               <tr>
-                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Razão Social</th>
-                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">CNPJ</th>
-                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Contato</th>
-                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">E-mail</th>
-                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Cidade/UF</th>
-                <th className="px-4 py-3 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Propostas</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Razão Social</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">CNPJ</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Contato</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">E-mail</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Cidade/UF</th>
+                <th className="px-4 py-3 text-center text-[10px] font-black text-ink/45 uppercase tracking-widest">Propostas</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-line/5">
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-14 text-center text-sm font-semibold text-gray-400">
+                  <td colSpan={7} className="px-4 py-14 text-center text-sm font-semibold text-ink/45">
                     Nenhum cliente encontrado.
                   </td>
                 </tr>
               ) : customers.map((c) => (
                 <tr key={c.id} className="hover:bg-brand-50/30 transition-colors group">
                   <td className="px-4 py-3.5">
-                    <div className="font-semibold text-gray-900 leading-tight">{c.companyName}</div>
-                    {c.tradeName && <div className="text-[11px] text-gray-400 mt-0.5">{c.tradeName}</div>}
+                    <div className="font-semibold text-ink leading-tight">{c.companyName}</div>
+                    {c.tradeName && <div className="text-[11px] text-ink/45 mt-0.5">{c.tradeName}</div>}
                   </td>
-                  <td className="px-4 py-3.5 font-mono text-[11px] text-gray-400 font-semibold">{c.cnpj ?? '—'}</td>
-                  <td className="px-4 py-3.5 text-gray-500 font-medium">{c.contactName ?? '—'}</td>
-                  <td className="px-4 py-3.5 text-gray-500 font-medium">{c.email ?? '—'}</td>
-                  <td className="px-4 py-3.5 text-gray-500 font-medium">
+                  <td className="px-4 py-3.5 font-mono text-[11px] text-ink/45 font-semibold">{c.cnpj ?? '—'}</td>
+                  <td className="px-4 py-3.5 text-ink/55 font-medium">{c.contactName ?? '—'}</td>
+                  <td className="px-4 py-3.5 text-ink/55 font-medium">{c.email ?? '—'}</td>
+                  <td className="px-4 py-3.5 text-ink/55 font-medium">
                     {c.city && c.state ? `${c.city}/${c.state}` : '—'}
                   </td>
                   <td className="px-4 py-3.5 text-center">
@@ -173,14 +173,14 @@ export default function CustomersPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h2 className="text-base font-black text-gray-900 tracking-tight">
+          <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-line/10">
+              <h2 className="text-base font-black text-ink tracking-tight">
                 {editing ? 'Editar Cliente' : 'Novo Cliente'}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                className="p-1.5 rounded-lg text-ink/45 hover:text-ink/65 hover:bg-ink/5 transition-colors"
               >
                 <HiXMark className="w-5 h-5" />
               </button>
@@ -227,7 +227,7 @@ export default function CustomersPage() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-3 justify-end px-5 py-4 border-t border-gray-100">
+            <div className="flex gap-3 justify-end px-5 py-4 border-t border-line/10">
               <button onClick={() => setShowModal(false)} className="btn-secondary">Cancelar</button>
               <button onClick={handleSave} disabled={saving || !form.companyName} className="btn-primary">
                 {saving ? 'Salvando...' : 'Salvar'}

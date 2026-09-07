@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       compatible,
       required,
       suggested,
+      upsert: doUpsert,
     } = body
 
     if (!sku || !name || !category) {
@@ -62,6 +63,40 @@ export async function POST(request: NextRequest) {
         { error: 'SKU, name and category are required' },
         { status: 400 }
       )
+    }
+
+    // upsert=true: create if new, update metadata if exists (preserves local price/cost/stock)
+    if (doUpsert) {
+      const product = await prisma.product.upsert({
+        where: { sku },
+        create: {
+          sku,
+          name,
+          description,
+          brand,
+          category,
+          subcategory,
+          basePrice: basePrice ?? 0,
+          cost: cost ?? 0,
+          stock: stock ?? 0,
+          unit: unit ?? 'un',
+          attributes: attributes ?? {},
+          compatible: compatible ?? [],
+          required: required ?? [],
+          suggested: suggested ?? [],
+        },
+        update: {
+          // Update catalogue metadata but preserve local price / cost / stock
+          name,
+          description,
+          brand,
+          category,
+          subcategory,
+          unit: unit ?? 'un',
+          attributes: attributes ?? {},
+        },
+      })
+      return NextResponse.json({ product }, { status: 200 })
     }
 
     const product = await prisma.product.create({

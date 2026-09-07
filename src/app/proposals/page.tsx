@@ -22,7 +22,7 @@ function SkeletonRow() {
     <tr className="animate-pulse">
       {[40, 180, 120, 80, 80, 90, 60, 70, 60].map((w, i) => (
         <td key={i} className="px-4 py-3.5">
-          <div className="h-3.5 bg-gray-100 rounded-full" style={{ width: w }} />
+          <div className="h-3.5 bg-ink/5 rounded-full" style={{ width: w }} />
         </td>
       ))}
     </tr>
@@ -40,7 +40,7 @@ export default function ProposalsPage() {
     const p = new URLSearchParams()
     if (search) p.set('search', search)
     if (status) p.set('status', status)
-    const res = await fetch(`/api/proposals?${p}`)
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals?${p}`)
     const data = await res.json()
     setProposals(data.proposals ?? [])
     setLoading(false)
@@ -53,7 +53,7 @@ export default function ProposalsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir proposta?')) return
-    await fetch(`/api/proposals/${id}`, { method: 'DELETE' })
+    await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, { method: 'DELETE' })
     load()
   }
 
@@ -65,8 +65,8 @@ export default function ProposalsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Propostas</h1>
-            <p className="text-sm text-gray-400 mt-0.5 font-medium">
+            <h1 className="text-2xl font-black text-ink tracking-tight">Propostas</h1>
+            <p className="text-sm text-ink/45 mt-0.5 font-medium">
               {loading ? 'Carregando...' : `${proposals.length} proposta${proposals.length !== 1 ? 's' : ''}`}
             </p>
           </div>
@@ -96,26 +96,26 @@ export default function ProposalsPage() {
         {/* Tabela */}
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-gray-100">
+            <thead className="bg-background border-b border-line/10">
               <tr>
-                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Número</th>
-                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Título</th>
-                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Cliente</th>
-                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Vertical</th>
-                <th className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                <th className="px-4 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</th>
-                <th className="px-4 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Margem</th>
-                <th className="px-4 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Data</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Número</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Título</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Cliente</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Vertical</th>
+                <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Status</th>
+                <th className="px-4 py-3 text-right text-[10px] font-black text-ink/45 uppercase tracking-widest">Total</th>
+                <th className="px-4 py-3 text-right text-[10px] font-black text-ink/45 uppercase tracking-widest">Margem</th>
+                <th className="px-4 py-3 text-right text-[10px] font-black text-ink/45 uppercase tracking-widest">Data</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-line/5">
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
               ) : proposals.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-14 text-center">
-                    <p className="text-sm font-semibold text-gray-400">Nenhuma proposta encontrada.</p>
+                    <p className="text-sm font-semibold text-ink/45">Nenhuma proposta encontrada.</p>
                     <Link href="/proposals/new" className="text-brand-600 hover:text-brand-700 text-sm font-semibold mt-1 inline-block">
                       Criar primeira proposta →
                     </Link>
@@ -123,19 +123,19 @@ export default function ProposalsPage() {
                 </tr>
               ) : proposals.map((p) => (
                 <tr key={p.id} className="hover:bg-brand-50/30 transition-colors group">
-                  <td className="px-4 py-3.5 font-mono text-[11px] text-gray-400 font-semibold">{p.number}</td>
+                  <td className="px-4 py-3.5 font-mono text-[11px] text-ink/45 font-semibold">{p.number}</td>
                   <td className="px-4 py-3.5">
                     <Link
                       href={`/proposals/${p.id}`}
-                      className="font-semibold text-gray-900 hover:text-brand-600 transition-colors"
+                      className="font-semibold text-ink hover:text-brand-600 transition-colors"
                     >
                       {p.title}
                     </Link>
                   </td>
-                  <td className="px-4 py-3.5 text-gray-500 font-medium">{p.customer?.companyName}</td>
-                  <td className="px-4 py-3.5 text-gray-500 font-medium">{p.vertical}</td>
+                  <td className="px-4 py-3.5 text-ink/55 font-medium">{p.customer?.companyName}</td>
+                  <td className="px-4 py-3.5 text-ink/55 font-medium">{p.vertical}</td>
                   <td className="px-4 py-3.5"><StatusBadge status={p.status} /></td>
-                  <td className="px-4 py-3.5 text-right font-bold text-gray-900">
+                  <td className="px-4 py-3.5 text-right font-bold text-ink">
                     {fmt(Number(p.totalPrice))}
                   </td>
                   <td className={`px-4 py-3.5 text-right font-semibold ${
@@ -144,7 +144,7 @@ export default function ProposalsPage() {
                   }`}>
                     {Number(p.margin) > 0 ? `${Number(p.margin).toFixed(1)}%` : '—'}
                   </td>
-                  <td className="px-4 py-3.5 text-right text-gray-400 text-xs font-semibold">
+                  <td className="px-4 py-3.5 text-right text-ink/45 text-xs font-semibold">
                     {new Date(p.createdAt).toLocaleDateString('pt-BR')}
                   </td>
                   <td className="px-4 py-3.5">

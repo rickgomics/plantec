@@ -1,0 +1,8 @@
+
+/* nome de produto do Magento é longo; três linhas bastam para reconhecer */
+.prod .nm {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* o assistente sai de cena quando a barra de comparação ocupa o rodapé */
+.app:has(.barra-comparar) .fab { display: none; }

@@ -8,104 +8,103 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   name      String
-  email     String   @unique
-  role      String   @default("seller")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  email     String     @unique
+  role      String     @default("seller")
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   proposals Proposal[]
 }
 
 model Product {
-  id           String   @id @default(cuid())
-  sku          String   @unique
-  name         String
-  description  String?
-  brand        String?
-  category     String
-  subcategory  String?
-  basePrice    Decimal  @default(0)
-  cost         Decimal  @default(0)
-  stock        Int      @default(0)
-  unit         String   @default("un")
-  active       Boolean  @default(true)
-  attributes   Json     @default("{}")
-  compatible   String[] @default([])
-  required     String[] @default([])
-  suggested    String[] @default([])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
+  id            String         @id @default(cuid())
+  sku           String         @unique
+  name          String
+  description   String?
+  brand         String?
+  category      String
+  subcategory   String?
+  basePrice     Decimal        @default(0)
+  cost          Decimal        @default(0)
+  stock         Int            @default(0)
+  unit          String         @default("un")
+  active        Boolean        @default(true)
+  attributes    Json           @default("{}")
+  compatible    String[]       @default([])
+  required      String[]       @default([])
+  suggested     String[]       @default([])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   proposalItems ProposalItem[]
 }
 
 model Customer {
-  id           String   @id @default(cuid())
-  companyName  String
-  tradeName    String?
-  cnpj         String?  @unique
-  contactName  String?
-  email        String?
-  phone        String?
-  city         String?
-  state        String?
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  proposals Proposal[]
+  id          String     @id @default(cuid())
+  companyName String
+  tradeName   String?
+  cnpj        String?    @unique
+  contactName String?
+  email       String?
+  phone       String?
+  city        String?
+  state       String?
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  proposals   Proposal[]
 }
 
 model Proposal {
-  id               String   @id @default(cuid())
-  number           String   @unique
+  id               String          @id @default(cuid())
+  number           String          @unique
   title            String
   vertical         String
-  status           String   @default("draft")
+  status           String          @default("draft")
   customerId       String
   userId           String?
   executiveSummary String?
   scope            String?
   commercialTerms  String?
-  validityDays     Int      @default(30)
-  discount         Decimal  @default(0)
-  totalCost        Decimal  @default(0)
-  totalPrice       Decimal  @default(0)
-  totalDiscount    Decimal  @default(0)
-  margin           Decimal  @default(0)
+  validityDays     Int             @default(30)
+  discount         Decimal         @default(0)
+  totalCost        Decimal         @default(0)
+  totalPrice       Decimal         @default(0)
+  totalDiscount    Decimal         @default(0)
+  margin           Decimal         @default(0)
   notes            String?
   coverProfileId   String?
   introProfileId   String?
   scenarioDesc     String?
   scenarioDiagram  String?
-  coverStyle       String   @default("teal")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  customer     Customer        @relation(fields: [customerId], references: [id])
-  user         User?           @relation(fields: [userId], references: [id])
-  coverProfile CompanyProfile? @relation("CoverProfile", fields: [coverProfileId], references: [id])
-  introProfile CompanyProfile? @relation("IntroProfile", fields: [introProfileId], references: [id])
-  items        ProposalItem[]
+  diagramType      String          @default("mermaid")
+  eraserImageUrl   String?
+  coverStyle          String          @default("teal")
+  showUnitPrice       Boolean         @default(true)
+  externalProjectId   String?         @unique
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  coverProfile     CompanyProfile? @relation("CoverProfile", fields: [coverProfileId], references: [id])
+  customer         Customer        @relation(fields: [customerId], references: [id])
+  introProfile     CompanyProfile? @relation("IntroProfile", fields: [introProfileId], references: [id])
+  user             User?           @relation(fields: [userId], references: [id])
+  items            ProposalItem[]
 }
 
 model CompanyProfile {
-  id          String   @id @default(cuid())
-  name        String
-  type        String   @default("plantec")
-  logoBase64  String?
-  description String?
-  website     String?
-  phone       String?
-  email       String?
-  address     String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  id             String     @id @default(cuid())
+  name           String
+  type           String     @default("plantec")
+  logoBase64     String?
+  description    String?
+  website        String?
+  phone          String?
+  email          String?
+  address        String?
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
   coverProposals Proposal[] @relation("CoverProfile")
   introProposals Proposal[] @relation("IntroProfile")
 }
@@ -124,9 +123,8 @@ model ProposalItem {
   technicalNotes String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
-  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  product  Product  @relation(fields: [productId], references: [id])
+  product        Product  @relation(fields: [productId], references: [id])
+  proposal       Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
 }
 
 model Rule {

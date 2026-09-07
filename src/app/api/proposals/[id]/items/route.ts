@@ -71,7 +71,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json()
-  const { itemId, quantity, discount, role, technicalNotes } = body
+  const { itemId, quantity, discount, role, technicalNotes, unitPrice: unitPriceRaw } = body
   if (!itemId) return NextResponse.json({ error: 'itemId required' }, { status: 400 })
 
   const existing = await prisma.proposalItem.findUnique({
@@ -80,7 +80,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   })
   if (!existing) return NextResponse.json({ error: 'Item not found' }, { status: 404 })
 
-  const unitPrice = Number(existing.unitPrice)
+  const unitPrice = unitPriceRaw !== undefined ? Number(unitPriceRaw) : Number(existing.unitPrice)
   const cost = Number(existing.cost)
   const newQty = quantity ?? existing.quantity
   const newDisc = discount ?? Number(existing.discount)
@@ -92,6 +92,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     where: { id: itemId },
     data: {
       quantity: newQty,
+      unitPrice: new Decimal(unitPrice),
       discount: new Decimal(newDisc),
       subtotal: new Decimal(subtotal),
       margin: new Decimal(margin),

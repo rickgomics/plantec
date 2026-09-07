@@ -20,3 +20,6 @@ npm-debug.log*
 # prisma
 prisma/generated/
 tsconfig.tsbuildinfo
+
+# build da variante plantecia
+.next-plantecia/

@@ -26,11 +26,11 @@ export default function LogoUpload({ value, onChange, label = 'Logo' }: Props) {
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <label className="block text-sm font-medium text-ink/75">{label}</label>
       {value ? (
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={value} alt="Logo" className="h-16 w-auto object-contain border rounded p-1 bg-white" />
+          <img src={value} alt="Logo" className="h-16 w-auto max-w-[200px] object-contain border rounded p-1 bg-white" />
           <button
             type="button"
             onClick={() => onChange(null)}
@@ -43,8 +43,8 @@ export default function LogoUpload({ value, onChange, label = 'Logo' }: Props) {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300
-            rounded-lg text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-line/20
+            rounded-lg text-sm text-ink/65 hover:border-blue-400 hover:text-blue-600 transition-colors"
         >
           <FaUpload />
           Enviar logo (PNG/JPG, max 2MB)

@@ -44,19 +44,26 @@ const TBL_FTR    = 37   // tfoot tr
 const TOTALS_BLK = 200  // .totals-wrap (margin-top:20 + card ~180)
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const proposal = await prisma.proposal.findUnique({
-    where: { id: params.id },
-    include: {
-      customer: true,
-      coverProfile: true,
-      introProfile: true,
-      items: { include: { product: true }, orderBy: { createdAt: 'asc' } },
-    },
-  })
+  const [proposal, brands] = await Promise.all([
+    prisma.proposal.findUnique({
+      where: { id: params.id },
+      include: {
+        customer: true,
+        coverProfile: true,
+        introProfile: true,
+        items: { include: { product: true }, orderBy: { createdAt: 'asc' } },
+      },
+    }),
+    prisma.companyProfile.findMany({
+      where: { type: 'brand', active: true },
+      orderBy: { name: 'asc' },
+    }),
+  ])
 
   if (!proposal) return new Response('Not found', { status: 404 })
 
-  const coverSt = getCoverStyle(proposal.coverStyle ?? 'teal')
+  const coverSt      = getCoverStyle(proposal.coverStyle ?? 'teal')
+  const showUnit     = proposal.showUnitPrice !== false  // default true
 
   const subtotal      = proposal.items.reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0)
   const totalDiscount = Number(proposal.totalDiscount)
@@ -76,9 +83,40 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const companyAddress  = companyProfile?.address ?? ''
   const companyDescription = proposal.introProfile?.description ?? ''
 
-  const rawDiagram  = proposal.scenarioDiagram ?? ''
+  const rawDiagram   = proposal.scenarioDiagram ?? ''
+  const diagramType  = proposal.diagramType ?? 'mermaid'
   const cleanDiagram = rawDiagram.replace(/^```mermaid\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim()
-  const diagramSvg  = cleanDiagram ? await mermaidToSvg(cleanDiagram) : null
+
+  // Eraser: use pre-saved imageUrl if available; otherwise call API (with generous timeout)
+  let eraserImageUrl: string | null = proposal.eraserImageUrl ?? null
+  if (diagramType === 'eraser' && cleanDiagram && !eraserImageUrl) {
+    const eraserKey = process.env.ERASER_API_KEY
+    if (eraserKey) {
+      try {
+        const isDsl = /\[icon:/i.test(cleanDiagram) || /^title\s/im.test(cleanDiagram) || /^direction\s/im.test(cleanDiagram)
+        const body: Record<string, unknown> = { text: cleanDiagram, theme: 'light', background: true, imageQuality: 3 }
+        if (!isDsl) body.diagramType = 'cloud-architecture-diagram'
+
+        const er = await fetch('https://app.eraser.io/api/render/prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${eraserKey}` },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(45000),
+        })
+        if (er.ok) {
+          const ed = await er.json()
+          eraserImageUrl = ed.imageUrl ?? null
+        } else {
+          console.error('[PDF/Eraser] API error', er.status)
+        }
+      } catch (e) {
+        console.error('[PDF/Eraser] fetch failed:', e)
+      }
+    }
+  }
+
+  // Mermaid: convert to SVG via mermaid.ink
+  const diagramSvg = (diagramType === 'mermaid' && cleanDiagram) ? await mermaidToSvg(cleanDiagram) : null
 
   const statusLabel: Record<string, string> = { draft: 'Rascunho', generated: 'Gerada', sent: 'Enviada', approved: 'Aprovada', rejected: 'Recusada' }
   const statusColor: Record<string, string> = { draft: '#6b7280', generated: '#007B77', sent: '#b45309', approved: '#15803d', rejected: '#dc2626' }
@@ -103,8 +141,32 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return `\n<div class="page">${hdr}<div class="pc">${content}</div>${ftr}</div>`
   }
 
+  // page variant where .pc is a flex column (for full-bleed diagram page)
+  function pgFull(content: string): string {
+    return `\n<div class="page">${hdr}<div class="pc pc-full">${content}</div>${ftr}</div>`
+  }
+
   // ─── item row generators ─────────────────────────────────────────────────
   type Item = typeof proposal.items[0]
+
+  function productImg(item: Item): string {
+    const url = (item.product.attributes as Record<string, unknown> | null)?.image_url as string | null
+    if (!url) return ''
+    return `<img src="${esc(url)}" onerror="this.style.display='none'"
+      style="width:30px;height:30px;object-fit:contain;flex-shrink:0;border-radius:4px;border:1px solid #F1F5F9;background:#F8FAFC" />`
+  }
+
+  function nameCell(item: Item, extraText?: string): string {
+    const img  = productImg(item)
+    const text = `<div style="min-width:0;flex:1;overflow:hidden">
+      <span style="font-weight:700;color:#0F172A;font-size:8.5pt;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px">${esc(item.product.name)}</span>
+      ${item.product.brand
+        ? `<span style="display:block;font-size:7pt;color:#94A3B8;font-weight:500;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.product.brand)} · ${esc(item.product.category)}</span>`
+        : ''}
+      ${extraText ?? ''}
+    </div>`
+    return `<td style="overflow:hidden"><div style="display:flex;align-items:center;gap:7px">${img}${text}</div></td>`
+  }
 
   function bomRow(item: Item): string {
     const price = Number(item.unitPrice)
@@ -113,14 +175,22 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const cost  = Number(item.cost) * item.quantity
     const marg  = sub > 0 ? ((sub - cost) / sub) * 100 : 0
     const mc    = marg >= 15 ? '#15803d' : marg >= 10 ? '#b45309' : '#dc2626'
+    void mc
+    if (!showUnit) {
+      return `<tr>
+        <td class="mono">${esc(item.product.sku)}</td>
+        ${nameCell(item)}
+        <td class="r" style="font-weight:700">${item.quantity}</td>
+        <td class="r" style="font-weight:800;color:#0F172A">${fmt(sub)}</td>
+      </tr>`
+    }
     return `<tr>
       <td class="mono">${esc(item.product.sku)}</td>
-      <td><span style="font-weight:700;color:#0F172A">${esc(item.product.name)}</span>${item.product.brand ? `<span style="display:block;font-size:7.5pt;color:#94A3B8;font-weight:500;margin-top:1px">${esc(item.product.brand)} · ${esc(item.product.category)}</span>` : ''}</td>
+      ${nameCell(item)}
       <td class="r" style="font-weight:700">${item.quantity}</td>
       <td class="r">${fmt(price)}</td>
       <td class="r" style="color:${disc > 0 ? '#dc2626' : '#94A3B8'}">${disc > 0 ? `${disc}%` : '—'}</td>
       <td class="r" style="font-weight:800;color:#0F172A">${fmt(sub)}</td>
-      <td class="r" style="font-weight:700;color:${mc}">${fmtPct(marg)}</td>
     </tr>`
   }
 
@@ -128,23 +198,31 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const desc      = item.product.description ?? ''
     const descShort = desc.length > 100 ? desc.slice(0, 100) + '…' : desc
     const notes     = item.technicalNotes ?? (desc ? (desc.length > 180 ? desc.slice(0, 180) + '…' : desc) : '—')
+    const extra = descShort
+      ? `<div style="font-size:7pt;color:#94A3B8;margin-top:2px;font-weight:500;line-height:1.4">${esc(descShort)}</div>`
+      : ''
+    const clamp3 = 'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden'
     return `<tr>
-      <td class="mono">${esc(item.product.sku)}</td>
-      <td><span style="font-weight:700;color:#0F172A">${esc(item.product.name)}</span>${descShort ? `<div style="font-size:7.5pt;color:#94A3B8;margin-top:2px;font-weight:500;line-height:1.4">${esc(descShort)}</div>` : ''}</td>
-      <td class="r" style="font-weight:700">${item.quantity}${item.product.unit ? ` ${esc(item.product.unit)}` : ''}</td>
-      <td style="color:#64748B;font-weight:600">${esc(item.product.category)}</td>
-      <td>${esc(item.role ?? '—')}</td>
-      <td style="font-size:7pt;color:#64748B;line-height:1.4">${esc(notes)}</td>
+      <td class="mono" style="white-space:nowrap">${esc(item.product.sku)}</td>
+      ${nameCell(item, extra)}
+      <td class="r" style="font-weight:700;white-space:nowrap">${item.quantity}${item.product.unit ? ` ${esc(item.product.unit)}` : ''}</td>
+      <td style="color:#64748B;font-weight:600;white-space:nowrap">${esc(item.product.category)}</td>
+      <td style="${clamp3}">${esc(item.role ?? '—')}</td>
+      <td style="font-size:7pt;color:#64748B;line-height:1.4;${clamp3}">${esc(notes)}</td>
     </tr>`
   }
 
   // ─── shared table markup ─────────────────────────────────────────────────
-  const bomThead = `<thead><tr>
-    <th style="width:9%">SKU</th><th style="width:38%">Produto</th>
-    <th class="r" style="width:6%">Qtd</th><th class="r" style="width:14%">Preço Unit.</th>
-    <th class="r" style="width:8%">Desc.</th><th class="r" style="width:14%">Subtotal</th>
-    <th class="r" style="width:8%">Margem</th>
-  </tr></thead>`
+  const bomThead = showUnit
+    ? `<thead><tr>
+        <th style="width:10%">SKU</th><th style="width:42%">Produto</th>
+        <th class="r" style="width:6%">Qtd</th><th class="r" style="width:16%">Preço Unit.</th>
+        <th class="r" style="width:8%">Desc.</th><th class="r" style="width:18%">Total</th>
+      </tr></thead>`
+    : `<thead><tr>
+        <th style="width:12%">SKU</th><th style="width:58%">Produto</th>
+        <th class="r" style="width:8%">Qtd</th><th class="r" style="width:22%">Total</th>
+      </tr></thead>`
 
   const techThead = `<thead><tr>
     <th style="width:10%">SKU</th><th style="width:32%">Produto</th>
@@ -152,21 +230,31 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     <th style="width:18%">Função na Solução</th><th style="width:21%">Descritivo</th>
   </tr></thead>`
 
-  const bomTfoot = `<tfoot><tr>
-    <td colspan="5" class="r">Total da Proposta</td>
-    <td class="r" style="font-size:10.5pt">${fmt(totalPrice)}</td>
-    <td class="r" style="color:${margin >= 15 ? '#15803d' : margin >= 10 ? '#b45309' : '#dc2626'}">${fmtPct(margin)}</td>
-  </tr></tfoot>`
+  const bomTfoot = showUnit
+    ? `<tfoot><tr>
+        <td colspan="5" class="r">Total da Proposta</td>
+        <td class="r" style="font-size:10.5pt">${fmt(totalPrice)}</td>
+      </tr></tfoot>`
+    : `<tfoot><tr>
+        <td colspan="3" class="r">Total da Proposta</td>
+        <td class="r" style="font-size:10.5pt">${fmt(totalPrice)}</td>
+      </tr></tfoot>`
 
-  const totalsCard = `<div class="totals-wrap"><div class="totals-card">
-    <div class="totals-head">Resumo Financeiro</div>
-    <div class="totals-body">
-      <div class="total-row"><span class="lbl">Subtotal</span><span class="val">${fmt(subtotal)}</span></div>
-      ${totalDiscount > 0 ? `<div class="total-row disc"><span class="lbl">Descontos</span><span class="val">– ${fmt(totalDiscount)}</span></div>` : ''}
-      <div class="total-row grand"><span class="lbl">Total</span><span class="val">${fmt(totalPrice)}</span></div>
-      <div class="total-row marg"><span class="lbl">Margem estimada</span><span class="val">${fmtPct(margin)}</span></div>
-    </div>
-  </div></div>`
+  const totalsCard = showUnit
+    ? `<div class="totals-wrap"><div class="totals-card">
+        <div class="totals-head">Resumo Financeiro</div>
+        <div class="totals-body">
+          <div class="total-row"><span class="lbl">Subtotal</span><span class="val">${fmt(subtotal)}</span></div>
+          ${totalDiscount > 0 ? `<div class="total-row disc"><span class="lbl">Descontos</span><span class="val">– ${fmt(totalDiscount)}</span></div>` : ''}
+          <div class="total-row grand"><span class="lbl">Total</span><span class="val">${fmt(totalPrice)}</span></div>
+        </div>
+      </div></div>`
+    : `<div class="totals-wrap"><div class="totals-card">
+        <div class="totals-head">Resumo Financeiro</div>
+        <div class="totals-body">
+          <div class="total-row grand"><span class="lbl">Total</span><span class="val">${fmt(totalPrice)}</span></div>
+        </div>
+      </div></div>`
 
   // ─── BOM commercial pages (auto-split) ───────────────────────────────────
   function buildBomPages(): string {
@@ -175,6 +263,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const out: string[] = []
     let rem = [...items]
     let first = true
+    let tfootRendered = false
+
     while (rem.length > 0) {
       const base    = first ? S_HDG : 0
       const capFull = Math.max(1, Math.floor((CONTENT_H - base - TBL_HDR - TBL_FTR - TOTALS_BLK) / BOM_ROW_H))
@@ -185,8 +275,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       const hdg     = first ? `<div class="section-heading"><h2>BOM Comercial</h2></div>` : ''
       const rows    = chunk.map(bomRow).join('')
       out.push(pg(`${hdg}<table class="data-table">${bomThead}<tbody>${rows}</tbody>${isLast ? bomTfoot : ''}</table>${isLast ? totalsCard : ''}`))
+      if (isLast) tfootRendered = true
       first = false
     }
+
+    // Edge case: capFull < N <= capMore — loop exhausted rem without rendering tfoot
+    if (!tfootRendered) {
+      out.push(pg(`<table class="data-table">${bomTfoot}</table>${totalsCard}`))
+    }
+
     return out.join('')
   }
 
@@ -210,8 +307,38 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return out.join('')
   }
 
-  // ─── mermaid fallback script ──────────────────────────────────────────────
-  const mermaidFallback = (cleanDiagram && !diagramSvg) ? `
+  // ─── brands page ─────────────────────────────────────────────────────────
+  function buildBrandsPage(): string {
+    if (!brands.length) return ''
+    const cards = brands.map(b => {
+      const logoHtml = b.logoBase64
+        ? `<img src="${esc(b.logoBase64)}" alt="${esc(b.name)}">`
+        : `<div class="brand-no-logo">${esc(b.name.slice(0, 3).toUpperCase())}</div>`
+      const site = b.website ? b.website.replace(/^https?:\/\/(www\.)?/, '') : ''
+      return `<div class="brand-card">
+        <div class="brand-card-bar"></div>
+        <div class="brand-logo-area">${logoHtml}</div>
+        <div class="brand-divider"></div>
+        <div class="brand-info">
+          <div class="brand-name">${esc(b.name)}</div>
+          ${b.description ? `<div class="brand-desc">${esc(b.description)}</div>` : ''}
+          ${site ? `<div class="brand-site">${esc(site)}</div>` : ''}
+        </div>
+      </div>`
+    }).join('')
+    return pg(`
+      <div class="section-heading">
+        <h2>Fabricantes Parceiros<span class="brands-count-badge">${brands.length} marcas</span></h2>
+      </div>
+      <div class="brands-intro">
+        Esta proposta foi elaborada com produtos e soluções das seguintes fabricantes parceiras, selecionadas pela excelência técnica, certificações internacionais e suporte ao mercado brasileiro.
+      </div>
+      <div class="brands-grid">${cards}</div>
+    `)
+  }
+
+  // ─── mermaid fallback script (only when mermaid type and svg failed) ────────
+  const mermaidFallback = (diagramType === 'mermaid' && cleanDiagram && !diagramSvg) ? `
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', function() {
@@ -236,22 +363,89 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     </script>` : ''
 
   // ─── diagram block ────────────────────────────────────────────────────────
-  const diagramBlock = cleanDiagram ? `
-    <div class="diagram-block">
-      <div style="margin-bottom:12px;font-size:8.5pt;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:1px">Diagrama de Topologia</div>
-      <div class="mermaid-wrap">
-        ${diagramSvg
-          ? diagramSvg
-          : `<pre class="mermaid" style="white-space:pre;font-family:monospace;font-size:9pt;padding:8px">${esc(cleanDiagram)}</pre>`
+  function buildDiagramInner(): string {
+    if (!cleanDiagram) return ''
+    if (diagramType === 'eraser') {
+      if (eraserImageUrl) {
+        return `<div class="mermaid-wrap" style="padding:0;overflow:hidden;border-radius:10px;flex:1;display:flex;align-items:center;justify-content:center">
+          <img src="${esc(eraserImageUrl)}" alt="Diagrama de Arquitetura" style="width:100%;height:100%;max-height:780px;object-fit:contain;display:block">
+        </div>`
+      }
+      // fallback: show prompt text if Eraser API failed
+      return `<div class="mermaid-wrap" style="padding:16px;background:#f8fafc;color:#64748b;font-size:9pt;white-space:pre-wrap;font-family:monospace">${esc(cleanDiagram)}</div>`
+    }
+    // mermaid — fill the full page area
+    return `<div class="mermaid-wrap" style="flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden">
+      ${diagramSvg
+        ? `<div style="width:100%;height:100%;max-height:780px;display:flex;align-items:center;justify-content:center">${diagramSvg}</div>`
+        : `<pre class="mermaid" style="white-space:pre;font-family:monospace;font-size:9pt;padding:8px">${esc(cleanDiagram)}</pre>`
+      }
+    </div>`
+  }
+
+  // Split scenarioDesc across two pages: narrative intro + bullet sections
+  function buildScenarioPages(raw: string): string {
+    const SEC = /^(VANTAGENS TÉ?CNICAS?|BENEF[IÍ]CIOS PARA O CLIENTE)[ \t]*:?\s*$/im
+    const parts = raw.split(SEC)
+
+    const intro = parts[0]?.trim() ?? ''
+    let sectionsHtml = ''
+    let i = 1
+    while (i < parts.length) {
+      const header = parts[i]?.trim()
+      const body   = parts[i + 1]?.trim() ?? ''
+      if (header) {
+        const bullets = body.split(/\n/).map(l => l.trim())
+          .filter(l => l.startsWith('•') || l.startsWith('-') || l.startsWith('*'))
+          .map(l => l.replace(/^[•\-\*]\s*/, ''))
+        if (bullets.length) {
+          sectionsHtml += `<div class="scenario-section">
+            <div class="scenario-section-title">${esc(header)}</div>
+            <div class="scenario-bullets">
+              ${bullets.map(b => `<div class="scenario-bullet">${esc(b)}</div>`).join('')}
+            </div>
+          </div>`
         }
+      }
+      i += 2
+    }
+
+    // Page 1: heading + narrative paragraphs
+    let out = pg(`
+      <div class="section">
+        <div class="section-heading"><h2>Cenário Técnico</h2></div>
+        ${intro ? `<div class="scenario-desc scenario-body">${esc(intro)}</div>` : ''}
       </div>
-      <div class="diagram-legend">
-        <div class="legend-item"><div class="legend-dot" style="background:#E6F5F4;border:1.5px solid #00928E"></div>Equipamentos propostos</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#FFF7ED;border:1.5px solid #EA580C"></div>Sistemas existentes</div>
-        <div class="legend-item"><div class="legend-dot" style="background:white;border:1.5px dashed #94A3B8"></div>Módulos externos</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#EFF6FF;border:1.5px solid #3B82F6"></div>Internet / Nuvem</div>
+    `)
+
+    // Page 2 (only if bullet sections exist): VANTAGENS + BENEFÍCIOS
+    if (sectionsHtml) {
+      out += pg(`
+        <div class="section">
+          <div class="section-heading"><h2>Cenário Técnico — Vantagens e Benefícios</h2></div>
+          ${sectionsHtml}
+        </div>
+      `)
+    }
+
+    return out
+  }
+
+  function buildDiagramPage(): string {
+    if (!cleanDiagram) return ''
+    return pgFull(`
+      <div class="section-heading"><h2>Diagrama de Topologia</h2></div>
+      <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+        ${buildDiagramInner()}
+        ${diagramType === 'mermaid' ? `<div class="diagram-legend" style="margin-top:12px">
+          <div class="legend-item"><div class="legend-dot" style="background:#E6F5F4;border:1.5px solid #00928E"></div>Equipamentos propostos</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#FFF7ED;border:1.5px solid #EA580C"></div>Sistemas existentes</div>
+          <div class="legend-item"><div class="legend-dot" style="background:white;border:1.5px dashed #94A3B8"></div>Módulos externos</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#EFF6FF;border:1.5px solid #3B82F6"></div>Internet / Nuvem</div>
+        </div>` : ''}
       </div>
-    </div>` : ''
+    `)
+  }
 
   // ─── HTML ─────────────────────────────────────────────────────────────────
   const html = `<!DOCTYPE html>
@@ -296,6 +490,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     /* ── page content area ───────────────────────────────────── */
     .pc{flex:1;padding:36px 56px;overflow:hidden}
+    .pc-full{display:flex;flex-direction:column}
 
     /* ── cover ───────────────────────────────────────────────── */
     .cover{height:100%;display:flex;flex-direction:column;background:linear-gradient(160deg,var(--t900) 0%,var(--t800) 45%,var(--t700) 100%);position:relative;overflow:hidden}
@@ -367,13 +562,38 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .sig-sub{text-align:center;font-size:8pt;color:var(--g400);margin-top:4px;font-weight:500}
     .validity-card{border-left:4px solid var(--t500);background:var(--t50);border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:28px;font-size:9.5pt;color:var(--t800);line-height:1.6;font-weight:500}
     .validity-card strong{font-weight:800;color:var(--t700)}
-    .scenario-desc{background:var(--t50);border-left:4px solid var(--t400);border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:28px;font-size:9.5pt;color:var(--t800);line-height:1.75;font-weight:500;white-space:pre-line}
+    .scenario-desc{font-size:9.5pt;color:var(--t800);line-height:1.8;font-weight:500}
+    .scenario-body{background:var(--t50);border-left:4px solid var(--t400);border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:16px;white-space:pre-line}
+    .scenario-section{margin-top:16px;margin-bottom:8px}
+    .scenario-section-title{font-size:8.5pt;font-weight:900;color:var(--t700);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+    .scenario-section-title::before{content:'';display:block;width:3px;height:14px;background:var(--t500);border-radius:2px;flex-shrink:0}
+    .scenario-bullets{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;padding:10px 14px;background:white;border:1px solid var(--t100);border-radius:8px}
+    .scenario-bullet{font-size:8.5pt;color:var(--g700);line-height:1.5;padding:2px 0;display:flex;gap:6px}
+    .scenario-bullet::before{content:'•';color:var(--t500);font-weight:900;flex-shrink:0}
     .mermaid-wrap{border:1px solid var(--g200);border-radius:10px;padding:16px;background:white;overflow:hidden}
-    .mermaid-wrap svg{max-width:100%;max-height:420px;width:auto;height:auto;display:block;margin:0 auto}
+    .mermaid-wrap svg{max-width:100%;max-height:800px;width:auto;height:auto;display:block;margin:0 auto}
     .diagram-block{margin-top:4px}
     .diagram-legend{display:flex;gap:20px;margin-top:16px;padding:10px 16px;background:var(--g50);border-radius:8px;border:1px solid var(--g100)}
     .legend-item{display:flex;align-items:center;gap:6px;font-size:8pt;color:var(--g500);font-weight:600}
     .legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+
+    /* ── brands page ─────────────────────────────────────────── */
+    .brands-intro{font-size:8.5pt;color:var(--g600,#475569);line-height:1.75;margin-bottom:20px;padding:13px 18px;background:linear-gradient(135deg,var(--t50) 0%,#f0faf9 100%);border-radius:8px;border:1px solid var(--t100)}
+    .brands-count-badge{display:inline-block;background:var(--t500);color:white;font-size:7pt;font-weight:800;letter-spacing:.8px;text-transform:uppercase;padding:3px 10px;border-radius:20px;margin-left:10px;vertical-align:middle}
+    .brands-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:0}
+    .brand-card{border-radius:11px;overflow:hidden;background:white;border:1px solid var(--g200);box-shadow:0 2px 8px rgba(0,40,39,.07);display:flex;flex-direction:column}
+    .brand-card-bar{height:3px;background:linear-gradient(90deg,var(--t600),var(--t300))}
+    .brand-logo-area{padding:16px 14px 12px;display:flex;align-items:center;justify-content:center;min-height:72px;background:white;position:relative}
+    .brand-logo-area img{max-width:114px;max-height:54px;object-fit:contain}
+    .brand-divider{height:1px;background:var(--g100);margin:0}
+    .brand-info{padding:10px 12px 12px;flex:1;display:flex;flex-direction:column}
+    .brand-name{font-weight:900;font-size:8.5pt;color:var(--t700);margin-bottom:4px;letter-spacing:-.2px}
+    .brand-desc{font-size:7pt;color:var(--g500);line-height:1.6;flex:1}
+    .brand-site{font-size:6.5pt;color:var(--t500);margin-top:7px;font-weight:700;letter-spacing:.3px;padding-top:6px;border-top:1px solid var(--g100)}
+    .brand-no-logo{width:80px;height:46px;border-radius:8px;background:var(--g100);display:flex;align-items:center;justify-content:center;font-size:11pt;font-weight:900;color:var(--g400);letter-spacing:-1px}
+
+    /* ── cover decoration ────────────────────────────────────── */
+    .cover-deco{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 
     /* ── print ───────────────────────────────────────────────── */
     @page{size:A4 portrait;margin:0}
@@ -413,7 +633,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     </div>
   </div>
   <div class="toolbar-right">
-    <button id="btn-print" class="btn-toolbar btn-print">Imprimir / PDF</button>
+    <a id="btn-download" href="${process.env.NEXT_BASE_PATH ?? ''}/proposals/${esc(params.id)}/download" class="btn-toolbar btn-print" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">⬇ Baixar PDF</a>
+    <button id="btn-print" class="btn-toolbar" style="background:rgba(255,255,255,.12);color:white">Imprimir</button>
     <button id="btn-close" class="btn-toolbar btn-close">✕ Fechar</button>
   </div>
 </div>
@@ -424,6 +645,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   <div class="page">
     <div class="cover">
       <div class="cover-pattern"></div>
+      ${coverSt.decorationSvg ? `<div class="cover-deco">${coverSt.decorationSvg}</div>` : ''}
       <div class="cover-top">
         <div>
           ${logoSrc
@@ -502,14 +724,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     </div>
   `) : ''}
 
-  <!-- CENÁRIO TÉCNICO -->
-  ${(proposal.scenarioDesc || cleanDiagram) ? pg(`
-    <div class="section">
-      <div class="section-heading"><h2>Cenário Técnico</h2></div>
-      ${proposal.scenarioDesc ? `<div class="scenario-desc">${esc(proposal.scenarioDesc)}</div>` : ''}
-      ${diagramBlock}
-    </div>
-  `) : ''}
+  <!-- FABRICANTES PARCEIROS -->
+  ${buildBrandsPage()}
+
+  <!-- CENÁRIO TÉCNICO (descrição) — split across pages as needed -->
+  ${proposal.scenarioDesc ? buildScenarioPages(proposal.scenarioDesc) : ''}
+
+  <!-- DIAGRAMA DE TOPOLOGIA (página exclusiva, tamanho máximo) -->
+  ${buildDiagramPage()}
 
   <!-- BOM COMERCIAL (auto-paginado) -->
   ${buildBomPages()}

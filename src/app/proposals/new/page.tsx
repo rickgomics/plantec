@@ -23,7 +23,7 @@ export default function NewProposalPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/customers')
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/customers`)
       .then((r) => r.json())
       .then((d) => setCustomers(d.customers ?? []))
   }, [])
@@ -37,7 +37,7 @@ export default function NewProposalPage() {
     setSaving(true)
     setError('')
     try {
-      const res = await fetch('/api/proposals', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -55,8 +55,8 @@ export default function NewProposalPage() {
     <AppLayout>
       <div className="p-6 max-w-2xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Nova Proposta</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Preencha os dados para iniciar a proposta</p>
+          <h1 className="text-2xl font-bold text-ink">Nova Proposta</h1>
+          <p className="text-ink/55 text-sm mt-0.5">Preencha os dados para iniciar a proposta</p>
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6 space-y-5">

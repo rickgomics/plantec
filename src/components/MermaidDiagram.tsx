@@ -7,12 +7,20 @@ interface Props {
   className?: string
 }
 
+function isEraserDsl(code: string) {
+  return /\[icon:/i.test(code) || /^title\s/im.test(code) || /^direction\s/im.test(code)
+}
+
 export default function MermaidDiagram({ code, className = '' }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
+  const isEraser = isEraserDsl(code)
 
+  // O hook precisa rodar sempre (nunca depois de um return condicional —
+  // violava Rules of Hooks, bloqueando o build de produção). A checagem de
+  // Eraser DSL agora fica dentro do efeito, mesmo comportamento de antes.
   useEffect(() => {
-    if (!code || !ref.current) return
+    if (isEraser || !code || !ref.current) return
 
     let cancelled = false
 
@@ -55,7 +63,16 @@ export default function MermaidDiagram({ code, className = '' }: Props) {
 
     render()
     return () => { cancelled = true }
-  }, [code])
+  }, [code, isEraser])
+
+  if (isEraser) {
+    return (
+      <div className={`p-5 bg-violet-50 border border-violet-100 rounded-xl text-sm ${className}`}>
+        <p className="font-semibold text-violet-700">Conteúdo é Eraser DSL</p>
+        <p className="text-violet-500 text-xs mt-1">Alterne para o modo <strong>✦ Eraser</strong> no seletor acima para visualizar este diagrama.</p>
+      </div>
+    )
+  }
 
   if (error) {
     return (
@@ -69,7 +86,7 @@ export default function MermaidDiagram({ code, className = '' }: Props) {
   return (
     <div
       ref={ref}
-      className={`flex justify-center p-4 bg-white rounded-xl overflow-auto ${className}`}
+      className={`flex justify-center p-4 bg-surface rounded-xl overflow-auto ${className}`}
     />
   )
 }

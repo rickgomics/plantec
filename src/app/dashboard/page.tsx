@@ -14,14 +14,14 @@ function StatCard({ title, value, sub, accent = false }: {
 }) {
   return (
     <div className={`card p-5 ${accent ? 'bg-brand-500 border-brand-400 text-white' : ''}`}>
-      <p className={`text-xs font-semibold uppercase tracking-widest mb-1 ${accent ? 'text-brand-100' : 'text-gray-400'}`}>
+      <p className={`text-xs font-semibold uppercase tracking-widest mb-1 ${accent ? 'text-brand-100' : 'text-ink/45'}`}>
         {title}
       </p>
-      <p className={`text-2xl font-black tracking-tight ${accent ? 'text-white' : 'text-gray-900'}`}>
+      <p className={`text-2xl font-black tracking-tight ${accent ? 'text-white' : 'text-ink'}`}>
         {value}
       </p>
       {sub && (
-        <p className={`text-xs mt-1 font-medium ${accent ? 'text-brand-200' : 'text-gray-400'}`}>
+        <p className={`text-xs mt-1 font-medium ${accent ? 'text-brand-200' : 'text-ink/45'}`}>
           {sub}
         </p>
       )}
@@ -34,7 +34,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/dashboard')
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/dashboard`)
       .then((r) => r.json())
       .then(setStats)
       .finally(() => setLoading(false))
@@ -49,8 +49,11 @@ export default function DashboardPage() {
         {/* Page header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Dashboard</h1>
-            <p className="text-sm text-gray-400 mt-0.5 font-medium">Visão geral do Plantec BOM Builder</p>
+            {/* Cubo colorido + wordmark outline: visível em ambos os modos */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/plantec-logo-full.png`}
+              alt="Plantec IA" className="h-16 w-auto" />
+            <div className="text-xs text-ink/40 font-semibold tracking-widest uppercase mt-1 ml-1">BOM Builder</div>
           </div>
           <Link href="/proposals/new" className="btn-primary">
             + Nova Proposta
@@ -58,7 +61,7 @@ export default function DashboardPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-20 text-gray-300 font-semibold">Carregando...</div>
+          <div className="text-center py-20 text-ink/35 font-semibold">Carregando...</div>
         ) : stats ? (
           <>
             {/* Stats grid */}
@@ -90,8 +93,8 @@ export default function DashboardPage() {
 
             {/* Recent proposals */}
             <div className="card overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h2 className="font-black text-gray-900 tracking-tight">Propostas Recentes</h2>
+              <div className="px-6 py-4 border-b border-line/10 flex items-center justify-between">
+                <h2 className="font-black text-ink tracking-tight">Propostas Recentes</h2>
                 <Link href="/proposals" className="text-xs font-bold text-brand-600 hover:text-brand-700 uppercase tracking-wider">
                   Ver todas →
                 </Link>
@@ -99,38 +102,38 @@ export default function DashboardPage() {
 
               {stats.recentProposals.length === 0 ? (
                 <div className="py-14 text-center">
-                  <p className="text-sm font-semibold text-gray-400">Nenhuma proposta criada ainda.</p>
+                  <p className="text-sm font-semibold text-ink/45">Nenhuma proposta criada ainda.</p>
                   <Link href="/proposals/new" className="text-brand-600 hover:underline text-sm font-semibold mt-1 inline-block">
                     Criar primeira proposta →
                   </Link>
                 </div>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b border-gray-100">
+                  <thead className="bg-background border-b border-line/10">
                     <tr>
-                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Número</th>
-                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Título</th>
-                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Cliente</th>
-                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                      <th className="px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</th>
-                      <th className="px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Data</th>
+                      <th className="px-6 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Número</th>
+                      <th className="px-6 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Título</th>
+                      <th className="px-6 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Cliente</th>
+                      <th className="px-6 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Status</th>
+                      <th className="px-6 py-3 text-right text-[10px] font-black text-ink/45 uppercase tracking-widest">Total</th>
+                      <th className="px-6 py-3 text-right text-[10px] font-black text-ink/45 uppercase tracking-widest">Data</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody className="divide-y divide-line/5">
                     {stats.recentProposals.map((p: Proposal) => (
                       <tr key={p.id} className="hover:bg-brand-50/30 transition-colors">
-                        <td className="px-6 py-3.5 font-mono text-[11px] text-gray-400 font-semibold">{p.number}</td>
+                        <td className="px-6 py-3.5 font-mono text-[11px] text-ink/45 font-semibold">{p.number}</td>
                         <td className="px-6 py-3.5">
-                          <Link href={`/proposals/${p.id}`} className="font-semibold text-gray-900 hover:text-brand-600 transition-colors">
+                          <Link href={`/proposals/${p.id}`} className="font-semibold text-ink hover:text-brand-600 transition-colors">
                             {p.title}
                           </Link>
                         </td>
-                        <td className="px-6 py-3.5 text-gray-500 font-medium">{p.customer?.companyName}</td>
+                        <td className="px-6 py-3.5 text-ink/55 font-medium">{p.customer?.companyName}</td>
                         <td className="px-6 py-3.5"><StatusBadge status={p.status} /></td>
-                        <td className="px-6 py-3.5 text-right font-bold text-gray-900">
+                        <td className="px-6 py-3.5 text-right font-bold text-ink">
                           {fmt(Number(p.totalPrice))}
                         </td>
-                        <td className="px-6 py-3.5 text-right text-gray-400 text-xs font-semibold">
+                        <td className="px-6 py-3.5 text-right text-ink/45 text-xs font-semibold">
                           {new Date(p.createdAt).toLocaleDateString('pt-BR')}
                         </td>
                       </tr>

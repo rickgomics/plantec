@@ -54,12 +54,12 @@ export default function AlertPanel({ result, onAddSuggestion }: AlertPanelProps)
   if (!result) {
     return (
       <div className="card p-5">
-        <h3 className="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wider">Análise da BOM</h3>
+        <h3 className="font-bold text-ink/75 text-sm mb-3 uppercase tracking-wider">Análise da BOM</h3>
         <div className="text-center py-6">
-          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3 text-gray-300 text-xl">
+          <div className="w-10 h-10 rounded-full bg-ink/5 flex items-center justify-center mx-auto mb-3 text-ink/35 text-xl">
             ◎
           </div>
-          <p className="text-xs text-gray-400 font-medium">
+          <p className="text-xs text-ink/45 font-medium">
             Adicione produtos para ver<br/>alertas e sugestões.
           </p>
         </div>
@@ -72,11 +72,11 @@ export default function AlertPanel({ result, onAddSuggestion }: AlertPanelProps)
   return (
     <div className="card p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wider">Análise da BOM</h3>
+        <h3 className="font-bold text-ink/75 text-sm uppercase tracking-wider">Análise da BOM</h3>
         {totalIssues === 0 ? (
           <span className="text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">✓ OK</span>
         ) : (
-          <span className="text-xs text-gray-400 font-semibold">{totalIssues} item(s)</span>
+          <span className="text-xs text-ink/45 font-semibold">{totalIssues} item(s)</span>
         )}
       </div>
 
@@ -110,7 +110,7 @@ export default function AlertPanel({ result, onAddSuggestion }: AlertPanelProps)
       {totalIssues === 0 && !result.isBlocked && (
         <div className="text-center py-4">
           <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2 text-emerald-500 text-xl font-black">✓</div>
-          <p className="text-xs text-gray-500 font-semibold">BOM válida</p>
+          <p className="text-xs text-ink/55 font-semibold">BOM válida</p>
         </div>
       )}
     </div>
