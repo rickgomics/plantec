@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Proposal, ProposalItem, Product, RuleEngineResult, CompanyProfile } from '@/types'
 import { COVER_STYLES, getCoverStyle } from '@/lib/coverStyles'
+import CoverArtPanel from '@/components/CoverArtPanel'
 import toast from 'react-hot-toast'
 
 const STATUS_FLOW: Record<string, string> = {
@@ -789,8 +790,33 @@ export default function ProposalDetailPage() {
 
         {/* Tab: BOM */}
         {activeTab === 'bom' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-4">
+          <div className="space-y-4">
+            {/* Análise e números saem da lateral para uma faixa no topo — em
+                lg:grid-cols-3 a BOM ficava com dois terços da largura, e é a
+                tabela de produtos que precisa de espaço, não estes três
+                números. */}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+              <AlertPanel result={ruleResult} onAddSuggestion={handleAddSuggestion} />
+              <div className="grid grid-cols-3 gap-3">
+                <div className="info-card">
+                  <div className="info-label">Itens</div>
+                  <div className="info-value">{proposal.items.length}</div>
+                </div>
+                <div className="info-card">
+                  <div className="info-label">Criada em</div>
+                  <div className="info-value" style={{ fontSize: 18 }}>
+                    {new Date(proposal.createdAt).toLocaleDateString('pt-BR')}
+                  </div>
+                </div>
+                <div className="info-card">
+                  <div className="info-label">Validade</div>
+                  <div className="info-value" style={{ fontSize: 18 }}>{proposal.validityDays}</div>
+                  <div className="info-sub">dias</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
               <div className="card">
                 <div className="flex items-center justify-between px-5 py-4 border-b gap-3">
                   <h2 className="font-black text-ink tracking-tight">BOM Comercial</h2>
@@ -959,24 +985,6 @@ export default function ProposalDetailPage() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <AlertPanel result={ruleResult} onAddSuggestion={handleAddSuggestion} />
-              <div className="card p-4 text-sm space-y-2">
-                <h3 className="font-semibold text-ink/75 mb-2">Informações</h3>
-                <div className="flex justify-between">
-                  <span className="text-ink/55">Itens na BOM:</span>
-                  <span className="font-medium">{proposal.items.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-ink/55">Criada em:</span>
-                  <span>{new Date(proposal.createdAt).toLocaleDateString('pt-BR')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-ink/55">Validade:</span>
-                  <span>{proposal.validityDays} dias</span>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -1095,6 +1103,10 @@ export default function ProposalDetailPage() {
                   ))}
                 </div>
               </div>
+            </div>
+
+            <div className="card p-6">
+              <CoverArtPanel />
             </div>
 
             <div className="card p-6">

@@ -63,6 +63,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (!proposal) return new Response('Not found', { status: 404 })
 
   const coverSt      = getCoverStyle(proposal.coverStyle ?? 'teal')
+
+  // Arte gerada por IA para este segmento, quando existir: entra como camada
+  // de fundo da capa, sobre o gradiente do tema. O gradiente continua ali
+  // embaixo, então uma arte que não carregue não deixa a capa em branco.
+  const arte = await prisma.template.findFirst({
+    where: { name: `cover-art:${proposal.coverStyle ?? 'teal'}`, active: true },
+  })
+  const arteUri = (arte?.content as { dataUri?: string } | null)?.dataUri ?? null
   const showUnit     = proposal.showUnitPrice !== false  // default true
 
   const subtotal      = proposal.items.reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0)
@@ -607,6 +615,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     /* ── cover style overrides ───────────────────────────────── */
     .cover{background:${coverSt.bg}!important}
+    ${arteUri ? `.cover-art{position:absolute;inset:0;z-index:0;background-image:url('${arteUri}');background-size:cover;background-position:center;opacity:.55}` : ''}
     .cover-pattern{${coverSt.pattern ? `background:${coverSt.pattern}` : 'display:none'}}
     .cover-logo-text{color:${coverSt.text}!important}
     .cover-logo-sub{color:${coverSt.subText}!important}
@@ -644,6 +653,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   <!-- CAPA -->
   <div class="page">
     <div class="cover">
+      ${arteUri ? '<div class="cover-art"></div>' : ''}
       <div class="cover-pattern"></div>
       ${coverSt.decorationSvg ? `<div class="cover-deco">${coverSt.decorationSvg}</div>` : ''}
       <div class="cover-top">
