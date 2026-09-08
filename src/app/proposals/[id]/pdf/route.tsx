@@ -208,14 +208,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     // embaixo do nome, e a linha repetia o mesmo texto duas vezes — comendo
     // altura sem acrescentar informação.
     const notes = item.technicalNotes ?? (desc ? (desc.length > 220 ? desc.slice(0, 220) + '…' : desc) : '—')
-    const clamp2 = 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35'
     const clamp3 = 'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35'
     return `<tr>
       <td class="mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.product.sku)}</td>
       ${nameCell(item)}
-      <td class="r" style="font-weight:700;white-space:nowrap">${item.quantity}${item.product.unit ? ` ${esc(item.product.unit)}` : ''}</td>
-      <td style="color:#64748B;font-weight:600">${esc(item.product.category)}</td>
-      <td><div style="${clamp2}">${esc(item.role ?? '—')}</div></td>
+      <td style="font-size:8.5pt;color:#0F172A;font-weight:600"><div style="${clamp3}">${
+        item.role ? esc(item.role) : '<span style="color:#94A3B8;font-weight:500">a definir</span>'
+      }</div></td>
       <td style="font-size:7pt;color:#64748B"><div style="${clamp3}">${esc(notes)}</div></td>
     </tr>`
   }
@@ -232,10 +231,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         <th class="r" style="width:8%">Qtd</th><th class="r" style="width:22%">Total</th>
       </tr></thead>`
 
+  // A BOM Técnica responde "o que cada item faz nesta solução", não "quanto
+  // custa" — quantidade e preço já estão na BOM Comercial. Sem Qtd, e sem
+  // Categoria, que já aparece embaixo do nome do produto, sobra largura para
+  // a Função na Solução, que é a coluna que o cliente lê.
   const techThead = `<thead><tr>
-    <th style="width:10%">SKU</th><th style="width:32%">Produto</th>
-    <th class="r" style="width:7%">Qtd</th><th style="width:12%">Categoria</th>
-    <th style="width:18%">Função na Solução</th><th style="width:21%">Descritivo</th>
+    <th style="width:10%">SKU</th><th style="width:30%">Produto</th>
+    <th style="width:34%">Função na Solução</th><th style="width:26%">Descritivo Técnico</th>
   </tr></thead>`
 
   const bomTfoot = showUnit
