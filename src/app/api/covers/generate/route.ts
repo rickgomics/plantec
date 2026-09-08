@@ -47,7 +47,18 @@ export async function POST(req: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ model: MODEL, prompt, n: 1, size: SIZE, quality: 'high' }),
+      // JPEG em vez de PNG: a arte é fotográfica, PNG não comprime nada nela
+      // e a imagem vai embutida como data URI dentro do HTML do PDF — em PNG
+      // cada capa somava ~3 MB ao documento.
+      body: JSON.stringify({
+        model: MODEL,
+        prompt,
+        n: 1,
+        size: SIZE,
+        quality: 'high',
+        output_format: 'jpeg',
+        output_compression: 82,
+      }),
       signal: AbortSignal.timeout(180_000),
     })
 
@@ -66,7 +77,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'A OpenAI não retornou imagem' }, { status: 502 })
     }
 
-    const dataUri = `data:image/png;base64,${b64}`
+    const dataUri = `data:image/jpeg;base64,${b64}`
 
     // Uma arte por segmento: regerar substitui a anterior.
     const existente = await prisma.template.findFirst({

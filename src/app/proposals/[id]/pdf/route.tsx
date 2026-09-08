@@ -36,8 +36,8 @@ function fmtPct(v: number | string): string {
 // .pc padding: 36 top + 36 bottom = 72 px
 // Usable content area: 1122 - 81 - 42 - 72 = 927 px
 const CONTENT_H = 927
-const BOM_ROW_H  = 44   // tbody tr (padding 8×2 + name 14 + badge 12 + gap 2)
-const TECH_ROW_H = 54   // tbody tr (same + description line)
+const BOM_ROW_H  = 60   // tbody tr (padding 8×2 + nome em até 2 linhas + marca + gap)
+const TECH_ROW_H = 72   // tbody tr (idem + linha de descrição)
 const S_HDG      = 44   // .section-heading + margin-bottom:20
 const TBL_HDR    = 30   // thead tr
 const TBL_FTR    = 37   // tfoot tr
@@ -167,7 +167,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   function nameCell(item: Item, extraText?: string): string {
     const img  = productImg(item)
     const text = `<div style="min-width:0;flex:1;overflow:hidden">
-      <span style="font-weight:700;color:#0F172A;font-size:8.5pt;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${esc(item.product.name)}</span>
+      <span style="font-weight:700;color:#0F172A;font-size:8.5pt;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25">${esc(item.product.name)}</span>
       ${item.product.brand
         ? `<span style="display:block;font-size:7pt;color:#94A3B8;font-weight:500;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.product.brand)} · ${esc(item.product.category)}</span>`
         : ''}
@@ -209,14 +209,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const extra = descShort
       ? `<div style="font-size:7pt;color:#94A3B8;margin-top:2px;font-weight:500;line-height:1.4">${esc(descShort)}</div>`
       : ''
-    const clamp3 = 'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden'
+    const clamp3 = 'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35'
     return `<tr>
       <td class="mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.product.sku)}</td>
       ${nameCell(item, extra)}
       <td class="r" style="font-weight:700;white-space:nowrap">${item.quantity}${item.product.unit ? ` ${esc(item.product.unit)}` : ''}</td>
       <td style="color:#64748B;font-weight:600">${esc(item.product.category)}</td>
-      <td style="${clamp3}">${esc(item.role ?? '—')}</td>
-      <td style="font-size:7pt;color:#64748B;line-height:1.4;${clamp3}">${esc(notes)}</td>
+      <td><div style="${clamp3}">${esc(item.role ?? '—')}</div></td>
+      <td style="font-size:7pt;color:#64748B"><div style="${clamp3}">${esc(notes)}</div></td>
     </tr>`
   }
 
@@ -465,7 +465,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   ${mermaidFallback}
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Work+Sans:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
     :root{--t900:#04322F;--t800:#054A45;--t700:#075F59;--t600:#0b8f88;--t500:#0b8f88;--t400:#28b3aa;--t300:#5FCCC4;--t100:#b6e6e1;--t50:#e0f3f1;--g50:#F8FAFC;--g100:#F1F5F9;--g200:#E2E8F0;--g400:#94A3B8;--g500:#64748B;--g700:#334155;--g900:#0F172A}
     *{margin:0;padding:0;box-sizing:border-box}
@@ -507,13 +507,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .cover-pattern{position:absolute;inset:0;pointer-events:none}
     .cover-top{padding:48px 56px 0;display:flex;justify-content:space-between;align-items:flex-start;flex-shrink:0;position:relative;z-index:1}
     .cover-logo-wrap img{max-height:52px;max-width:200px;object-fit:contain;filter:brightness(0) invert(1)}
-    .cover-logo-text{font-size:22pt;font-weight:900;color:white;letter-spacing:-1px;line-height:1}
+    .cover-logo-text{font-size:22pt;font-weight:900;color:white;letter-spacing:-0.3px;line-height:1.2}
     .cover-logo-sub{font-size:8.5pt;color:var(--t300);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px}
     .cover-badge{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 14px;color:var(--t100);font-size:8.5pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
     .cover-body{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 56px;position:relative;z-index:1}
     .cover-eyebrow{font-size:8pt;font-weight:800;color:var(--t300);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px;display:flex;align-items:center;gap:10px}
     .cover-eyebrow::before{content:'';display:inline-block;width:28px;height:2px;background:var(--t400);border-radius:2px}
-    .cover-title{font-size:28pt;font-weight:900;color:white;line-height:1.15;letter-spacing:-1px;margin-bottom:28px;max-width:520px}
+    .cover-title{font-size:28pt;font-weight:900;color:white;line-height:1.28;letter-spacing:-0.3px;margin-bottom:28px;max-width:520px;padding-bottom:2px}
     .cover-divider{width:56px;height:3px;background:var(--t400);border-radius:2px;margin-bottom:24px}
     .cover-client-label{font-size:7.5pt;font-weight:700;color:var(--t300);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px}
     .cover-client-name{font-size:14pt;font-weight:800;color:white}

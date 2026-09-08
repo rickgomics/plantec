@@ -13,7 +13,7 @@ const fontDisplay = Big_Shoulders_Display({
 })
 const fontBody = Work_Sans({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700', '800', '900'],
   variable: '--font-body',
 })
 const fontMono = IBM_Plex_Mono({

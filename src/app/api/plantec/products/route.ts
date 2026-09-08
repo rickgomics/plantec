@@ -95,12 +95,37 @@ function cleanBrand(raw: string): string {
   return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()
 }
 
+// Entidades HTML do Magento. Antes elas viravam espaço, e o resultado era
+// "resid ncias" e "M dulo" gravados no catálogo — 1.269 produtos afetados.
+// A descrição vem misturada: parte em UTF-8 literal, parte em entidade.
+const ENTIDADES: Record<string, string> = {
+  aacute: 'á', agrave: 'à', acirc: 'â', atilde: 'ã', auml: 'ä',
+  eacute: 'é', egrave: 'è', ecirc: 'ê', euml: 'ë',
+  iacute: 'í', igrave: 'ì', icirc: 'î', iuml: 'ï',
+  oacute: 'ó', ograve: 'ò', ocirc: 'ô', otilde: 'õ', ouml: 'ö',
+  uacute: 'ú', ugrave: 'ù', ucirc: 'û', uuml: 'ü',
+  ccedil: 'ç', ntilde: 'ñ',
+  Aacute: 'Á', Acirc: 'Â', Atilde: 'Ã', Eacute: 'É', Ecirc: 'Ê',
+  Iacute: 'Í', Oacute: 'Ó', Ocirc: 'Ô', Otilde: 'Õ', Uacute: 'Ú', Ccedil: 'Ç',
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
+  nbsp: ' ', ordm: 'º', ordf: 'ª', deg: '°', reg: '®', copy: '©',
+  trade: '™', hellip: '…', ndash: '–', mdash: '—', laquo: '«', raquo: '»',
+}
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&([a-z]+);/gi, (m, nome) => ENTIDADES[nome] ?? ENTIDADES[nome.toLowerCase()] ?? m)
+}
+
 function stripHtml(html: string): string {
-  return html
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&[a-z#\d]+;/gi, ' ')
+  return decodeEntities(
+    html
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, ' '),
+  )
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 600)
