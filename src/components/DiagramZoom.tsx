@@ -11,7 +11,12 @@ interface Props {
   titulo?: string
 }
 
-const NIVEIS = [0.5, 0.75, 1, 1.5, 2, 3, 4]
+const NIVEIS = [0.5, 0.75, 1, 1.5, 2, 3, 4, 5, 6, 8]
+
+// Abre já em 400%: o projetista abre o zoom justamente para ler rótulo de
+// equipamento e de enlace, e em 100% ele veria a mesma coisa que já via no
+// preview. Quem quiser a visão geral tem os níveis abaixo e a tecla 0.
+const INICIAL = NIVEIS.indexOf(4)
 
 /**
  * Tela cheia com zoom para o diagrama pronto.
@@ -23,7 +28,7 @@ const NIVEIS = [0.5, 0.75, 1, 1.5, 2, 3, 4]
  */
 export default function DiagramZoom({ imageUrl, svg, titulo = 'Diagrama' }: Props) {
   const [aberto, setAberto] = useState(false)
-  const [nivel, setNivel] = useState(2) // índice em NIVEIS → 1×
+  const [nivel, setNivel] = useState(INICIAL)
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const [arrastando, setArrastando] = useState<{ x: number; y: number } | null>(null)
 
@@ -32,7 +37,7 @@ export default function DiagramZoom({ imageUrl, svg, titulo = 'Diagrama' }: Prop
 
   const fechar = useCallback(() => {
     setAberto(false)
-    setNivel(2)
+    setNivel(INICIAL)
     setPos({ x: 0, y: 0 })
   }, [])
 
@@ -43,7 +48,7 @@ export default function DiagramZoom({ imageUrl, svg, titulo = 'Diagrama' }: Prop
       if (e.key === 'Escape') fechar()
       if (e.key === '+' || e.key === '=') setNivel(n => Math.min(n + 1, NIVEIS.length - 1))
       if (e.key === '-' || e.key === '_') setNivel(n => Math.max(n - 1, 0))
-      if (e.key === '0') { setNivel(2); setPos({ x: 0, y: 0 }) }
+      if (e.key === '0') { setNivel(INICIAL); setPos({ x: 0, y: 0 }) }
     }
     window.addEventListener('keydown', onKey)
     // Trava a rolagem do fundo enquanto o visualizador está aberto.
@@ -88,8 +93,8 @@ export default function DiagramZoom({ imageUrl, svg, titulo = 'Diagrama' }: Prop
                 <HiMagnifyingGlassPlus className="w-3.5 h-3.5" />
               </button>
               <button type="button" className="btn-secondary btn-xs"
-                onClick={() => { setNivel(2); setPos({ x: 0, y: 0 }) }} title="Tamanho original (0)">
-                100%
+                onClick={() => { setNivel(INICIAL); setPos({ x: 0, y: 0 }) }} title="Voltar ao zoom inicial (0)">
+                {Math.round(NIVEIS[INICIAL] * 100)}%
               </button>
               <button type="button" className="btn-secondary btn-xs" onClick={fechar} title="Fechar (Esc)">
                 <HiXMark className="w-3.5 h-3.5" />
@@ -126,7 +131,7 @@ export default function DiagramZoom({ imageUrl, svg, titulo = 'Diagrama' }: Prop
 
           <div className="px-5 py-2 text-center text-[11px] flex-shrink-0"
             style={{ color: 'rgba(255,255,255,0.5)', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-            Arraste para mover · + e − para o zoom · 0 volta ao original · Esc fecha
+            Arraste para mover · + e − para o zoom (até 800%) · 0 volta ao inicial · Esc fecha
           </div>
         </div>
       )}
