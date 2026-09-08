@@ -54,13 +54,13 @@ const TXT_CHARS   = 115
  * Divide texto corrido em páginas, quebrando só em fronteira de parágrafo.
  * `extra` desconta a altura de qualquer moldura em volta (padding de box).
  */
-function paginarTexto(texto: string, extra = 0): string[] {
+function paginarTexto(texto: string, extra = 0, alturaPrimeira?: number): string[] {
   const paragrafos = texto.split(/\n\s*\n/).map(t => t.trim()).filter(Boolean)
   if (!paragrafos.length) return []
   const paginas: string[] = []
   let atual: string[] = []
   let usado = 0
-  let disponivel = CONTENT_H - S_HDG - extra
+  let disponivel = alturaPrimeira ?? CONTENT_H - S_HDG - extra
 
   for (const par of paragrafos) {
     const linhas = Math.max(1, Math.ceil(par.length / TXT_CHARS))
@@ -99,6 +99,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (!proposal) return new Response('Not found', { status: 404 })
 
   const coverSt      = getCoverStyle(proposal.coverStyle ?? 'teal')
+
+  const localCliente = [proposal.customer.city, proposal.customer.state].filter(Boolean).join('/')
 
   // Arte gerada por IA para este segmento, quando existir: entra como camada
   // de fundo da capa, sobre o gradiente do tema. O gradiente continua ali
@@ -578,10 +580,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .info-card{border:1px solid var(--g200);border-radius:10px;overflow:hidden}
     .info-card-head{background:var(--t50);border-bottom:1px solid var(--t100);padding:10px 16px;font-size:8pt;font-weight:800;color:var(--t700);text-transform:uppercase;letter-spacing:0.08em}
     .info-card-body{padding:14px 16px}
-    .info-row{display:flex;gap:8px;margin-bottom:7px;font-size:9pt;line-height:1.4}
+    .info-row{display:flex;gap:8px;margin-bottom:7px;font-size:9pt;line-height:1.4;align-items:baseline}
     .info-row:last-child{margin-bottom:0}
     .info-label{font-weight:700;color:var(--g500);min-width:72px;flex-shrink:0;font-size:8.5pt}
-    .info-val{color:var(--g900);font-weight:500}
+    .info-val{color:var(--g900);font-weight:500;min-width:0;overflow-wrap:anywhere}
     .text-content{font-size:9.5pt;line-height:1.75;color:var(--g700);white-space:pre-line}
     .intro-grid{display:grid;grid-template-columns:200px 1fr;gap:32px;align-items:start}
     .intro-logo-box{border:1px solid var(--g200);border-radius:10px;padding:20px;display:flex;align-items:center;justify-content:center;min-height:100px;background:var(--g50)}
@@ -727,10 +729,24 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     </div>
   </div>
 
-  <!-- DADOS DA PROPOSTA -->
-  ${pg(`
-    <div class="section">
-      <div class="section-heading"><h2>Dados da Proposta</h2></div>
+  <!-- DADOS DA PROPOSTA + ESCOPO na mesma página. Os dois cartões ocupam
+       cerca de um terço da altura útil, e o escopo sozinho deixava outra
+       página quase vazia. O escopo continua nas seguintes se não couber. -->
+  ${(() => {
+    const nFornecedor = 1 + [companyWebsite, companyEmail, companyPhone, companyAddress].filter(Boolean).length
+    const nCliente = 1 + [
+      proposal.customer.tradeName, proposal.customer.cnpj, proposal.customer.contactName,
+      proposal.customer.email, proposal.customer.phone, localCliente,
+    ].filter(Boolean).length
+    // .info-row = ~17px de texto + 7 de margem; cabeçalho do cartão 36; padding 28.
+    const alturaDados = S_HDG + 36 + 28 + Math.max(nFornecedor, nCliente) * 24 + 20
+    const paginasEscopo = proposal.scope
+      ? paginarTexto(proposal.scope, 0, CONTENT_H - alturaDados - S_HDG)
+      : []
+
+    const dados = `
+      <div class="section">
+        <div class="section-heading"><h2>Dados da Proposta</h2></div>
       <div class="info-grid">
         <div class="info-card">
           <div class="info-card-head">Fornecedor</div>
@@ -750,32 +766,24 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
             ${proposal.customer.cnpj ? `<div class="info-row"><span class="info-label">CNPJ</span><span class="info-val">${esc(proposal.customer.cnpj)}</span></div>` : ''}
             ${proposal.customer.contactName ? `<div class="info-row"><span class="info-label">Contato</span><span class="info-val">${esc(proposal.customer.contactName)}</span></div>` : ''}
             ${proposal.customer.email ? `<div class="info-row"><span class="info-label">E-mail</span><span class="info-val">${esc(proposal.customer.email)}</span></div>` : ''}
-            ${proposal.customer.city ? `<div class="info-row"><span class="info-label">Cidade</span><span class="info-val">${esc(proposal.customer.city)}${proposal.customer.state ? '/' + esc(proposal.customer.state) : ''}</span></div>` : ''}
+            ${proposal.customer.phone ? `<div class="info-row"><span class="info-label">Telefone</span><span class="info-val">${esc(proposal.customer.phone)}</span></div>` : ''}
+            ${localCliente ? `<div class="info-row"><span class="info-label">Cidade</span><span class="info-val">${esc(localCliente)}</span></div>` : ''}
           </div>
         </div>
       </div>
-    </div>
-  `)}
+      </div>
+    `
 
-  <!-- RESUMO EXECUTIVO (página própria se presente) -->
-  ${proposal.executiveSummary
-    ? paginarTexto(proposal.executiveSummary).map((t, i) => pg(`
-        <div class="section">
-          ${i === 0 ? '<div class="section-heading"><h2>Resumo Executivo</h2></div>' : ''}
-          <div class="text-content">${esc(t)}</div>
-        </div>
-      `)).join('')
-    : ''}
+    if (!paginasEscopo.length) return pg(dados)
 
-  <!-- ESCOPO (página própria se presente) -->
-  ${proposal.scope
-    ? paginarTexto(proposal.scope).map((t, i) => pg(`
-        <div class="section">
-          ${i === 0 ? '<div class="section-heading"><h2>Escopo do Projeto</h2></div>' : ''}
-          <div class="text-content">${esc(t)}</div>
-        </div>
-      `)).join('')
-    : ''}
+    return paginasEscopo.map((t, i) => pg(`
+      ${i === 0 ? dados : ''}
+      <div class="section">
+        ${i === 0 ? '<div class="section-heading"><h2>Escopo do Projeto</h2></div>' : ''}
+        <div class="text-content">${esc(t)}</div>
+      </div>
+    `)).join('')
+  })()}
 
   <!-- SOBRE A EMPRESA (página própria se presente) -->
   ${companyDescription ? pg(`

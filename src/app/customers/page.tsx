@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import toast from 'react-hot-toast'
 import AppLayout from '@/components/AppLayout'
 import { HiPencilSquare, HiTrash, HiXMark } from 'react-icons/hi2'
 import { Customer } from '@/types'
@@ -63,6 +64,46 @@ export default function CustomersPage() {
       city: c.city ?? '', state: c.state ?? 'SP',
     })
     setShowModal(true)
+  }
+
+  // Busca o cadastro na Receita pelo CNPJ e preenche o que estiver vazio.
+  // Não sobrescreve o que já foi digitado — quem cadastrou pode ter um dado
+  // mais atual que o da Receita (contato e e-mail comercial, tipicamente).
+  const [buscandoCnpj, setBuscandoCnpj] = useState(false)
+
+  const buscarPorCnpj = async () => {
+    const limpo = form.cnpj.replace(/\D/g, '')
+    if (limpo.length !== 14) { toast.error('Informe os 14 dígitos do CNPJ'); return }
+    setBuscandoCnpj(true)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/customers/enrich`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cnpj: limpo }),
+      })
+      const d = await res.json()
+      if (!res.ok) { toast.error(d.error ?? 'Não foi possível consultar'); return }
+
+      setForm(f => ({
+        ...f,
+        cnpj:        d.cnpj ?? f.cnpj,
+        companyName: f.companyName || d.companyName || '',
+        tradeName:   f.tradeName   || d.tradeName   || '',
+        phone:       f.phone       || d.phone       || '',
+        email:       f.email       || d.email       || '',
+        city:        f.city        || d.city        || '',
+        state:       f.state       || d.state       || '',
+      }))
+
+      if (d.situacao && d.situacao !== 'ATIVA') {
+        toast(`Atenção: situação cadastral ${d.situacao}`, { icon: '⚠️', duration: 6000 })
+      } else {
+        toast.success(`${d.companyName ?? 'Cadastro'} encontrado na Receita`)
+      }
+    } catch {
+      toast.error('Erro ao consultar a Receita')
+    } finally {
+      setBuscandoCnpj(false)
+    }
   }
 
   const handleSave = async () => {
@@ -198,7 +239,13 @@ export default function CustomersPage() {
                 </div>
                 <div>
                   <label className="label">CNPJ</label>
-                  <input className="input" placeholder="00.000.000/0000-00" value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} />
+                  <div className="flex gap-2">
+                    <input className="input" placeholder="00.000.000/0000-00" value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} />
+                    <button type="button" className="btn-secondary btn-xs" onClick={buscarPorCnpj}
+                      disabled={buscandoCnpj} title="Preenche os campos vazios com os dados da Receita Federal">
+                      {buscandoCnpj ? '…' : 'Buscar'}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
