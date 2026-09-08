@@ -5,13 +5,15 @@ import { useEffect, useRef, useState } from 'react'
 interface Props {
   code: string
   className?: string
+  /** Entrega o SVG pronto a quem chama — usado pelo visualizador com zoom. */
+  onRendered?: (svg: string) => void
 }
 
 function isEraserDsl(code: string) {
   return /\[icon:/i.test(code) || /^title\s/im.test(code) || /^direction\s/im.test(code)
 }
 
-export default function MermaidDiagram({ code, className = '' }: Props) {
+export default function MermaidDiagram({ code, className = '', onRendered }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const isEraser = isEraserDsl(code)
@@ -42,7 +44,7 @@ export default function MermaidDiagram({ code, className = '' }: Props) {
             nodeBorder: '#0b8f88',
             clusterBkg: '#F8FAFC',
             clusterBorder: '#E2E8F0',
-            fontFamily: "'Montserrat', Arial, sans-serif",
+            fontFamily: "'Work Sans', Arial, sans-serif",
             fontSize: '13px',
           }
         })
@@ -53,6 +55,7 @@ export default function MermaidDiagram({ code, className = '' }: Props) {
         if (!cancelled && ref.current) {
           ref.current.innerHTML = svg
           setError(null)
+          onRendered?.(svg)
         }
       } catch (err) {
         if (!cancelled) {
@@ -63,6 +66,9 @@ export default function MermaidDiagram({ code, className = '' }: Props) {
 
     render()
     return () => { cancelled = true }
+  // onRendered fica fora das dependências de propósito: é um callback do pai,
+  // e reagir a ele redispararia a renderização a cada render do pai.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, isEraser])
 
   if (isEraser) {

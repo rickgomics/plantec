@@ -9,6 +9,7 @@ import AlertPanel from '@/components/AlertPanel'
 import ProductSearchModal from '@/components/ProductSearchModal'
 import AIGenerateButton from '@/components/AIGenerateButton'
 import MermaidDiagram from '@/components/MermaidDiagram'
+import DiagramZoom from '@/components/DiagramZoom'
 import IntelbrasModal, { IntelbrasProduct } from '@/components/IntelbrasModal'
 import AIProjectModal, { AIProjectImportItem } from '@/components/AIProjectModal'
 import Link from 'next/link'
@@ -118,6 +119,10 @@ export default function ProposalDetailPage() {
   const [mermaidCode, setMermaidCode] = useState('')
   const [eraserCode, setEraserCode] = useState('')
   const [eraserPreviewUrl, setEraserPreviewUrl] = useState<string | null>(null)
+  const [mermaidSvg, setMermaidSvg] = useState<string | null>(null)
+  // O cenário completo leva ~77s (descrição 47s + diagrama 13s + render 18s).
+  // Sem tempo decorrido na tela, esse silêncio parece travamento.
+  const [scenarioElapsed, setScenarioElapsed] = useState(0)
   const [eraserPreviewing, setEraserPreviewing] = useState(false)
 
   // Derived: active diagram content routes to the right state
@@ -177,6 +182,14 @@ export default function ProposalDetailPage() {
   useEffect(() => {
     if (proposal?.items?.length) evaluate()
   }, [proposal?.items, evaluate])
+
+  // Cronômetro do cenário: começa em 0 a cada geração e conta enquanto roda.
+  useEffect(() => {
+    if (!scenarioGenerating) return
+    setScenarioElapsed(0)
+    const t = setInterval(() => setScenarioElapsed(s => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [scenarioGenerating])
 
   // Auto-render Eraser preview when entering scenario tab with Eraser content
   useEffect(() => {
@@ -1339,15 +1352,35 @@ export default function ProposalDetailPage() {
                     </div>
                   )}
 
-                  {/* Progress steps */}
-                  {scenarioGenerating && (
-                    <div className="flex items-center gap-1.5 text-[10px] font-semibold">
-                      <span className={`px-2 py-0.5 rounded-full ${scenarioStep === 'desc' ? 'bg-brand-500 text-white' : 'bg-ink/5 text-ink/45'}`}>
-                        1 Descrição
-                      </span>
-                      <span className="text-ink/35">→</span>
-                      <span className={`px-2 py-0.5 rounded-full ${scenarioStep === 'diagram' ? 'bg-brand-500 text-white' : 'bg-ink/5 text-ink/45'}`}>
-                        2 Diagrama
+                  {/* Progresso: passo atual, concluídos marcados e tempo decorrido */}
+                  {(scenarioGenerating || eraserPreviewing) && (
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold">
+                        {(() => {
+                          const passos = [
+                            { id: 'desc', nome: 'Descrição', seg: 47 },
+                            { id: 'diagram', nome: 'Diagrama', seg: 13 },
+                            ...(diagramType === 'eraser' ? [{ id: 'render', nome: 'Render', seg: 18 }] : []),
+                          ]
+                          const atual = eraserPreviewing && !scenarioGenerating ? 'render' : scenarioStep
+                          const iAtual = passos.findIndex(p => p.id === atual)
+                          return passos.map((p, i) => (
+                            <span key={p.id} className="flex items-center gap-1.5">
+                              {i > 0 && <span className="text-ink/35">→</span>}
+                              <span className={`px-2 py-0.5 rounded-full ${
+                                i < iAtual ? 'bg-emerald-100 text-emerald-700'
+                                : i === iAtual ? 'bg-brand-500 text-white'
+                                : 'bg-ink/5 text-ink/45'}`}>
+                                {i < iAtual ? '✓' : i + 1} {p.nome}
+                                {i === iAtual && <span className="opacity-70"> ~{p.seg}s</span>}
+                              </span>
+                            </span>
+                          ))
+                        })()}
+                      </div>
+                      <span className="text-[10px] font-mono text-ink/45">
+                        {Math.floor(scenarioElapsed / 60)}:{String(scenarioElapsed % 60).padStart(2, '0')} decorrido
+                        {scenarioElapsed > 90 && ' · quase lá'}
                       </span>
                     </div>
                   )}
@@ -1480,11 +1513,20 @@ export default function ProposalDetailPage() {
                       ● ao vivo
                     </span>
                   )}
-                  {eraserPreviewUrl && (
-                    <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full ring-1 ring-inset ring-violet-200">
-                      ✦ Eraser
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {eraserPreviewUrl && (
+                      <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full ring-1 ring-inset ring-violet-200">
+                        ✦ Eraser
+                      </span>
+                    )}
+                    {/* O preview cabe em 480px; o projetista precisa ler rótulo
+                        de equipamento e de enlace, então o zoom abre em cheio. */}
+                    <DiagramZoom
+                      imageUrl={diagramType === 'eraser' ? eraserPreviewUrl : null}
+                      svg={diagramType === 'mermaid' ? mermaidSvg : null}
+                      titulo={`${proposal.number} — ${diagramType === 'eraser' ? 'Diagrama Eraser' : 'Topologia de Rede'}`}
+                    />
+                  </div>
                 </div>
 
                 {diagramType === 'eraser' ? (
@@ -1501,7 +1543,7 @@ export default function ProposalDetailPage() {
                     </div>
                   )
                 ) : scenarioDiagram ? (
-                  <MermaidDiagram code={scenarioDiagram} className="min-h-[440px] flex-1" />
+                  <MermaidDiagram code={scenarioDiagram} className="min-h-[440px] flex-1" onRendered={setMermaidSvg} />
                 ) : (
                   <div className="flex flex-col items-center justify-center flex-1 min-h-[440px] border-2 border-dashed border-line/10 rounded-xl text-center">
                     <div className="text-5xl mb-3 opacity-20 select-none">◈</div>
