@@ -37,7 +37,7 @@ function fmtPct(v: number | string): string {
 // Usable content area: 1122 - 81 - 42 - 72 = 927 px
 const CONTENT_H = 927
 const BOM_ROW_H  = 60   // tbody tr (padding 8×2 + nome em até 2 linhas + marca + gap)
-const TECH_ROW_H = 72   // tbody tr (idem + linha de descrição)
+const TECH_ROW_H = 64   // tbody tr (nome em 2 linhas + marca, sem descrição duplicada)
 const S_HDG      = 44   // .section-heading + margin-bottom:20
 const TBL_HDR    = 30   // thead tr
 const TBL_FTR    = 37   // tfoot tr
@@ -203,19 +203,19 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 
   function techRow(item: Item): string {
-    const desc      = item.product.description ?? ''
-    const descShort = desc.length > 100 ? desc.slice(0, 100) + '…' : desc
-    const notes     = item.technicalNotes ?? (desc ? (desc.length > 180 ? desc.slice(0, 180) + '…' : desc) : '—')
-    const extra = descShort
-      ? `<div style="font-size:7pt;color:#94A3B8;margin-top:2px;font-weight:500;line-height:1.4">${esc(descShort)}</div>`
-      : ''
+    const desc  = item.product.description ?? ''
+    // A descrição aparece só na coluna Descritivo. Antes ela vinha também
+    // embaixo do nome, e a linha repetia o mesmo texto duas vezes — comendo
+    // altura sem acrescentar informação.
+    const notes = item.technicalNotes ?? (desc ? (desc.length > 220 ? desc.slice(0, 220) + '…' : desc) : '—')
+    const clamp2 = 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35'
     const clamp3 = 'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35'
     return `<tr>
       <td class="mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.product.sku)}</td>
-      ${nameCell(item, extra)}
+      ${nameCell(item)}
       <td class="r" style="font-weight:700;white-space:nowrap">${item.quantity}${item.product.unit ? ` ${esc(item.product.unit)}` : ''}</td>
       <td style="color:#64748B;font-weight:600">${esc(item.product.category)}</td>
-      <td><div style="${clamp3}">${esc(item.role ?? '—')}</div></td>
+      <td><div style="${clamp2}">${esc(item.role ?? '—')}</div></td>
       <td style="font-size:7pt;color:#64748B"><div style="${clamp3}">${esc(notes)}</div></td>
     </tr>`
   }
