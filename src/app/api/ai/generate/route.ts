@@ -26,53 +26,55 @@ Responda apenas com o texto do resumo, sem títulos ou formatação extra.`,
 Escreva o escopo técnico da proposta em formato estruturado com seções e listas. Use EXATAMENTE este formato:
 
 Está incluso:
-• [item 1]
-• [item 2]
-• ...
+• um item por linha, com o marcador •
 
 Não está incluso:
-• [item 1]
-• [item 2]
-• ...
+• um item por linha, com o marcador •
 
 Condições:
-• [condição 1]
-• ...
+• uma condição por linha, com o marcador •
 
-Use os produtos reais da BOM. Seja objetivo e técnico. Responda APENAS com o texto formatado acima.`,
+Os três títulos saem exatamente como estão escritos — o documento os usa para
+montar a seção. As linhas de bullet você preenche com o conteúdo real.
+
+Use os produtos reais da BOM. Seja objetivo e técnico.
+NUNCA escreva rótulo entre colchetes: nada de [item 1] ou [condição 1] no texto
+final, isso vai impresso na proposta que o cliente lê.
+Responda APENAS com as três seções.`,
 
   scenarioDescription: `Você é um arquiteto de soluções sênior da Plantec Distribuidora, especializada em segurança eletrônica, redes e infraestrutura.
 
-Com base nos equipamentos da BOM e nas informações da proposta, gere uma DESCRIÇÃO TÉCNICA COMPLETA do cenário de instalação, seguindo RIGOROSAMENTE esta estrutura:
+Com base nos equipamentos da BOM e nas informações da proposta, gere uma DESCRIÇÃO TÉCNICA COMPLETA do cenário de instalação.
 
-[PARÁGRAFO 1 — AMBIENTE]
-Descreva o ambiente físico típico: localização, porte, número de andares, áreas cobertas, infraestrutura existente relevante.
+A descrição começa com TRÊS parágrafos de texto corrido, nesta ordem e SEM nenhum rótulo, título ou marcador antes deles — o documento vai direto ao cliente e um "[PARÁGRAFO 1]" impresso na proposta destrói a credibilidade:
 
-[PARÁGRAFO 2 — ARQUITETURA DA SOLUÇÃO]
-Descreva como os equipamentos da BOM se interconectam, fluxo de dados, ponto de convergência, segregação de rede, dimensionamento.
+1. Ambiente físico: localização, porte, número de andares, áreas cobertas, infraestrutura existente relevante.
+2. Arquitetura da solução: como os equipamentos da BOM se interconectam, fluxo de dados, ponto de convergência, segregação de rede, dimensionamento.
+3. Integração e dependências: sistemas existentes que serão integrados, dependências externas (internet, cabeamento, obras civis, VPN, DDNS).
 
-[PARÁGRAFO 3 — INTEGRAÇÃO E DEPENDÊNCIAS]
-Identifique sistemas existentes que serão integrados, dependências externas (internet, cabeamento, obras civis, VPN, DDNS).
+Separe os três parágrafos por uma linha em branco. Cada um com 4 a 6 frases.
+
+Depois dos três parágrafos, e só então, escreva as duas seções abaixo. Estas duas SIM levam o título exatamente como está escrito, porque o documento as usa para montar a página:
 
 VANTAGENS TÉCNICAS:
-• [vantagem 1 — ex: redundância, escalabilidade, integração]
-• [vantagem 2]
-• [vantagem 3]
-• [vantagem 4]
-• [vantagem 5]
+• uma vantagem por linha, começando com o marcador •
+• cinco linhas, cada uma com uma frase (redundância, escalabilidade, integração com o legado, facilidade de operação, margem de expansão)
 
 BENEFÍCIOS PARA O CLIENTE:
-• [benefício 1 — ex: ROI, redução de custos, aumento de segurança]
-• [benefício 2]
-• [benefício 3]
-• [benefício 4]
-• [benefício 5]
+• uma linha por benefício, também com o marcador •
+• cinco linhas (retorno do investimento, redução de custo operacional, ganho de segurança, continuidade da operação, previsibilidade)
 
 REGRAS:
 - Mencione os produtos reais da BOM pelos nomes (não apenas categorias)
 - Use linguagem técnica profissional
 - Cada seção é obrigatória
-- Responda APENAS com o texto estruturado acima, sem títulos extras ou markdown`,
+- NUNCA escreva rótulo entre colchetes. Nada de [PARÁGRAFO 1], [AMBIENTE],
+  [vantagem 1] ou similar: os colchetes acima são instrução para você, não
+  texto para sair na proposta
+- Não use markdown, nem ## nem ** nem numeração antes dos parágrafos
+- Os três parágrafos somados devem ficar entre 1.800 e 2.600 caracteres —
+  a página do PDF que os recebe tem tamanho fixo
+- Responda APENAS com os três parágrafos seguidos das duas seções`,
 
   bomRoles: `Você é um arquiteto de soluções da Plantec Distribuidora, especializada em segurança eletrônica, redes e infraestrutura.
 

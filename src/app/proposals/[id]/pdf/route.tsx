@@ -43,6 +43,42 @@ const TBL_HDR    = 30   // thead tr
 const TBL_FTR    = 37   // tfoot tr
 const TOTALS_BLK = 200  // .totals-wrap (margin-top:20 + card ~180)
 
+// Texto corrido a 9.5pt: line-height 1.75-1.8 dá ~22px por linha, e a largura
+// útil da página comporta ~115 caracteres por linha (~105 dentro de um box
+// com padding). Serve para estimar quantos parágrafos cabem antes da quebra —
+// .page tem overflow:hidden, então o que não couber some sem aviso.
+const TXT_LINHA_H = 22
+const TXT_CHARS   = 115
+
+/**
+ * Divide texto corrido em páginas, quebrando só em fronteira de parágrafo.
+ * `extra` desconta a altura de qualquer moldura em volta (padding de box).
+ */
+function paginarTexto(texto: string, extra = 0): string[] {
+  const paragrafos = texto.split(/\n\s*\n/).map(t => t.trim()).filter(Boolean)
+  if (!paragrafos.length) return []
+  const paginas: string[] = []
+  let atual: string[] = []
+  let usado = 0
+  let disponivel = CONTENT_H - S_HDG - extra
+
+  for (const par of paragrafos) {
+    const linhas = Math.max(1, Math.ceil(par.length / TXT_CHARS))
+    const h = linhas * TXT_LINHA_H + TXT_LINHA_H
+    if (usado + h > disponivel && atual.length) {
+      paginas.push(atual.join('\n\n'))
+      atual = []
+      usado = 0
+      // Páginas seguintes não repetem o título da seção.
+      disponivel = CONTENT_H - extra
+    }
+    atual.push(par)
+    usado += h
+  }
+  if (atual.length) paginas.push(atual.join('\n\n'))
+  return paginas
+}
+
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const [proposal, brands] = await Promise.all([
     prisma.proposal.findUnique({
@@ -420,13 +456,22 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       i += 2
     }
 
-    // Page 1: heading + narrative paragraphs
-    let out = pg(`
-      <div class="section">
-        <div class="section-heading"><h2>Cenário Técnico</h2></div>
-        ${intro ? `<div class="scenario-desc scenario-body">${esc(intro)}</div>` : ''}
-      </div>
-    `)
+    // A narrativa quebra em quantas páginas precisar: .page tem
+    // overflow:hidden e o excedente sumia sem aviso.
+    const paginasNarrativa = intro ? paginarTexto(intro, 48) : []
+
+    let out = paginasNarrativa.length
+      ? paginasNarrativa.map((texto, i) => pg(`
+          <div class="section">
+            ${i === 0 ? '<div class="section-heading"><h2>Cenário Técnico</h2></div>' : ''}
+            <div class="scenario-desc scenario-body">${esc(texto)}</div>
+          </div>
+        `)).join('')
+      : pg(`
+          <div class="section">
+            <div class="section-heading"><h2>Cenário Técnico</h2></div>
+          </div>
+        `)
 
     // Page 2 (only if bullet sections exist): VANTAGENS + BENEFÍCIOS
     if (sectionsHtml) {
@@ -713,20 +758,24 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   `)}
 
   <!-- RESUMO EXECUTIVO (página própria se presente) -->
-  ${proposal.executiveSummary ? pg(`
-    <div class="section">
-      <div class="section-heading"><h2>Resumo Executivo</h2></div>
-      <div class="text-content">${esc(proposal.executiveSummary)}</div>
-    </div>
-  `) : ''}
+  ${proposal.executiveSummary
+    ? paginarTexto(proposal.executiveSummary).map((t, i) => pg(`
+        <div class="section">
+          ${i === 0 ? '<div class="section-heading"><h2>Resumo Executivo</h2></div>' : ''}
+          <div class="text-content">${esc(t)}</div>
+        </div>
+      `)).join('')
+    : ''}
 
   <!-- ESCOPO (página própria se presente) -->
-  ${proposal.scope ? pg(`
-    <div class="section">
-      <div class="section-heading"><h2>Escopo do Projeto</h2></div>
-      <div class="text-content">${esc(proposal.scope)}</div>
-    </div>
-  `) : ''}
+  ${proposal.scope
+    ? paginarTexto(proposal.scope).map((t, i) => pg(`
+        <div class="section">
+          ${i === 0 ? '<div class="section-heading"><h2>Escopo do Projeto</h2></div>' : ''}
+          <div class="text-content">${esc(t)}</div>
+        </div>
+      `)).join('')
+    : ''}
 
   <!-- SOBRE A EMPRESA (página própria se presente) -->
   ${companyDescription ? pg(`
