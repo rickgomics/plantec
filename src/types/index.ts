@@ -64,6 +64,9 @@ export interface ProposalItem {
   margin: number
   role?: string | null
   technicalNotes?: string | null
+  /** 'list' | id do grupo de cliente | 'manual' */
+  priceTable?: string | null
+  pricedAt?: string | null
 }
 
 export interface CompanyProfile {
@@ -83,6 +86,8 @@ export interface CompanyProfile {
 
 export interface Proposal {
   id: string
+  /** Tabela de preço escolhida para a proposta ('list' ou id do grupo) */
+  priceTable?: string | null
   number: string
   title: string
   vertical: string

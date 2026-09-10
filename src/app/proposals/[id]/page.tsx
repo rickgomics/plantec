@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import AppLayout from '@/components/AppLayout'
 import StatusBadge from '@/components/StatusBadge'
 import { HiLink, HiClipboard, HiXMark, HiArrowDownTray } from 'react-icons/hi2'
@@ -250,6 +250,58 @@ export default function ProposalDetailPage() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ itemId, unitPrice }),
+    })
+    await loadProposal()
+  }
+
+  // ── Tabelas de preço ────────────────────────────────────────────────────
+  // O projetista escolhe a tabela (preço da loja ou um grupo de cliente do
+  // Magento); cada item guarda de qual tabela saiu e quando. Atualizar busca
+  // o valor ao vivo; preço digitado à mão fica "manual" e é preservado.
+  const [priceTables, setPriceTables] = useState<{ id: string; label: string }[]>([])
+  const [repricing, setRepricing] = useState(false)
+  const [incluirManuais, setIncluirManuais] = useState(false)
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/price-tables`)
+      .then(r => r.json())
+      .then(d => setPriceTables(d.tables ?? []))
+      .catch(() => { /* sem Magento o seletor some; a BOM segue funcionando */ })
+  }, [])
+
+  const tableLabels = useMemo(
+    () => Object.fromEntries(priceTables.map(t => [t.id, t.label])),
+    [priceTables],
+  )
+
+  const handleReprice = async (priceTable?: string) => {
+    setRepricing(true)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}/reprice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceTable, includeManual: incluirManuais }),
+      })
+      const d = await res.json()
+      if (!res.ok) { toast.error(d.error ?? 'Falha ao atualizar preços'); return }
+      const partes = [`${d.atualizados} item(ns) atualizado(s)`]
+      if (d.manuaisMantidos) partes.push(`${d.manuaisMantidos} com preço manual mantido(s)`)
+      if (d.semPrecoNaTabela?.length) partes.push(`${d.semPrecoNaTabela.length} sem preço nessa tabela — usado o da loja`)
+      if (d.foraDoMagento?.length) partes.push(`${d.foraDoMagento.length} não encontrado(s) no Magento`)
+      toast.success(partes.join(' · '), { duration: 7000 })
+      await loadProposal()
+    } catch {
+      toast.error('Erro ao atualizar preços')
+    } finally {
+      setRepricing(false)
+    }
+  }
+
+  const handleCostChange = async (itemId: string, cost: number) => {
+    await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}/items`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId, cost }),
     })
     await loadProposal()
   }
@@ -885,12 +937,49 @@ export default function ProposalDetailPage() {
                     </button>
                   </div>
                 </div>
+                {priceTables.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-line/10 bg-background">
+                    <span className="label !mb-0">Tabela de preço</span>
+                    <select
+                      className="input !w-auto !py-1 text-xs"
+                      value={proposal.priceTable ?? 'list'}
+                      disabled={repricing}
+                      onChange={e => handleReprice(e.target.value)}
+                      title="Trocar a tabela reprecifica a BOM com o valor atual do Magento"
+                    >
+                      {priceTables.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-xs"
+                      disabled={repricing || proposal.items.length === 0}
+                      onClick={() => handleReprice()}
+                      title="Busca o preço atual da tabela escolhida no Magento"
+                    >
+                      {repricing ? 'Atualizando…' : '↻ Atualizar preços'}
+                    </button>
+                    {proposal.items.some(i => i.priceTable === 'manual') && (
+                      <label className="flex items-center gap-1.5 text-[11px] text-ink/55 font-medium cursor-pointer">
+                        <input type="checkbox" checked={incluirManuais} onChange={e => setIncluirManuais(e.target.checked)} />
+                        substituir também os preços manuais
+                      </label>
+                    )}
+                    {(() => {
+                      const datas = proposal.items.map(i => i.pricedAt).filter(Boolean) as string[]
+                      if (!datas.length) return null
+                      const ultima = new Date(Math.max(...datas.map(d => new Date(d).getTime())))
+                      return <span className="text-[11px] text-ink/40 ml-auto">preços de {ultima.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                    })()}
+                  </div>
+                )}
                 <BOMTable
                   items={proposal.items}
                   onQuantityChange={handleQuantityChange}
                   onDiscountChange={handleDiscountChange}
                   onPriceChange={handlePriceChange}
+                  onCostChange={handleCostChange}
                   onRemove={handleRemoveItem}
+                  tableLabels={tableLabels}
                 />
               </div>
 

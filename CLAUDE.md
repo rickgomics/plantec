@@ -158,6 +158,7 @@ public/
 | scenarioDesc | String? | Descrição do cenário técnico |
 | scenarioDiagram | String? | Código Mermaid do diagrama |
 | coverStyle | String | "teal" \| "carbon" \| "ocean" \| "burgundy" \| "pearl" |
+| priceTable | String? | Tabela de preço escolhida: `list` ou id do grupo de cliente do Magento |
 
 ### `ProposalItem`
 | Campo | Tipo |
@@ -166,13 +167,15 @@ public/
 | proposalId | String (FK, cascade delete) |
 | productId | String (FK) |
 | quantity | Int |
-| unitPrice | Decimal (snapshot do basePrice no momento) |
+| unitPrice | Decimal (snapshot do preço na tabela escolhida) |
 | discount | Decimal (% por item) |
 | subtotal | Decimal |
 | cost | Decimal |
 | margin | Decimal |
 | role | String? | Função na solução (gerado por IA) |
 | technicalNotes | String? |
+| priceTable | String? | De onde saiu o preço: `list`, id do grupo, `manual`; NULL = regra antiga |
+| pricedAt | DateTime? | Quando o preço foi aplicado |
 
 ### `CompanyProfile`
 Perfil da empresa emissora. Pode ser o perfil de capa (logo grande) ou o perfil de introdução (texto institucional).
@@ -217,7 +220,16 @@ Atualiza qualquer campo da proposta. Recalculo financeiro só ocorre via `/items
 Adiciona produto à BOM. Calcula `unitPrice` (snapshot), `subtotal`, `margin` e chama `recalcProposal()` que atualiza totais na `Proposal`.
 
 ### `PUT /api/proposals/[id]/items`
-Atualiza `quantity`, `discount`, `role`, `technicalNotes` de um item. Recalcula tudo.
+Atualiza `quantity`, `discount`, `role`, `technicalNotes`, `cost` e `unitPrice` de um item. Recalcula tudo.
+`unitPrice` digitado marca o item como `manual` — a atualização em lote não o sobrescreve.
+
+### `POST /api/proposals/[id]/reprice`
+Body `{ priceTable?, includeManual? }`. Busca o preço atual no Magento para todos os SKUs da BOM,
+aplica a tabela, grava `priceTable`/`pricedAt` em cada item e renova o cache de preços do catálogo.
+Devolve `{ atualizados, manuaisMantidos, semPrecoNaTabela[], foraDoMagento[] }`.
+
+### `GET /api/price-tables`
+Tabelas disponíveis: `list` (preço da loja) + grupos de cliente do Magento (ids 0–3 e grupos de teste ficam de fora).
 
 ### `DELETE /api/proposals/[id]/items?itemId=`
 Remove item e recalcula.
@@ -235,6 +247,21 @@ Body: `{ type, context }`. Tipos disponíveis:
 - `introText` — texto institucional da empresa
 
 Usa `claude-opus-5` com `thinking: { type: 'adaptive' }` e `max_tokens: 1500`.
+
+---
+
+## Tabelas de Preço (`src/lib/pricing.ts`)
+
+O Magento tem um `price` de tabela e, por cima, um tier price de quantidade 1 por **grupo de cliente**
+(DIS-4, A1-3DIAMANTE, DISTRIB_OURO…). O mesmo produto varia até ~15% entre grupos.
+
+- O sync guarda `attributes.magento_price` e `attributes.tierPrices` (`{ grupo: preço }`).
+- Ao adicionar um item, o preço sai da tabela da proposta usando esse cache.
+- "Atualizar preços" consulta o Magento ao vivo (`fetchPriceBooks`, lotes de 50 SKUs).
+- Produto sem preço no grupo escolhido cai no preço da loja, e isso é reportado.
+- **Custo**: o Magento não tem custo por SKU (atributo `cost` vazio). O custo é informado no item e
+  guardado nele — é o que dá sentido à margem. `Product.cost` segue 0 no catálogo.
+- `Product.basePrice` ainda é gravado pela regra antiga (menor preço entre grupos) e só serve de fallback.
 
 ---
 

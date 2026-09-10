@@ -82,6 +82,7 @@ model Proposal {
   eraserImageUrl   String?
   coverStyle          String          @default("teal")
   showUnitPrice       Boolean         @default(true)
+  priceTable          String?
   externalProjectId   String?         @unique
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -121,6 +122,8 @@ model ProposalItem {
   margin         Decimal  @default(0)
   role           String?
   technicalNotes String?
+  priceTable     String?
+  pricedAt       DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   product        Product  @relation(fields: [productId], references: [id])

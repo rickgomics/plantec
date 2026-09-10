@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+import { tiersOf } from '@/lib/pricing'
 import { buildSpecAttributes, fetchSpecOptionMaps, type SpecOptionMaps } from '@/lib/magentoSpecs'
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -169,6 +170,8 @@ function normalize(p: MagentoProduct, mfr: Record<string, string>, qty: number, 
       magento_price:   p.price,
       image_url:       image,
       ncm:             attr(p, 'ncm'),
+      // preço de cada grupo de cliente (tabelas de preço)
+      tierPrices:      tiersOf(p.tier_prices),
       ...buildSpecAttributes(p.custom_attributes, specMaps),
     },
     image,

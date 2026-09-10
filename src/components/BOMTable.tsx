@@ -39,8 +39,42 @@ interface BOMTableProps {
   onQuantityChange: (itemId: string, quantity: number) => void
   onDiscountChange: (itemId: string, discount: number) => void
   onPriceChange?: (itemId: string, price: number) => void
+  onCostChange?: (itemId: string, cost: number) => void
   onRemove: (itemId: string) => void
+  /** id da tabela → nome, para mostrar de onde saiu o preço de cada item */
+  tableLabels?: Record<string, string>
   readonly?: boolean
+}
+
+/** Rótulo curto da origem do preço, exibido embaixo do valor. */
+function origemDoPreco(table: string | null | undefined, labels: Record<string, string>) {
+  // Item de antes das tabelas de preço: saiu da regra antiga (menor valor
+  // entre todos os grupos), então não pode ser chamado de "tabela da loja".
+  if (!table) return { texto: 'preço anterior — atualize', manual: true }
+  if (table === 'list') return { texto: 'tabela da loja', manual: false }
+  if (table === 'manual') return { texto: 'manual', manual: true }
+  return { texto: labels[table] ?? `grupo ${table}`, manual: false }
+}
+
+/** Campo de valor que só grava ao sair do campo, e só se o valor mudou. */
+function MoneyInput({ value, onCommit, title }: { value: number; onCommit: (v: number) => void; title: string }) {
+  return (
+    <input
+      key={value}
+      type="number"
+      min={0}
+      step={0.01}
+      defaultValue={value ? value.toFixed(2) : ''}
+      placeholder="0,00"
+      title={title}
+      onBlur={(e) => {
+        const v = parseFloat(e.target.value) || 0
+        if (Math.abs(v - value) > 0.004) onCommit(v)
+      }}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+      className="w-24 text-right border border-line/15 bg-surface text-ink rounded-lg px-1.5 py-1 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition"
+    />
+  )
 }
 
 function marginBadge(margin: number) {
@@ -56,7 +90,9 @@ export default function BOMTable({
   onQuantityChange,
   onDiscountChange,
   onPriceChange,
+  onCostChange,
   onRemove,
+  tableLabels = {},
   readonly = false,
 }: BOMTableProps) {
   if (items.length === 0) {
@@ -78,6 +114,7 @@ export default function BOMTable({
             <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">SKU</th>
             <th className="px-4 py-3 text-left text-[10px] font-black text-ink/45 uppercase tracking-widest">Produto</th>
             <th className="px-4 py-3 text-center text-[10px] font-black text-ink/45 uppercase tracking-widest">Qtd</th>
+            <th className="px-4 py-3 text-right text-[10px] font-black text-ink/45 uppercase tracking-widest">Custo Unit.</th>
             <th className="px-4 py-3 text-right text-[10px] font-black text-ink/45 uppercase tracking-widest">Preço Unit.</th>
             <th className="px-4 py-3 text-center text-[10px] font-black text-ink/45 uppercase tracking-widest">Desc %</th>
             <th className="px-4 py-3 text-right text-[10px] font-black text-ink/45 uppercase tracking-widest">Subtotal</th>
@@ -132,27 +169,30 @@ export default function BOMTable({
                     />
                   )}
                 </td>
+                {/* Custo: o Magento não tem custo por SKU, então ele é informado e
+                    guardado no item — é o que dá sentido à coluna Margem. */}
                 <td className="px-4 py-3 text-right text-ink/65 font-medium">
-                  {!readonly && unitPrice === 0 && onPriceChange ? (
-                    <div className="flex items-center justify-end gap-1">
-                      <span className="text-ink/45 text-xs">R$</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        defaultValue={0}
-                        placeholder="0,00"
-                        onBlur={(e) => {
-                          const v = parseFloat(e.target.value) || 0
-                          if (v > 0) onPriceChange(item.id, v)
-                        }}
-                        className={`${numInput} w-24`}
-                        title="Informe o preço unitário"
-                      />
-                    </div>
+                  {!readonly && onCostChange ? (
+                    <MoneyInput value={Number(item.cost)} onCommit={(v) => onCostChange(item.id, v)} title="Custo unitário" />
+                  ) : (
+                    <>R$ {Number(item.cost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right text-ink/65 font-medium">
+                  {!readonly && onPriceChange ? (
+                    <MoneyInput value={unitPrice} onCommit={(v) => onPriceChange(item.id, v)} title="Preço unitário — editar marca o item como manual" />
                   ) : (
                     <>R$ {unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</>
                   )}
+                  {(() => {
+                    const o = origemDoPreco(item.priceTable, tableLabels)
+                    return (
+                      <div className={`text-[10px] mt-0.5 font-semibold ${o.manual ? 'text-amber-600' : 'text-ink/40'}`}
+                        title={item.pricedAt ? `Preço de ${new Date(item.pricedAt).toLocaleString('pt-BR')}` : undefined}>
+                        {o.texto}
+                      </div>
+                    )
+                  })()}
                 </td>
                 <td className="px-4 py-3 text-center">
                   {readonly ? (

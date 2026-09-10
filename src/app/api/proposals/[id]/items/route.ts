@@ -3,39 +3,27 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Decimal } from '@prisma/client/runtime/library'
-
-async function recalcProposal(proposalId: string) {
-  const items = await prisma.proposalItem.findMany({ where: { proposalId } })
-  const totalPrice = items.reduce((s, i) => s + Number(i.subtotal), 0)
-  const totalCost = items.reduce((s, i) => s + Number(i.cost) * i.quantity, 0)
-  const totalDiscount = items.reduce(
-    (s, i) => s + Number(i.unitPrice) * i.quantity * (Number(i.discount) / 100),
-    0
-  )
-  const margin = totalPrice > 0 ? ((totalPrice - totalCost) / totalPrice) * 100 : 0
-  await prisma.proposal.update({
-    where: { id: proposalId },
-    data: {
-      totalPrice: new Decimal(totalPrice),
-      totalCost: new Decimal(totalCost),
-      totalDiscount: new Decimal(totalDiscount),
-      margin: new Decimal(margin),
-    },
-  })
-}
+import { recalcProposal, itemMath } from '@/lib/recalc'
+import { bookFromAttributes, priceFrom, MANUAL_TABLE } from '@/lib/pricing'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json()
   const { productId, quantity = 1, discount = 0, role, technicalNotes } = body
 
-  const product = await prisma.product.findUnique({ where: { id: productId } })
+  const [product, proposal] = await Promise.all([
+    prisma.product.findUnique({ where: { id: productId } }),
+    prisma.proposal.findUnique({ where: { id: params.id }, select: { priceTable: true } }),
+  ])
   if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })
 
-  const unitPrice = Number(product.basePrice)
+  // Preço pela tabela que o projetista escolheu para esta proposta, a partir
+  // do cache do último sync. "Atualizar preços" busca o valor ao vivo.
+  const { price: unitPrice, table } = priceFrom(
+    bookFromAttributes(product.attributes, Number(product.basePrice)),
+    proposal?.priceTable,
+  )
   const cost = Number(product.cost)
-  const discountAmt = unitPrice * quantity * (discount / 100)
-  const subtotal = unitPrice * quantity - discountAmt
-  const margin = subtotal > 0 ? ((subtotal - cost * quantity) / subtotal) * 100 : 0
+  const { subtotal, margin } = itemMath(unitPrice, cost, quantity, discount)
 
   const item = await prisma.proposalItem.create({
     data: {
@@ -49,6 +37,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       margin: new Decimal(margin),
       role: role ?? null,
       technicalNotes: technicalNotes ?? null,
+      priceTable: table,
+      pricedAt: new Date(),
     },
     include: { product: true },
   })
@@ -71,7 +61,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json()
-  const { itemId, quantity, discount, role, technicalNotes, unitPrice: unitPriceRaw } = body
+  const { itemId, quantity, discount, role, technicalNotes } = body
   if (!itemId) return NextResponse.json({ error: 'itemId required' }, { status: 400 })
 
   const existing = await prisma.proposalItem.findUnique({
@@ -80,13 +70,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   })
   if (!existing) return NextResponse.json({ error: 'Item not found' }, { status: 404 })
 
-  const unitPrice = unitPriceRaw !== undefined ? Number(unitPriceRaw) : Number(existing.unitPrice)
-  const cost = Number(existing.cost)
+  // Preço digitado à mão vira "manual": a atualização em lote não o
+  // sobrescreve, porque ele pode ser um preço negociado.
+  const precoEditado = body.unitPrice !== undefined
+  const unitPrice = precoEditado ? Number(body.unitPrice) : Number(existing.unitPrice)
+  // O Magento não tem custo, então o custo é informado e guardado aqui.
+  const cost = body.cost !== undefined ? Number(body.cost) : Number(existing.cost)
   const newQty = quantity ?? existing.quantity
   const newDisc = discount ?? Number(existing.discount)
-  const discountAmt = unitPrice * newQty * (newDisc / 100)
-  const subtotal = unitPrice * newQty - discountAmt
-  const margin = subtotal > 0 ? ((subtotal - cost * newQty) / subtotal) * 100 : 0
+  const { subtotal, margin } = itemMath(unitPrice, cost, newQty, newDisc)
 
   const item = await prisma.proposalItem.update({
     where: { id: itemId },
@@ -95,9 +87,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       unitPrice: new Decimal(unitPrice),
       discount: new Decimal(newDisc),
       subtotal: new Decimal(subtotal),
+      cost: new Decimal(cost),
       margin: new Decimal(margin),
       role: role !== undefined ? role : existing.role,
       technicalNotes: technicalNotes !== undefined ? technicalNotes : existing.technicalNotes,
+      ...(precoEditado && { priceTable: MANUAL_TABLE, pricedAt: new Date() }),
     },
     include: { product: true },
   })

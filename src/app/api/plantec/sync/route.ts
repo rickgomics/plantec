@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { tiersOf } from '@/lib/pricing'
 import { buildSpecAttributes, fetchSpecOptionMaps, type SpecOptionMaps } from '@/lib/magentoSpecs'
 
 const BASE   = (process.env.MAGENTO_URL  ?? '').replace(/\/$/, '')
@@ -196,6 +197,8 @@ export async function GET(req: NextRequest) {
                       magento_price:   p.price,
                       image_url:       image,
                       ncm:             attr(p, 'ncm'),
+                      // preço de cada grupo de cliente (tabelas de preço)
+                      tierPrices:      tiersOf(p.tier_prices),
                       ...buildSpecAttributes(p.custom_attributes, specMaps),
                     },
                     compatible: [],
@@ -214,6 +217,8 @@ export async function GET(req: NextRequest) {
                       magento_price:   p.price,
                       image_url:       image,
                       ncm:             attr(p, 'ncm'),
+                      // preço de cada grupo de cliente (tabelas de preço)
+                      tierPrices:      tiersOf(p.tier_prices),
                       ...buildSpecAttributes(p.custom_attributes, specMaps),
                     },
                   },
