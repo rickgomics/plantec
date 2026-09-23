@@ -9,7 +9,8 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
-    "seed:brands": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed-brands.ts"
+    "seed:brands": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed-brands.ts",
+    "seed:carregadores": "set -a && . ./.env && set +a && ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed-carregadores-veiculares.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
