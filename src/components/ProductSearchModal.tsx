@@ -9,7 +9,7 @@ interface ProductSearchModalProps {
   onAdd: (product: Product, quantity: number) => void
 }
 
-const CATEGORIES = ['CFTV', 'Energia', 'Redes', 'Controle de Acesso', 'Cabeamento', 'Nobreaks', 'Racks', 'Serviços']
+const CATEGORIES = ['CFTV', 'Energia', 'Mobilidade Elétrica', 'Redes', 'Controle de Acesso', 'Cabeamento', 'Nobreaks', 'Racks', 'Serviços']
 const LIC_FABRICANTES = ['', '3CX', 'INTELBRAS - COMUNICAÇÃO', 'INTELBRAS - SEGURANÇA ELETRONICA', 'KHOMP - COMUNICAÇÃO', 'SOMA TARIFADOR', 'KHOMP - IOT', 'ALTISTECH']
 
 type Mode = 'probing' | 'magento' | 'local' | 'licencas'

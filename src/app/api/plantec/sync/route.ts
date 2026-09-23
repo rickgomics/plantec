@@ -170,6 +170,19 @@ export async function GET(req: NextRequest) {
           try {
             const items = await fetchPage(page, pageSize)
 
+            // Catálogo provisório: produtos cuja ficha técnica e categoria foram
+            // preenchidas à mão (a loja não tem attribute set para eles). O sync
+            // reescreve `attributes` inteiro, então sem isto a ficha sumiria na
+            // carga seguinte. Marcados por `attributes.specsManuais = true`.
+            const curados = await prisma.product.findMany({
+              where: {
+                sku: { in: items.map(i => i.sku) },
+                attributes: { path: ['specsManuais'], equals: true },
+              },
+              select: { sku: true, category: true, subcategory: true, attributes: true },
+            })
+            const curadoPorSku = new Map(curados.map(c => [c.sku, c]))
+
             const results = await Promise.allSettled(
               items.map(p => {
                 const nseg  = attr(p, 'nsegmento')
@@ -177,6 +190,15 @@ export async function GET(req: NextRequest) {
                 const desc  = attr(p, 'description')
                 const image = primaryImage(p)
                 const brand = mfr[mfrId] ? cleanBrand(mfr[mfrId]) : null
+
+                const curado = curadoPorSku.get(p.sku)
+                const fichaManual: Record<string, unknown> = {}
+                if (curado) {
+                  const a = curado.attributes as { specs?: unknown; specsFonte?: unknown }
+                  fichaManual.specsManuais = true
+                  if (a.specs      != null) fichaManual.specs      = a.specs
+                  if (a.specsFonte != null) fichaManual.specsFonte = a.specsFonte
+                }
 
                 return prisma.product.upsert({
                   where: { sku: p.sku },
@@ -210,7 +232,10 @@ export async function GET(req: NextRequest) {
                     name:        p.name,
                     description: desc ? stripHtml(desc) : null,
                     brand,
-                    category:    SEGMENT_MAP[nseg] ?? 'Outros',
+                    // Categoria curada à mão vence o nsegmento da loja: os
+                    // carregadores veiculares chegam como CFTV (nsegmento 5).
+                    category:    curado?.category ?? SEGMENT_MAP[nseg] ?? 'Outros',
+                    ...(curado?.subcategory ? { subcategory: curado.subcategory } : {}),
                     attributes: {
                       nsegmento:       nseg,
                       manufacturer_id: mfrId,
@@ -220,6 +245,8 @@ export async function GET(req: NextRequest) {
                       // preço de cada grupo de cliente (tabelas de preço)
                       tierPrices:      tiersOf(p.tier_prices),
                       ...buildSpecAttributes(p.custom_attributes, specMaps),
+                      // por último: a ficha manual sobrevive à carga
+                      ...fichaManual,
                     },
                   },
                 })

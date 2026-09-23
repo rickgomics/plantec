@@ -9,7 +9,7 @@ import {
 } from 'react-icons/hi2'
 import { Product } from '@/types'
 
-const CATEGORIES = ['CFTV', 'Energia', 'Redes', 'Controle de Acesso', 'Cabeamento', 'Nobreaks', 'Racks', 'Serviços']
+const CATEGORIES = ['CFTV', 'Energia', 'Mobilidade Elétrica', 'Redes', 'Controle de Acesso', 'Cabeamento', 'Nobreaks', 'Racks', 'Serviços']
 
 function marginColor(cost: number, price: number) {
   if (price === 0) return 'text-ink/45'
@@ -184,6 +184,17 @@ function ProductDrawer({ product, onClose, onEdit }: {
             {!!attrs.specs && Object.keys(attrs.specs as Record<string, string>).length > 0 && (
               <div>
                 <p className="text-[10px] font-black text-ink/45 uppercase tracking-widest mb-2">Ficha técnica</p>
+                {!!attrs.specsManuais && (
+                  <p className="mb-2 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 leading-snug">
+                    Ficha provisória, preenchida à mão a partir do site do fabricante — a loja
+                    ainda não tem esses campos. Confira antes de fechar a proposta.
+                    {!!attrs.specsFonte && (
+                      <span className="block mt-0.5 font-medium text-amber-700/80 break-all">
+                        Fonte: {String(attrs.specsFonte)}
+                      </span>
+                    )}
+                  </p>
+                )}
                 <div className="space-y-1.5">
                   {Object.entries(attrs.specs as Record<string, string>).map(([k, v]) => (
                     <div key={k} className="flex justify-between gap-4 text-sm">
@@ -280,6 +291,26 @@ const SPEC_LABELS: Record<string, string> = {
   protocoloDeVideo: 'Protocolo de vídeo',
   inteligenciaDeVideo: 'Inteligência de vídeo',
   analiseDeVideo: 'Análise de vídeo',
+  // Mobilidade elétrica — ficha preenchida à mão (a loja não tem attribute
+  // set para carregadores veiculares), marcada por `attributes.specsManuais`.
+  tipoCorrente: 'Tipo de corrente',
+  potencia: 'Potência nominal',
+  tensao: 'Tensão de entrada',
+  fases: 'Fases',
+  correnteMax: 'Corrente máxima',
+  saidas: 'Saídas de recarga',
+  conector: 'Conector',
+  cabo: 'Cabo',
+  conectividade: 'Conectividade',
+  ocpp: 'Protocolo OCPP',
+  controleAcesso: 'Controle de acesso',
+  display: 'Display',
+  protecoes: 'Proteções elétricas',
+  temperaturaOperacao: 'Temperatura de operação',
+  dimensoes: 'Dimensões',
+  peso: 'Peso',
+  instalacao: 'Instalação',
+  garantia: 'Garantia',
 }
 
 export default function ProductsPage() {
