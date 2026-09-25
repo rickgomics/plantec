@@ -89,7 +89,7 @@ export default function ProfilesPage() {
       if (!data.logoUrl) { toast.error('Nenhum logo encontrado no site'); return }
 
       const imgRes = await fetch(
-        `/api/company-profiles/scrape?url=${encodeURIComponent(form.website!)}&mode=logo&logoUrl=${encodeURIComponent(data.logoUrl)}`
+        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/company-profiles/scrape?url=${encodeURIComponent(form.website!)}&mode=logo&logoUrl=${encodeURIComponent(data.logoUrl)}`
       )
       if (!imgRes.ok) { toast.error('Falha ao baixar o logo'); return }
       const imgData = await imgRes.json() as { dataUri?: string; error?: string }
@@ -141,7 +141,7 @@ export default function ProfilesPage() {
     if (!form.name.trim()) { toast.error('Nome obrigatório'); return }
     setSaving(true)
     try {
-      const url = editId ? `/api/company-profiles/${editId}` : '/api/company-profiles'
+      const url = editId ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/company-profiles/${editId}` : `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/company-profiles`
       const method = editId ? 'PUT' : 'POST'
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
       if (!res.ok) throw new Error('Erro ao salvar')

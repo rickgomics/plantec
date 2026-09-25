@@ -374,7 +374,7 @@ export default function ProductsPage() {
       cost: parseFloat(form.cost) || 0,
       stock: parseInt(form.stock) || 0,
     }
-    const url = editing ? `/api/products/${editing.id}` : '/api/products'
+    const url = editing ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/products/${editing.id}` : `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/products`
     const method = editing ? 'PUT' : 'POST'
     await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
     setSaving(false)
@@ -395,7 +395,7 @@ export default function ProductsPage() {
     setSyncStatus('running')
     setSyncOpen(true)
 
-    const es = new EventSource('/api/plantec/sync')
+    const es = new EventSource(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/plantec/sync`)
     esRef.current = es
 
     es.onmessage = (e) => {

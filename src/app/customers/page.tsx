@@ -108,7 +108,7 @@ export default function CustomersPage() {
 
   const handleSave = async () => {
     setSaving(true)
-    const url = editing ? `/api/customers/${editing.id}` : '/api/customers'
+    const url = editing ? `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/customers/${editing.id}` : `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/customers`
     const method = editing ? 'PUT' : 'POST'
     await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
     setSaving(false)
