@@ -60,6 +60,7 @@ export async function PUT(
       eraserImageUrl,
       coverStyle,
       showUnitPrice,
+      includeServices,
       externalProjectId,
     } = body
 
@@ -87,6 +88,7 @@ export async function PUT(
         eraserImageUrl:  eraserImageUrl  !== undefined ? eraserImageUrl  : undefined,
         coverStyle:      coverStyle      !== undefined ? coverStyle      : undefined,
         showUnitPrice:      showUnitPrice      !== undefined ? showUnitPrice      : undefined,
+        includeServices:    includeServices    !== undefined ? includeServices    : undefined,
         externalProjectId:  externalProjectId  !== undefined ? externalProjectId  : undefined,
       },
       include: {

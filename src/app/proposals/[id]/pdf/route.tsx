@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/lib/prisma'
 import { getCoverStyle } from '@/lib/coverStyles'
+import { itensDaProposta } from '@/lib/services'
 
 async function mermaidToSvg(diagram: string): Promise<string | null> {
   try {
@@ -97,6 +98,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   ])
 
   if (!proposal) return new Response('Not found', { status: 404 })
+  // Serviços desligados saem da BOM Comercial, da Técnica e do subtotal.
+  proposal.items = itensDaProposta(proposal.items, proposal.includeServices)
 
   const coverSt      = getCoverStyle(proposal.coverStyle ?? 'teal')
 

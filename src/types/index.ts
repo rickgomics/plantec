@@ -113,6 +113,8 @@ export interface Proposal {
   eraserImageUrl?: string | null
   coverStyle?: string | null
   showUnitPrice?: boolean | null
+  /** false: itens de serviço ficam na BOM mas fora dos totais e do PDF */
+  includeServices?: boolean | null
   externalProjectId?: string | null
   coverProfile?: CompanyProfile | null
   introProfile?: CompanyProfile | null

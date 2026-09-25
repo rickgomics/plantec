@@ -44,6 +44,8 @@ interface BOMTableProps {
   /** id da tabela → nome, para mostrar de onde saiu o preço de cada item */
   tableLabels?: Record<string, string>
   readonly?: boolean
+  /** Itens que ficam na BOM mas fora dos totais e do PDF (serviços desligados) */
+  excluidos?: Set<string>
 }
 
 /** Rótulo curto da origem do preço, exibido embaixo do valor. */
@@ -94,6 +96,7 @@ export default function BOMTable({
   onRemove,
   tableLabels = {},
   readonly = false,
+  excluidos,
 }: BOMTableProps) {
   if (items.length === 0) {
     return (
@@ -133,7 +136,8 @@ export default function BOMTable({
             const img = productImage(item)
 
             return (
-              <tr key={item.id} className="hover:bg-brand-50/30 transition-colors group">
+              <tr key={item.id} className={`hover:bg-brand-50/30 transition-colors group ${excluidos?.has(item.id) ? 'opacity-40' : ''}`}
+                title={excluidos?.has(item.id) ? 'Fora da proposta: serviços de instalação desligados' : undefined}>
                 <td className="pl-4 pr-1 py-2.5">
                   {img ? (
                     // eslint-disable-next-line @next/next/no-img-element

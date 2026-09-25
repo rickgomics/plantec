@@ -82,6 +82,7 @@ model Proposal {
   eraserImageUrl   String?
   coverStyle          String          @default("teal")
   showUnitPrice       Boolean         @default(true)
+  includeServices     Boolean         @default(true)
   priceTable          String?
   externalProjectId   String?         @unique
   createdAt        DateTime        @default(now())

@@ -1,9 +1,15 @@
 import { Decimal } from '@prisma/client/runtime/library'
 import { prisma } from '@/lib/prisma'
+import { itensDaProposta } from '@/lib/services'
 
 /** Totais da proposta a partir dos itens. Sempre no servidor. */
 export async function recalcProposal(proposalId: string) {
-  const items = await prisma.proposalItem.findMany({ where: { proposalId } })
+  const proposal = await prisma.proposal.findUnique({
+    where: { id: proposalId },
+    select: { includeServices: true, items: { include: { product: true } } },
+  })
+  if (!proposal) return
+  const items = itensDaProposta(proposal.items, proposal.includeServices)
   const totalPrice = items.reduce((s, i) => s + Number(i.subtotal), 0)
   const totalCost = items.reduce((s, i) => s + Number(i.cost) * i.quantity, 0)
   const totalDiscount = items.reduce(

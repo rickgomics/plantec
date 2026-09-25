@@ -17,6 +17,7 @@ import { useParams } from 'next/navigation'
 import { Proposal, ProposalItem, Product, RuleEngineResult, CompanyProfile } from '@/types'
 import { COVER_STYLES, getCoverStyle } from '@/lib/coverStyles'
 import CoverArtPanel from '@/components/CoverArtPanel'
+import { isServico, itensDaProposta } from '@/lib/services'
 import toast from 'react-hot-toast'
 
 const STATUS_FLOW: Record<string, string> = {
@@ -205,7 +206,8 @@ export default function ProposalDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, diagramType])
 
-  const computeTotals = (items: ProposalItem[], disc: number) => {
+  const computeTotals = (todos: ProposalItem[], disc: number, includeServices?: boolean | null) => {
+    const items = itensDaProposta(todos, includeServices)
     const subtotal = items.reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0)
     const itemDisc = items.reduce((s, i) => s + Number(i.unitPrice) * i.quantity * (Number(i.discount) / 100), 0)
     const globalAmt = (subtotal - itemDisc) * disc / 100
@@ -216,7 +218,25 @@ export default function ProposalDetailPage() {
     return { subtotal, totalDiscount, totalPrice, totalCost, margin }
   }
 
-  const totals = proposal ? computeTotals(proposal.items, globalDiscount) : null
+  const totals = proposal ? computeTotals(proposal.items, globalDiscount, proposal.includeServices) : null
+  const servicos = proposal?.items.filter(i => isServico(i.product)) ?? []
+
+  // Desligar os serviços não apaga os itens: eles saem dos totais e do PDF e
+  // voltam como estavam ao religar.
+  const handleToggleServices = async () => {
+    if (!proposal) return
+    const next = proposal.includeServices === false
+    setProposal({ ...proposal, includeServices: next })
+    const t = computeTotals(proposal.items, globalDiscount, next)
+    await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        includeServices: next,
+        totalCost: t.totalCost, totalPrice: t.totalPrice,
+        totalDiscount: t.totalDiscount, margin: t.margin,
+      }),
+    })
+  }
 
   const handleAddProduct = async (product: Product, quantity: number) => {
     await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}/items`, {
@@ -972,8 +992,20 @@ export default function ProposalDetailPage() {
                     })()}
                   </div>
                 )}
+                {servicos.length > 0 && (
+                  <label className="flex items-center gap-2 px-4 py-2.5 border-b border-line/10 bg-background text-xs font-semibold text-ink/70 cursor-pointer select-none">
+                    <input type="checkbox" checked={proposal.includeServices !== false} onChange={handleToggleServices} />
+                    Incluir serviços de instalação
+                    <span className="font-medium text-ink/40">
+                      {proposal.includeServices === false
+                        ? `— ${servicos.length} ${servicos.length === 1 ? 'item fica' : 'itens ficam'} na BOM, fora do total e do PDF`
+                        : `(${servicos.length} ${servicos.length === 1 ? 'item' : 'itens'})`}
+                    </span>
+                  </label>
+                )}
                 <BOMTable
                   items={proposal.items}
+                  excluidos={proposal.includeServices === false ? new Set(servicos.map(i => i.id)) : undefined}
                   onQuantityChange={handleQuantityChange}
                   onDiscountChange={handleDiscountChange}
                   onPriceChange={handlePriceChange}
