@@ -12,6 +12,8 @@ export interface ResultadoIA {
   topologia?: string
   avisos: Aviso[]
   pulados: { secao: Secao; motivo: string }[]
+  /** Seções que passaram pela correção automática ou pedida. */
+  corrigidos: Secao[]
 }
 
 export async function carregarConferencia(proposalId: string): Promise<{ avisos: Aviso[]; aiMeta: AiMeta; diagramaLegado?: boolean }> {
@@ -29,6 +31,7 @@ export async function gerarIA(
   proposalId: string,
   opts: { secoes: Secao[]; instrucao?: string; substituirFuncoes?: boolean },
   onProgresso?: (chars: number) => void,
+  onFase?: (fase: 'corrigindo') => void,
 ): Promise<ResultadoIA | null> {
   const { aiMeta, diagramaLegado } = await carregarConferencia(proposalId)
   const manuais = opts.secoes.filter(s =>
@@ -42,10 +45,33 @@ export async function gerarIA(
     else if (manuais.length === opts.secoes.length) return null
   }
 
+  return lerStream(proposalId, { secoes: opts.secoes, instrucao: opts.instrucao, sobrescrever }, onProgresso, onFase)
+}
+
+/**
+ * Resolve com a IA os avisos corrigíveis da conferência (R$ no texto,
+ * colchetes, markdown, cenário longo, funções vazias). Corrige o texto que
+ * existe mudando o mínimo — inclusive o editado à mão, que segue protegido.
+ * `secoes` limita a uma seção (botão do aviso).
+ */
+export async function corrigirIA(
+  proposalId: string,
+  secoes?: Secao[],
+  onProgresso?: (chars: number) => void,
+): Promise<ResultadoIA> {
+  return lerStream(proposalId, { corrigir: true, ...(secoes ? { secoes } : {}) }, onProgresso)
+}
+
+async function lerStream(
+  proposalId: string,
+  corpo: object,
+  onProgresso?: (chars: number) => void,
+  onFase?: (fase: 'corrigindo') => void,
+): Promise<ResultadoIA> {
   const res = await fetch(`${BASE}/api/proposals/${proposalId}/ai`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ secoes: opts.secoes, instrucao: opts.instrucao, sobrescrever }),
+    body: JSON.stringify(corpo),
   })
   if (!res.ok || !res.body) throw new Error(`Falha ao chamar a IA (HTTP ${res.status})`)
 
@@ -64,9 +90,10 @@ export async function gerarIA(
       if (!linha.trim()) continue
       const ev = JSON.parse(linha)
       if (ev.type === 'progresso') onProgresso?.(ev.chars)
+      else if (ev.type === 'corrigindo') onFase?.('corrigindo')
       else if (ev.type === 'pulado') pulados.push({ secao: ev.secao, motivo: ev.motivo })
       else if (ev.type === 'erro') throw new Error(ev.message)
-      else if (ev.type === 'pronto') return { textos: ev.textos ?? {}, funcoes: ev.funcoes ?? 0, topologia: ev.topologia, avisos: ev.avisos ?? [], pulados }
+      else if (ev.type === 'pronto') return { textos: ev.textos ?? {}, funcoes: ev.funcoes ?? 0, topologia: ev.topologia, avisos: ev.avisos ?? [], pulados, corrigidos: ev.corrigidos ?? [] }
     }
   }
   throw new Error('A conexão com a IA terminou sem resposta')

@@ -1556,7 +1556,7 @@ export default function ProposalDetailPage() {
 
         {/* Etapa 4 — Revisar: conferência, páginas do PDF e o documento inteiro */}
         {activeTab === 'revisar' && (
-          <RevisarEtapa proposalId={id} versao={pdfVersao} />
+          <RevisarEtapa proposalId={id} versao={pdfVersao} antesDeCorrigir={handleSave} onCorrigido={aplicarIA} />
         )}
 
       </div>

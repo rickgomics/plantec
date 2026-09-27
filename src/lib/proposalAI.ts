@@ -222,6 +222,14 @@ export interface Aviso {
   secao: Secao | 'geral'
   nivel: 'erro' | 'atencao'
   texto: string
+  /**
+   * Como a IA resolve: 'reescrever' corrige o texto que existe mudando só o
+   * necessário; 'gerar' escreve o que falta (seção vazia, funções vazias).
+   * Sem o campo, é coisa do projetista (preço, BOM vazia).
+   */
+  correcao?: 'reescrever' | 'gerar'
+  /** O problema dito para a IA, quando `correcao` = 'reescrever'. */
+  problema?: string
 }
 
 interface PropostaConferencia {
@@ -246,22 +254,39 @@ export function conferir(p: PropostaConferencia): Aviso[] {
 
   for (const [secao, t] of textos) {
     if (!t?.trim()) {
-      avisos.push({ secao, nivel: 'atencao', texto: `${SECAO_LABEL[secao]} vazio — a página sai sem ele` })
+      avisos.push({ secao, nivel: 'atencao', texto: `${SECAO_LABEL[secao]} vazio — a página sai sem ele`, correcao: 'gerar' })
       continue
     }
     const colchete = t.match(/\[[^\]\n]{1,40}\]/)
-    if (colchete) avisos.push({ secao, nivel: 'erro', texto: `Rótulo entre colchetes vai impresso: "${colchete[0]}"` })
-    if (/\*\*|^#{1,6}\s/m.test(t)) avisos.push({ secao, nivel: 'erro', texto: 'Tem marcação markdown (** ou #) que sai impressa' })
-    if (/R\$\s?\d/.test(t)) avisos.push({ secao, nivel: 'atencao', texto: 'Cita valor em reais — o investimento tem página própria e pode divergir' })
+    if (colchete) avisos.push({
+      secao, nivel: 'erro', texto: `Rótulo entre colchetes vai impresso: "${colchete[0]}"`,
+      correcao: 'reescrever', problema: `Há rótulos entre colchetes (como ${colchete[0]}) que sairiam impressos: tire os rótulos e mantenha o conteúdo.`,
+    })
+    if (/\*\*|^#{1,6}\s/m.test(t)) avisos.push({
+      secao, nivel: 'erro', texto: 'Tem marcação markdown (** ou #) que sai impressa',
+      correcao: 'reescrever', problema: 'Há marcação markdown (** ou #) que sairia impressa: escreva em texto puro.',
+    })
+    const valor = t.match(/R\$\s?[\d.,]+(\s?(mil|mi|milh[õo]es|bi))?/i)
+    if (valor) avisos.push({
+      secao, nivel: 'atencao', texto: 'Cita valor em reais — o investimento tem página própria e pode divergir',
+      correcao: 'reescrever',
+      problema: `O texto cita valor em reais (${valor[0]}). Tire todos os valores monetários: fale do investimento sem números, porque os valores estão na página de Investimento e mudam quando a BOM muda.`,
+    })
   }
 
   if (p.scenarioDesc?.trim()) {
     const narrativa = p.scenarioDesc.split(PARAGRAFOS_CENARIO)[0].trim()
     if (narrativa.length > 3200) {
-      avisos.push({ secao: 'cenario', nivel: 'atencao', texto: `Narrativa do cenário com ${narrativa.length} caracteres — vai ocupar mais de uma página` })
+      avisos.push({
+        secao: 'cenario', nivel: 'atencao', texto: `Narrativa do cenário com ${narrativa.length} caracteres — vai ocupar mais de uma página`,
+        correcao: 'reescrever', problema: `A narrativa (os 3 parágrafos) tem ${narrativa.length} caracteres: reduza para 1.800 a 2.600, mantendo os fatos e os equipamentos citados.`,
+      })
     }
     if (!PARAGRAFOS_CENARIO.test(p.scenarioDesc)) {
-      avisos.push({ secao: 'cenario', nivel: 'atencao', texto: 'Sem as seções de vantagens e benefícios — a segunda página do cenário não sai' })
+      avisos.push({
+        secao: 'cenario', nivel: 'atencao', texto: 'Sem as seções de vantagens e benefícios — a segunda página do cenário não sai',
+        correcao: 'reescrever', problema: 'Faltam as vantagens técnicas e os benefícios para o cliente: mantenha a narrativa e acrescente as duas listas.',
+      })
     }
   }
 
@@ -271,6 +296,7 @@ export function conferir(p: PropostaConferencia): Aviso[] {
     avisos.push({
       secao: 'funcoes', nivel: 'atencao',
       texto: `${semFuncao.length} ${semFuncao.length === 1 ? 'item sem' : 'itens sem'} "Função na solução" — sai "a definir" na BOM técnica`,
+      correcao: 'gerar',
     })
   }
 
@@ -285,4 +311,31 @@ export function conferir(p: PropostaConferencia): Aviso[] {
 
   if (!itens.length) avisos.push({ secao: 'geral', nivel: 'erro', texto: 'BOM vazia' })
   return avisos
+}
+
+/** Avisos que a IA consegue resolver, por seção. */
+export function corrigiveis(avisos: Aviso[]): Map<Secao, Aviso[]> {
+  const m = new Map<Secao, Aviso[]>()
+  for (const a of avisos) {
+    if (!a.correcao || a.secao === 'geral') continue
+    m.set(a.secao, [...(m.get(a.secao) ?? []), a])
+  }
+  return m
+}
+
+/**
+ * Pedido de correção de uma seção que já tem texto: o modelo recebe o texto
+ * atual e só os problemas, e muda o mínimo — o que o projetista escreveu à
+ * mão continua dele.
+ */
+export function pedidoCorrecao(secao: Secao, textoAtual: string, problemas: string[]): string {
+  return [
+    `Corrija a seção "${SECAO_LABEL[secao]}". Este é o texto atual, que vai impresso na proposta:`,
+    '<<<',
+    textoAtual.trim(),
+    '>>>',
+    'Problemas a corrigir:',
+    ...problemas.map(p => `- ${p}`),
+    'Mantenha tudo o mais como está: as mesmas ideias, a mesma ordem e, sempre que possível, as mesmas frases. Mude só o necessário para resolver os problemas e devolva a seção completa no formato pedido.',
+  ].join('\n')
 }

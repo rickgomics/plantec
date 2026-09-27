@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { FiCheckCircle, FiAlertTriangle, FiXCircle, FiRefreshCw, FiDownload } from 'react-icons/fi'
-import { carregarConferencia } from '@/lib/aiClient'
-import { SECAO_LABEL, type Aviso } from '@/lib/proposalAI'
+import { FiCheckCircle, FiXCircle, FiRefreshCw, FiDownload } from 'react-icons/fi'
+import { carregarConferencia, type ResultadoIA } from '@/lib/aiClient'
+import AvisosConferencia from './AvisosConferencia'
+import type { Aviso } from '@/lib/proposalAI'
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
 
@@ -14,7 +15,13 @@ interface Paginas { paginas: number; cortes: { pagina: number; secao: string; ex
  * cliente, num lugar só — a conferência do conteúdo, a medição das páginas
  * no mesmo Chromium do download e o PDF inteiro para ler.
  */
-export default function RevisarEtapa({ proposalId, versao }: { proposalId: string; versao: number }) {
+export default function RevisarEtapa({ proposalId, versao, antesDeCorrigir, onCorrigido }: {
+  proposalId: string
+  versao: number
+  antesDeCorrigir?: () => Promise<void>
+  /** Traz para o editor o que a IA corrigiu (e recarrega o PDF). */
+  onCorrigido: (r: ResultadoIA) => void | Promise<void>
+}) {
   const [avisos, setAvisos] = useState<Aviso[] | null>(null)
   const [paginas, setPaginas] = useState<Paginas | null>(null)
   const [medindo, setMedindo] = useState(false)
@@ -64,20 +71,18 @@ export default function RevisarEtapa({ proposalId, versao }: { proposalId: strin
             </p>
           )}
 
-          <ul className="space-y-2">
-            {cortes.map(c => (
+          <AvisosConferencia
+            proposalId={proposalId}
+            avisos={avisos ?? []}
+            antesDeCorrigir={antesDeCorrigir}
+            onCorrigido={async r => { await onCorrigido(r); setAvisos(r.avisos); medir() }}
+            extra={cortes.map(c => (
               <li key={`c${c.pagina}`} className="flex items-start gap-2 text-xs text-red-700">
                 <FiXCircle className="w-4 h-4 flex-shrink-0" />
                 <span><span className="font-semibold">Página {c.pagina} ({c.secao}):</span> {c.excesso}px de conteúdo não saem no papel</span>
               </li>
             ))}
-            {[...erros, ...atencoes].map((a, i) => (
-              <li key={i} className={`flex items-start gap-2 text-xs ${a.nivel === 'erro' ? 'text-red-700' : 'text-amber-700'}`}>
-                {a.nivel === 'erro' ? <FiXCircle className="w-4 h-4 flex-shrink-0" /> : <FiAlertTriangle className="w-4 h-4 flex-shrink-0" />}
-                <span>{a.secao !== 'geral' && <span className="font-semibold">{SECAO_LABEL[a.secao]}: </span>}{a.texto}</span>
-              </li>
-            ))}
-          </ul>
+          />
 
           <div className="flex items-center gap-2 pt-1 border-t border-line/10">
             <button type="button" className="btn-secondary btn-xs" onClick={medir} disabled={medindo}>

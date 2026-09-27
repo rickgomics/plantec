@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { HiSparkles, HiCheckCircle, HiExclamationTriangle, HiXCircle } from 'react-icons/hi2'
-import { BRIEF_PERGUNTAS, SECAO_LABEL, type Aviso, type Brief } from '@/lib/proposalAI'
+import { HiSparkles } from 'react-icons/hi2'
+import { BRIEF_PERGUNTAS, type Aviso, type Brief } from '@/lib/proposalAI'
 import { carregarConferencia, gerarIA, type ResultadoIA } from '@/lib/aiClient'
+import AvisosConferencia from './AvisosConferencia'
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
 
@@ -29,6 +30,7 @@ export default function ProposalAIPanel({
   const [aberto, setAberto] = useState(() => !Object.values(briefInicial ?? {}).some(v => v?.trim()))
   const [gerando, setGerando] = useState(false)
   const [chars, setChars] = useState(0)
+  const [fase, setFase] = useState<'escrevendo' | 'corrigindo'>('escrevendo')
   const [avisos, setAvisos] = useState<Aviso[] | null>(null)
 
   const conferir = useCallback(() => {
@@ -48,15 +50,16 @@ export default function ProposalAIPanel({
   const gerar = async () => {
     setGerando(true)
     setChars(0)
+    setFase('escrevendo')
     try {
       await antesDeGerar?.()
       await salvarBrief(brief)
-      const r = await gerarIA(proposalId, { secoes: ['resumo', 'escopo', 'cenario', 'funcoes', 'topologia'] }, setChars)
+      const r = await gerarIA(proposalId, { secoes: ['resumo', 'escopo', 'cenario', 'funcoes', 'topologia'] }, setChars, f => { setFase(f); setChars(0) })
       if (!r) return
       await onGerado(r)
       setAvisos(r.avisos)
       const feitas = Object.keys(r.textos).length + (r.funcoes ? 1 : 0)
-      toast.success(`Textos gerados${r.funcoes ? ` · ${r.funcoes} funções na BOM` : ''}`)
+      toast.success(`Textos gerados${r.funcoes ? ` · ${r.funcoes} funções na BOM` : ''}${r.corrigidos.length ? ' · conferência corrigida' : ''}`)
       if (!feitas && r.pulados.length) toast('Nada a gerar: tudo já estava preenchido ou editado à mão')
       setAberto(false)
     } catch (e) {
@@ -66,8 +69,6 @@ export default function ProposalAIPanel({
     }
   }
 
-  const erros = avisos?.filter(a => a.nivel === 'erro') ?? []
-  const atencoes = avisos?.filter(a => a.nivel === 'atencao') ?? []
 
   return (
     <div className="card p-5 space-y-4">
@@ -80,7 +81,7 @@ export default function ProposalAIPanel({
         </div>
         <button type="button" className="btn-ai btn-sm flex-shrink-0" onClick={gerar} disabled={gerando}>
           <HiSparkles className="w-4 h-4" />
-          {gerando ? (chars ? `Escrevendo… ${chars.toLocaleString('pt-BR')} caracteres` : 'Pensando…') : 'Gerar textos da proposta'}
+          {gerando ? (fase === 'corrigindo' ? 'Corrigindo o que a conferência apontou…' : chars ? `Escrevendo… ${chars.toLocaleString('pt-BR')} caracteres` : 'Pensando…') : 'Gerar textos da proposta'}
         </button>
       </div>
 
@@ -111,23 +112,12 @@ export default function ProposalAIPanel({
       {avisos && (
         <div className="border-t border-line/10 pt-3 space-y-2">
           <p className="text-[11px] text-ink/45">A medição das páginas do PDF fica na etapa Revisar e gerar.</p>
-          {!erros.length && !atencoes.length ? (
-            <p className="flex items-center gap-2 text-xs font-semibold text-emerald-700">
-              <HiCheckCircle className="w-4 h-4" /> Conferência ok: nada que saia errado no PDF
-            </p>
-          ) : (
-            <ul className="space-y-1">
-              {[...erros, ...atencoes].map((a, i) => (
-                <li key={i} className={`flex items-start gap-2 text-xs ${a.nivel === 'erro' ? 'text-red-700' : 'text-amber-700'}`}>
-                  {a.nivel === 'erro' ? <HiXCircle className="w-4 h-4 flex-shrink-0" /> : <HiExclamationTriangle className="w-4 h-4 flex-shrink-0" />}
-                  <span>
-                    {a.secao !== 'geral' && <span className="font-semibold">{SECAO_LABEL[a.secao]}: </span>}
-                    {a.texto}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <AvisosConferencia
+            proposalId={proposalId}
+            avisos={avisos}
+            antesDeCorrigir={antesDeGerar}
+            onCorrigido={async r => { await onGerado(r); setAvisos(r.avisos) }}
+          />
         </div>
       )}
     </div>
