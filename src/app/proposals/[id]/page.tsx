@@ -13,6 +13,10 @@ import DiagramZoom from '@/components/DiagramZoom'
 import IntelbrasModal, { IntelbrasProduct } from '@/components/IntelbrasModal'
 import AIProjectModal, { AIProjectImportItem } from '@/components/AIProjectModal'
 import ImportReviewModal, { ImportRow, ImportChoice } from '@/components/ImportReviewModal'
+import ProposalAIPanel from '@/components/ProposalAIPanel'
+import RefazerSecao from '@/components/RefazerSecao'
+import { gerarIA, type ResultadoIA } from '@/lib/aiClient'
+import type { Brief } from '@/lib/proposalAI'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Proposal, ProposalItem, Product, RuleEngineResult, CompanyProfile } from '@/types'
@@ -335,11 +339,16 @@ export default function ProposalDetailPage() {
   const handleSave = async () => {
     if (!proposal || !totals) return
     setSaving(true)
+    // brief e aiMeta têm dono próprio (painel da IA e a rota): o valor
+    // carregado aqui pode estar velho e não pode voltar por cima.
+    const resto: Partial<Proposal> = { ...proposal }
+    delete resto.brief
+    delete resto.aiMeta
     await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...proposal,
+        ...resto,
         discount: globalDiscount,
         totalCost: totals.totalCost,
         totalPrice: totals.totalPrice,
@@ -358,6 +367,17 @@ export default function ProposalDetailPage() {
       }),
     })
     setSaving(false)
+  }
+
+  // Resultado da IA já está gravado no banco: só traz para a tela. Funções
+  // novas nos itens pedem recarregar a BOM.
+  const [versaoIA, setVersaoIA] = useState(0)
+  const aplicarIA = async (r: ResultadoIA) => {
+    if (r.textos.executiveSummary !== undefined) { setExecutiveSummary(r.textos.executiveSummary); setEditingSummary(false) }
+    if (r.textos.scope !== undefined) { setScope(r.textos.scope); setEditingScope(false) }
+    if (r.textos.scenarioDesc !== undefined) setScenarioDesc(r.textos.scenarioDesc)
+    if (r.funcoes) await loadProposal()
+    setVersaoIA(v => v + 1)
   }
 
   const handleAdvanceStatus = async () => {
@@ -400,19 +420,8 @@ export default function ProposalDetailPage() {
     setScenarioGenerating(true)
     setScenarioStep('desc')
     try {
-      const r = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/ai/generate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'scenarioDescription', context: buildScenarioContext() }),
-      })
-      const d = await r.json()
-      if (d.error) throw new Error(d.error)
-      if (d.text) {
-        setScenarioDesc(d.text)
-        await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scenarioDesc: d.text }),
-        })
-      }
+      const r = await gerarIA(id, { secoes: ['cenario'] })
+      if (r) await aplicarIA(r)
     } catch (e) { toast.error(`Erro ao gerar descrição: ${e instanceof Error ? e.message : e}`) }
     finally { setScenarioGenerating(false); setScenarioStep('idle') }
   }
@@ -456,21 +465,11 @@ export default function ProposalDetailPage() {
     setScenarioStep('desc')
     let desc = scenarioDesc
     try {
-      // always regenerate description
-      const r = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/ai/generate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'scenarioDescription', context: buildScenarioContext() }),
-      })
-      const d = await r.json()
-      if (d.error) throw new Error(d.error)
-      if (d.text) {
-        desc = d.text
-        setScenarioDesc(d.text)
-        // Save description immediately so it's not lost if diagram step fails
-        await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scenarioDesc: d.text }),
-        })
+      // a rota da IA grava a descrição; se o diagrama falhar, ela fica
+      const r = await gerarIA(id, { secoes: ['cenario'] })
+      if (r) {
+        await aplicarIA(r)
+        if (r.textos.scenarioDesc) desc = r.textos.scenarioDesc
       }
     } catch (e) {
       toast.error(`Erro ao gerar descrição: ${e instanceof Error ? e.message : e}`)
@@ -655,42 +654,18 @@ export default function ProposalDetailPage() {
     if (!proposal || proposal.items.length === 0) return
     setFillingBom(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/ai/generate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'bomRoles',
-          context: {
-            title: proposal.title,
-            vertical: proposal.vertical,
-            customer: proposal.customer.companyName,
-            items: proposal.items.map(i => ({
-              sku: i.product.sku,
-              name: i.product.name,
-              category: i.product.category,
-              brand: i.product.brand,
-              quantity: i.quantity,
-              description: i.product.description?.slice(0, 200),
-            })),
-          },
-        }),
-      })
-      const data = await res.json()
-      let roles: { sku: string; role: string }[] = []
-      try { roles = JSON.parse(data.text || '[]') } catch { /* ignore */ }
-
+      // Funções pela IA (grava direto nos itens); o descritivo vem do catálogo
+      const r = await gerarIA(id, { secoes: ['funcoes'], substituirFuncoes: true })
       for (const item of proposal.items) {
-        const matched = roles.find(r => r.sku === item.product.sku)
+        if (item.technicalNotes?.trim() || !item.product.description) continue
         await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}/items`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            itemId: item.id,
-            role: matched?.role ?? item.role,
-            technicalNotes: item.product.description ?? item.technicalNotes,
-          }),
+          body: JSON.stringify({ itemId: item.id, technicalNotes: item.product.description }),
         })
       }
       await loadProposal()
-    } catch { alert('Erro ao preencher BOM técnica') }
+      if (r) { setVersaoIA(v => v + 1); toast.success(`${r.funcoes} funções preenchidas`) }
+    } catch (e) { toast.error(`Erro ao preencher BOM técnica: ${e instanceof Error ? e.message : e}`) }
     finally { setFillingBom(false) }
   }
 
@@ -718,18 +693,6 @@ export default function ProposalDetailPage() {
     customer: proposal?.customer?.companyName,
     itemCount: proposal?.items?.length,
     totalPrice: totals?.totalPrice,
-  }
-  const scenarioAiContext = {
-    ...aiContext,
-    description: scenarioDesc,
-    items: proposal?.items?.map(i => ({
-      name: i.product.name,
-      sku: i.product.sku,
-      category: i.product.category,
-      brand: i.product.brand,
-      quantity: i.quantity,
-      description: i.product.description?.slice(0, 120),
-    })),
   }
 
   if (loading) {
@@ -1032,6 +995,14 @@ export default function ProposalDetailPage() {
                 </div>
               )}
 
+              <ProposalAIPanel
+                proposalId={id}
+                briefInicial={proposal.brief as Brief | null | undefined}
+                versao={versaoIA}
+                antesDeGerar={handleSave}
+                onGerado={aplicarIA}
+              />
+
               {/* Resumo Executivo */}
               <div className="card p-5">
                 <div className="flex items-start justify-between gap-3 mb-4">
@@ -1040,7 +1011,7 @@ export default function ProposalDetailPage() {
                     <p className="text-xs text-ink/45 font-medium mt-0.5">Destaque o valor entregue e o diferencial da Plantec</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <AIGenerateButton type="executiveSummary" context={aiContext} onGenerated={(t) => { setExecutiveSummary(t); setEditingSummary(false) }} />
+                    <RefazerSecao proposalId={id} secao="resumo" temTexto={!!executiveSummary.trim()} antesDeGerar={handleSave} onGerado={aplicarIA} />
                     {executiveSummary && (
                       <button onClick={() => setEditingSummary(e => !e)} className="btn-secondary btn-xs">
                         {editingSummary ? 'Ver' : 'Editar'}
@@ -1079,11 +1050,7 @@ export default function ProposalDetailPage() {
                     <p className="text-xs text-ink/45 font-medium mt-0.5">O que está e não está incluso nesta proposta</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <AIGenerateButton
-                      type="scope"
-                      context={{ ...aiContext, items: proposal.items.map(i => ({ name: i.product.name, category: i.product.category, quantity: i.quantity })) }}
-                      onGenerated={(t) => { setScope(t); setEditingScope(false) }}
-                    />
+                    <RefazerSecao proposalId={id} secao="escopo" temTexto={!!scope.trim()} antesDeGerar={handleSave} onGerado={aplicarIA} />
                     {scope && (
                       <button onClick={() => setEditingScope(e => !e)} className="btn-secondary btn-xs">
                         {editingScope ? 'Ver' : 'Editar'}

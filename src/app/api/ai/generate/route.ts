@@ -9,79 +9,15 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const MAX_TOKENS: Record<string, number> = {
   scenarioDiagram:       6000,
   scenarioDiagramEraser: 4000,
-  scenarioDescription:   3000,
-  executiveSummary:      2500,
-  scope:                 2500,
-  bomRoles:              3000,
   introText:             2000,
   profileDescription:    2000,
 }
 
+// Resumo, escopo, cenário e função na solução saíram daqui em 27/09/2026:
+// agora são gerados juntos, com resposta estruturada, em
+// /api/proposals/[id]/ai (src/lib/proposalAI.ts). Ficam os diagramas e os
+// textos de perfil da empresa.
 const SYSTEM_PROMPTS: Record<string, string> = {
-  executiveSummary: `Você é um consultor comercial sênior da Plantec Distribuidora, especializada em tecnologia para segurança eletrônica, redes e infraestrutura.
-Escreva um resumo executivo profissional para a proposta comercial. Seja conciso (3-5 parágrafos), destaque o valor entregue e o diferencial da Plantec.
-Responda apenas com o texto do resumo, sem títulos ou formatação extra.`,
-
-  scope: `Você é um engenheiro de soluções da Plantec Distribuidora, especializada em sistemas de segurança eletrônica, redes e infraestrutura.
-Escreva o escopo técnico da proposta em formato estruturado com seções e listas. Use EXATAMENTE este formato:
-
-Está incluso:
-• um item por linha, com o marcador •
-
-Não está incluso:
-• um item por linha, com o marcador •
-
-Condições:
-• uma condição por linha, com o marcador •
-
-Os três títulos saem exatamente como estão escritos — o documento os usa para
-montar a seção. As linhas de bullet você preenche com o conteúdo real.
-
-Use os produtos reais da BOM. Seja objetivo e técnico.
-NUNCA escreva rótulo entre colchetes: nada de [item 1] ou [condição 1] no texto
-final, isso vai impresso na proposta que o cliente lê.
-Responda APENAS com as três seções.`,
-
-  scenarioDescription: `Você é um arquiteto de soluções sênior da Plantec Distribuidora, especializada em segurança eletrônica, redes e infraestrutura.
-
-Com base nos equipamentos da BOM e nas informações da proposta, gere uma DESCRIÇÃO TÉCNICA COMPLETA do cenário de instalação.
-
-A descrição começa com TRÊS parágrafos de texto corrido, nesta ordem e SEM nenhum rótulo, título ou marcador antes deles — o documento vai direto ao cliente e um "[PARÁGRAFO 1]" impresso na proposta destrói a credibilidade:
-
-1. Ambiente físico: localização, porte, número de andares, áreas cobertas, infraestrutura existente relevante.
-2. Arquitetura da solução: como os equipamentos da BOM se interconectam, fluxo de dados, ponto de convergência, segregação de rede, dimensionamento.
-3. Integração e dependências: sistemas existentes que serão integrados, dependências externas (internet, cabeamento, obras civis, VPN, DDNS).
-
-Separe os três parágrafos por uma linha em branco. Cada um com 4 a 6 frases.
-
-Depois dos três parágrafos, e só então, escreva as duas seções abaixo. Estas duas SIM levam o título exatamente como está escrito, porque o documento as usa para montar a página:
-
-VANTAGENS TÉCNICAS:
-• uma vantagem por linha, começando com o marcador •
-• cinco linhas, cada uma com uma frase (redundância, escalabilidade, integração com o legado, facilidade de operação, margem de expansão)
-
-BENEFÍCIOS PARA O CLIENTE:
-• uma linha por benefício, também com o marcador •
-• cinco linhas (retorno do investimento, redução de custo operacional, ganho de segurança, continuidade da operação, previsibilidade)
-
-REGRAS:
-- Mencione os produtos reais da BOM pelos nomes (não apenas categorias)
-- Use linguagem técnica profissional
-- Cada seção é obrigatória
-- NUNCA escreva rótulo entre colchetes. Nada de [PARÁGRAFO 1], [AMBIENTE],
-  [vantagem 1] ou similar: os colchetes acima são instrução para você, não
-  texto para sair na proposta
-- Não use markdown, nem ## nem ** nem numeração antes dos parágrafos
-- Os três parágrafos somados devem ficar entre 1.800 e 2.600 caracteres —
-  a página do PDF que os recebe tem tamanho fixo
-- Responda APENAS com os três parágrafos seguidos das duas seções`,
-
-  bomRoles: `Você é um arquiteto de soluções da Plantec Distribuidora, especializada em segurança eletrônica, redes e infraestrutura.
-
-Para cada produto da lista, gere uma "Função na Solução" — uma frase técnica (máx 60 palavras) descrevendo ESPECIFICAMENTE o que esse produto faz NESTE projeto, considerando a vertical, o título da proposta e o contexto geral. Seja preciso, técnico e contextualizado (ex: não diga só "câmera IP" — diga "Câmera IP dome responsável pela vigilância da recepção e corredores internos").
-
-Responda APENAS com JSON puro e válido, sem markdown, sem blocos de código:
-[{"sku":"ABC123","role":"descrição da função na solução..."}]`,
 
   scenarioDiagram: `Você é um arquiteto de redes e segurança eletrônica sênior da Plantec Distribuidora.
 

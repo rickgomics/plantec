@@ -1,7 +1,9 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { SECAO_CAMPO, type AiMeta, type Secao } from '@/lib/proposalAI'
 
 export async function GET(
   _req: NextRequest,
@@ -62,7 +64,33 @@ export async function PUT(
       showUnitPrice,
       includeServices,
       externalProjectId,
+      brief,
     } = body
+
+    // Texto gerado pela IA e depois mudado aqui é edição à mão: a próxima
+    // geração não o sobrescreve sem o usuário confirmar.
+    let aiMeta: Prisma.InputJsonValue | undefined
+    const campos = Object.entries(SECAO_CAMPO) as [Secao, keyof typeof body][]
+    if (campos.some(([, campo]) => body[campo] !== undefined)) {
+      const atual = await prisma.proposal.findUnique({
+        where: { id: params.id },
+        select: { executiveSummary: true, scope: true, scenarioDesc: true, aiMeta: true },
+      })
+      if (atual) {
+        const meta = (atual.aiMeta ?? {}) as AiMeta
+        const secoes = { ...(meta.secoes ?? {}) }
+        let mudou = false
+        for (const [secao, campo] of campos) {
+          const novo = body[campo]
+          const velho = atual[campo as 'executiveSummary' | 'scope' | 'scenarioDesc']
+          if (novo !== undefined && (novo ?? '') !== (velho ?? '')) {
+            secoes[secao] = { fonte: 'manual', em: new Date().toISOString() }
+            mudou = true
+          }
+        }
+        if (mudou) aiMeta = { ...meta, secoes } as Prisma.InputJsonValue
+      }
+    }
 
     const proposal = await prisma.proposal.update({
       where: { id: params.id },
@@ -90,6 +118,8 @@ export async function PUT(
         showUnitPrice:      showUnitPrice      !== undefined ? showUnitPrice      : undefined,
         includeServices:    includeServices    !== undefined ? includeServices    : undefined,
         externalProjectId:  externalProjectId  !== undefined ? externalProjectId  : undefined,
+        brief:              brief              !== undefined ? brief              : undefined,
+        aiMeta,
       },
       include: {
         customer: true,

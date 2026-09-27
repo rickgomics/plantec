@@ -116,6 +116,10 @@ export interface Proposal {
   /** false: itens de serviço ficam na BOM mas fora dos totais e do PDF */
   includeServices?: boolean | null
   externalProjectId?: string | null
+  /** Respostas do projetista para a IA — src/lib/proposalAI.ts */
+  brief?: unknown
+  /** Origem de cada seção (ia | manual) */
+  aiMeta?: unknown
   coverProfile?: CompanyProfile | null
   introProfile?: CompanyProfile | null
   items: ProposalItem[]

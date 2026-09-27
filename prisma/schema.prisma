@@ -85,6 +85,10 @@ model Proposal {
   includeServices     Boolean         @default(true)
   priceTable          String?
   externalProjectId   String?         @unique
+  /// Respostas do projetista para a IA (objetivo, ambiente, existentes, restricoes) — src/lib/proposalAI.ts
+  brief               Json?
+  /// Origem de cada seção de texto (ia | manual) e quando — protege edição à mão de ser sobrescrita
+  aiMeta              Json?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   coverProfile     CompanyProfile? @relation("CoverProfile", fields: [coverProfileId], references: [id])

@@ -13,7 +13,7 @@ Gerador de propostas comerciais para distribuidoras de tecnologia (CFTV, redes, 
 | Fonte | Montserrat (Google Fonts) |
 | Banco | PostgreSQL via Neon (serverless) |
 | ORM | Prisma 5 |
-| IA | Anthropic SDK (`claude-opus-5`) |
+| IA | Anthropic SDK (`claude-opus-5`); capas por upload (OpenAI removida em 27/09/2026) |
 | Deploy | Vercel (functions + edge) |
 | PDF | HTML/CSS server-rendered (Route Handler) |
 | Diagramas | Mermaid via mermaid.ink (server-side SVG) |
@@ -237,16 +237,19 @@ Remove item e recalcula.
 ### `POST /api/proposals/[id]/evaluate`
 Executa o motor de regras. Retorna `{ alerts, suggestions, required }`.
 
-### `POST /api/ai/generate`
-Body: `{ type, context }`. Tipos disponíveis:
-- `executiveSummary` — 3-5 parágrafos profissionais
-- `scope` — formato estruturado (Está incluso / Não está incluso / Condições)
-- `scenarioDescription` — 2-3 parágrafos técnicos do cenário
-- `bomRoles` — JSON `[{sku, role}]` com função de cada produto
-- `scenarioDiagram` — código Mermaid puro (graph TD/LR com classDef e subgraphs)
-- `introText` — texto institucional da empresa
+### `POST /api/proposals/[id]/ai` (IA da proposta — `src/lib/proposalAI.ts`)
+Gera resumo, escopo, cenário e função de cada item **num pedido só**, com resposta em JSON garantida
+por `output_config.format` (structured outputs), streaming (SSE) e `fallbacks: "default"`.
+- Contexto = brief do projetista (`Proposal.brief`) + BOM inteira com ficha técnica, em bloco cacheado.
+- O JSON vira o texto que o PDF já lê em código (`textoEscopo`, `textoCenario`): o formato não depende
+  do modelo — é o que acabou com os "[PARÁGRAFO n]".
+- `Proposal.aiMeta.secoes[s].fonte` = `ia` | `manual`. O PUT marca `manual` quando o texto muda; a rota
+  não refaz seção manual sem `sobrescrever` (o cliente pergunta antes). Funções: só as vazias, salvo pedido.
+- Serviço (instalação etc.) só vira entrega se houver item de serviço na BOM ou no brief.
+- `GET` = conferência (`conferir()`): colchetes, markdown, R$ no texto, cenário longo, itens sem função.
 
-Usa `claude-opus-5` com `thinking: { type: 'adaptive' }` e `max_tokens: 1500`.
+### `POST /api/ai/generate`
+Sobrou só para diagrama (Mermaid/Eraser) e textos de perfil da empresa (`introText`, `profileDescription`).
 
 ---
 
