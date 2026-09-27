@@ -1,5 +1,6 @@
 'use client'
 
+import AppLayout from '@/components/AppLayout'
 import { useState, useEffect, useCallback } from 'react'
 import { FaPlus, FaEdit, FaTrash, FaBuilding } from 'react-icons/fa'
 import { HiGlobeAlt, HiSparkles, HiPhoto } from 'react-icons/hi2'
@@ -107,6 +108,21 @@ export default function ProfilesPage() {
   async function handleGenerateDesc() {
     setGeneratingDesc(true)
     try {
+      // Sem site: texto a partir do nome, como fazia o botão que saiu do editor
+      // de propostas (27/09/2026) — o texto institucional mora aqui, no perfil.
+      if (!form.website?.trim()) {
+        if (!form.name?.trim()) { toast.error('Preencha o nome da empresa ou o site'); return }
+        const r = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/ai/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'introText', context: { company: form.name } }),
+        })
+        const d = await r.json() as { text?: string; error?: string }
+        if (!r.ok || !d.text) { toast.error(d.error ?? 'Erro na geração IA'); return }
+        setForm(f => ({ ...f, description: d.text! }))
+        toast.success('Descrição gerada — com o site preenchido ela sai mais fiel')
+        return
+      }
       const data = await scrapeWebsite()
       if (!data) return
 
@@ -166,6 +182,7 @@ export default function ProfilesPage() {
   const partnerProfiles = profiles.filter(p => p.type === 'partner')
 
   return (
+    <AppLayout>
     <div className="shell">
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -240,15 +257,6 @@ export default function ProfilesPage() {
                       <HiPhoto className="w-4 h-4" />
                       {importingLogo ? 'Importando logo…' : 'Importar logo'}
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleGenerateDesc}
-                      disabled={generatingDesc || importingLogo}
-                      className="btn-ai btn-block"
-                    >
-                      <HiSparkles className="w-4 h-4" />
-                      {generatingDesc ? 'Gerando descrição…' : 'Gerar descrição com IA'}
-                    </button>
                   </div>
                 )}
               </div>
@@ -261,13 +269,22 @@ export default function ProfilesPage() {
 
               {/* ── Descrição ── */}
               <div>
-                <label className="block text-sm font-medium text-ink/75 mb-1">Descrição institucional</label>
+                <div className="flex items-end justify-between gap-3 mb-1">
+                  <div>
+                    <label className="label">Descrição institucional</label>
+                    <p className="text-[11px] text-ink/45 mt-0.5">Sai no anexo &quot;Sobre a empresa&quot; das propostas que usam este perfil.</p>
+                  </div>
+                  <button type="button" onClick={handleGenerateDesc} disabled={generatingDesc || importingLogo} className="btn-ai btn-xs flex-shrink-0">
+                    <HiSparkles className="w-3.5 h-3.5" />
+                    {generatingDesc ? 'Gerando…' : form.description?.trim() ? 'Refazer com IA' : 'Gerar com IA'}
+                  </button>
+                </div>
                 <textarea
                   value={form.description ?? ''}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  rows={4}
-                  placeholder="Sobre a empresa… ou use 'Gerar descrição com IA' acima."
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  rows={8}
+                  placeholder="Sobre a empresa: história, especialidade, diferenciais. Com o site preenchido, a IA lê o conteúdo dele."
+                  className="input text-sm leading-relaxed"
                 />
               </div>
 
@@ -298,6 +315,7 @@ export default function ProfilesPage() {
         </div>
       )}
     </div>
+    </AppLayout>
   )
 }
 

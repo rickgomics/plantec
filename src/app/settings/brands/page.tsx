@@ -1,5 +1,6 @@
 'use client'
 
+import AppLayout from '@/components/AppLayout'
 import { useState, useEffect, useCallback } from 'react'
 import { FaPlus, FaEdit, FaTrash, FaIndustry } from 'react-icons/fa'
 import LogoUpload from '@/components/LogoUpload'
@@ -95,12 +96,13 @@ export default function BrandsPage() {
   const inactive = brands.filter(b => !b.active)
 
   return (
+    <AppLayout>
     <div className="shell">
       <div className="flex items-center justify-between mb-8">
         <div>
           <div className="eyebrow">Portal Plantec · Configurações</div>
             <h1 className="page-title">Fabricantes Parceiros</h1>
-          <p className="text-sm text-ink/55 mt-1.5">Logotipos e descrições exibidos na página de fabricantes das propostas PDF</p>
+          <p className="text-sm text-ink/55 mt-1.5">Logos e descrições do anexo Logotipos e descrições exibidos na página de fabricantes das propostas PDFquot;FabricantesLogotipos e descrições exibidos na página de fabricantes das propostas PDFquot;: cada proposta mostra só as marcas que estão na BOM dela</p>
         </div>
         <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-semibold shadow-sm">
           <FaPlus size={12} /> Novo Fabricante
@@ -196,8 +198,8 @@ export default function BrandsPage() {
             </div>
 
             <div className="p-6 border-t flex gap-3 justify-end">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 border rounded-lg text-sm hover:bg-background">Cancelar</button>
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-60">
+              <button onClick={() => setShowForm(false)} className="btn-secondary btn-sm">Cancelar</button>
+              <button onClick={handleSave} disabled={saving} className="btn-primary btn-sm">
                 {saving ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
@@ -205,6 +207,7 @@ export default function BrandsPage() {
         </div>
       )}
     </div>
+    </AppLayout>
   )
 }
 
