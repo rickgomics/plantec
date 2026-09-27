@@ -732,6 +732,18 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     </div>
   </div>
 
+  <!-- RESUMO EXECUTIVO logo depois da capa: é o que o decisor lê primeiro.
+       Tinha saído do PDF sem querer em 08/09 (0424013), junto com a mudança
+       que pôs Dados e Escopo na mesma página. -->
+  ${proposal.executiveSummary?.trim()
+    ? paginarTexto(proposal.executiveSummary).map((t, i) => pg(`
+        <div class="section">
+          ${i === 0 ? '<div class="section-heading"><h2>Resumo Executivo</h2></div>' : ''}
+          <div class="text-content">${esc(t)}</div>
+        </div>
+      `)).join('')
+    : ''}
+
   <!-- DADOS DA PROPOSTA + ESCOPO na mesma página. Os dois cartões ocupam
        cerca de um terço da altura útil, e o escopo sozinho deixava outra
        página quase vazia. O escopo continua nas seguintes se não couber. -->
