@@ -4,6 +4,7 @@
  *
  *   npm run catalogo:ia -- enviar                 → cria o lote (gasta API; ~US$ 1 para ~900 produtos)
  *   npm run catalogo:ia -- coletar <batch_id>     → baixa o resultado para CSV + JSON (não grava na base)
+ *   npm run catalogo:ia -- direto                 → mesmos pedidos pela API normal (dobro do preço, minutos)
  *   npm run catalogo:ia -- aplicar <arquivo.json> → relatório; com --apply grava
  *
  * A resposta é um enum de pares "Categoria > Subcategoria" montado da própria
@@ -79,34 +80,72 @@ async function pendentes(): Promise<Prod[]> {
     .map(({ sku, name, brand, category }) => ({ sku, name, brand, category }))
 }
 
-async function enviar() {
+async function pedidos() {
   const prods = await pendentes()
   const lotes: Prod[][] = []
   for (let i = 0; i < prods.length; i += POR_PEDIDO) lotes.push(prods.slice(i, i + POR_PEDIDO))
+  const reqs = lotes.map((lote, i) => ({
+    custom_id: `lote-${String(i).padStart(3, '0')}`,
+    params: {
+      model: MODEL,
+      max_tokens: 16000,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
+      // o system é igual em todos os pedidos: cacheado, só o primeiro paga inteiro
+      system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{
+        role: 'user',
+        content: JSON.stringify(lote.map(p => ({ sku: p.sku, nome: p.name, marca: p.brand, segmento_loja: p.category }))),
+      }],
+    },
+  })) as Anthropic.Messages.BatchCreateParams.Request[]
+  return { total: prods.length, reqs }
+}
 
-  const batch = await client.messages.batches.create({
-    requests: lotes.map((lote, i) => ({
-      custom_id: `lote-${String(i).padStart(3, '0')}`,
-      params: {
-        model: MODEL,
-        max_tokens: 16000,
-        thinking: { type: 'adaptive' },
-        output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
-        // o system é igual em todos os pedidos: cacheado, só o primeiro paga inteiro
-        system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
-        messages: [{
-          role: 'user',
-          content: JSON.stringify(lote.map(p => ({ sku: p.sku, nome: p.name, marca: p.brand, segmento_loja: p.category }))),
-        }],
-      },
-    })) as Anthropic.Messages.BatchCreateParams.Request[],
-  })
-  console.log(`${prods.length} produtos em ${lotes.length} pedidos.`)
+async function enviar() {
+  const { total, reqs } = await pedidos()
+  const batch = await client.messages.batches.create({ requests: reqs })
+  console.log(`${total} produtos em ${reqs.length} pedidos.`)
   console.log(`Lote criado: ${batch.id} (${batch.processing_status})`)
   console.log(`Depois: npm run catalogo:ia -- coletar ${batch.id}`)
 }
 
 interface Resultado { sku: string; classe: string; confianca: 'alta' | 'media' | 'baixa' }
+
+class Coleta {
+  itens: Resultado[] = []
+  falhas: string[] = []
+  entrada = 0
+  saida = 0
+
+  ler(id: string, msg: Anthropic.Messages.Message) {
+    this.entrada += msg.usage.input_tokens + (msg.usage.cache_read_input_tokens ?? 0) + (msg.usage.cache_creation_input_tokens ?? 0)
+    this.saida += msg.usage.output_tokens
+    if (msg.stop_reason !== 'end_turn') { this.falhas.push(`${id}: stop_reason ${msg.stop_reason}`); return }
+    const text = msg.content.find(c => c.type === 'text')
+    if (!text || text.type !== 'text') { this.falhas.push(`${id}: sem texto`); return }
+    try {
+      this.itens.push(...(JSON.parse(text.text) as { itens: Resultado[] }).itens)
+    } catch {
+      this.falhas.push(`${id}: JSON inválido`)
+    }
+  }
+
+  async gravar(nome: string, nota: string) {
+    const nomes = new Map((await prisma.product.findMany({ select: { sku: true, name: true, category: true } })).map(p => [p.sku, p]))
+    const base = `${SAIDA}/classificacao-ia-${nome}`
+    writeFileSync(`${base}.json`, JSON.stringify(this.itens, null, 1))
+    const cel = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    writeFileSync(`${base}.csv`, ['sku,nome,categoria_atual,classe_ia,confianca']
+      .concat(this.itens.map(i => [i.sku, nomes.get(i.sku)?.name, nomes.get(i.sku)?.category, i.classe, i.confianca].map(cel).join(',')))
+      .join('\n'))
+    const conf = (c: string) => this.itens.filter(i => i.confianca === c).length
+    console.log(`${this.itens.length} classificados: ${conf('alta')} alta, ${conf('media')} média, ${conf('baixa')} baixa.`)
+    console.log(`Tokens: ${this.entrada} entrada, ${this.saida} saída (${nota}).`)
+    if (this.falhas.length) console.log(`Falhas (reenviar):\n  ${this.falhas.join('\n  ')}`)
+    console.log(`Arquivos: ${base}.csv e ${base}.json`)
+  }
+}
 
 async function coletar(batchId: string) {
   const b = await client.messages.batches.retrieve(batchId)
@@ -114,37 +153,35 @@ async function coletar(batchId: string) {
     console.log(`Ainda processando: ${JSON.stringify(b.request_counts)}`)
     return
   }
-  const itens: Resultado[] = []
-  const falhas: string[] = []
-  let entrada = 0, saida = 0
+  const c = new Coleta()
   for await (const r of await client.messages.batches.results(batchId)) {
-    if (r.result.type !== 'succeeded') { falhas.push(`${r.custom_id}: ${r.result.type}`); continue }
-    const msg = r.result.message
-    entrada += msg.usage.input_tokens + (msg.usage.cache_read_input_tokens ?? 0) + (msg.usage.cache_creation_input_tokens ?? 0)
-    saida += msg.usage.output_tokens
-    if (msg.stop_reason !== 'end_turn') { falhas.push(`${r.custom_id}: stop_reason ${msg.stop_reason}`); continue }
-    const text = msg.content.find(c => c.type === 'text')
-    if (!text || text.type !== 'text') { falhas.push(`${r.custom_id}: sem texto`); continue }
-    try {
-      itens.push(...(JSON.parse(text.text) as { itens: Resultado[] }).itens)
-    } catch {
-      falhas.push(`${r.custom_id}: JSON inválido`)
+    if (r.result.type !== 'succeeded') { c.falhas.push(`${r.custom_id}: ${r.result.type}`); continue }
+    c.ler(r.custom_id, r.result.message)
+  }
+  await c.gravar(batchId.slice(-8), 'lote: metade do preço')
+}
+
+/** Mesmos pedidos pela API normal, 4 por vez: o dobro do preço do lote, pronto em minutos. */
+async function direto() {
+  const { total, reqs } = await pedidos()
+  console.log(`${total} produtos em ${reqs.length} pedidos (API normal).`)
+  const c = new Coleta()
+  let proximo = 0
+  const trabalhador = async () => {
+    while (proximo < reqs.length) {
+      const r = reqs[proximo++]
+      try {
+        const msg = await client.messages.create(r.params as Anthropic.Messages.MessageCreateParamsNonStreaming)
+        c.ler(r.custom_id, msg)
+      } catch (e) {
+        c.falhas.push(`${r.custom_id}: ${e instanceof Anthropic.APIError ? `HTTP ${e.status} ${e.message}` : String(e)}`)
+      }
+      process.stdout.write('.')
     }
   }
-
-  const nomes = new Map((await prisma.product.findMany({ select: { sku: true, name: true, category: true } })).map(p => [p.sku, p]))
-  const base = `${SAIDA}/classificacao-ia-${batchId.slice(-8)}`
-  writeFileSync(`${base}.json`, JSON.stringify(itens, null, 1))
-  const cel = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-  writeFileSync(`${base}.csv`, ['sku,nome,categoria_atual,classe_ia,confianca']
-    .concat(itens.map(i => [i.sku, nomes.get(i.sku)?.name, nomes.get(i.sku)?.category, i.classe, i.confianca].map(cel).join(',')))
-    .join('\n'))
-
-  const conf = (c: string) => itens.filter(i => i.confianca === c).length
-  console.log(`${itens.length} classificados: ${conf('alta')} alta, ${conf('media')} média, ${conf('baixa')} baixa.`)
-  console.log(`Tokens: ${entrada} entrada, ${saida} saída (lote: metade do preço).`)
-  if (falhas.length) console.log(`Falhas (reenviar):\n  ${falhas.join('\n  ')}`)
-  console.log(`Arquivos: ${base}.csv e ${base}.json`)
+  await Promise.all([trabalhador(), trabalhador(), trabalhador(), trabalhador()])
+  console.log('')
+  await c.gravar(`direto-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`, 'API normal')
 }
 
 async function aplicar(arquivo: string, gravar: boolean) {
@@ -179,8 +216,9 @@ async function main() {
   const [cmd, arg] = process.argv.slice(2).filter(a => !a.startsWith('--'))
   if (cmd === 'enviar') return enviar()
   if (cmd === 'coletar' && arg) return coletar(arg)
+  if (cmd === 'direto') return direto()
   if (cmd === 'aplicar' && arg) return aplicar(arg, process.argv.includes('--apply'))
-  console.log('Uso: enviar | coletar <batch_id> | aplicar <arquivo.json> [--apply]')
+  console.log('Uso: enviar | coletar <batch_id> | direto | aplicar <arquivo.json> [--apply]')
 }
 
 main()
