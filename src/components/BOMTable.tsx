@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import { ProposalItem } from '@/types'
 
 function productImage(item: ProposalItem): string | null {
@@ -40,6 +41,8 @@ interface BOMTableProps {
   onDiscountChange: (itemId: string, discount: number) => void
   onPriceChange?: (itemId: string, price: number) => void
   onCostChange?: (itemId: string, cost: number) => void
+  /** Valor sendo digitado (preço ou custo), para as contas acompanharem */
+  onDraft?: (itemId: string, patch: { unitPrice?: number; cost?: number }) => void
   onRemove: (itemId: string) => void
   /** id da tabela → nome, para mostrar de onde saiu o preço de cada item */
   tableLabels?: Record<string, string>
@@ -58,20 +61,44 @@ function origemDoPreco(table: string | null | undefined, labels: Record<string, 
   return { texto: labels[table] ?? `grupo ${table}`, manual: false }
 }
 
-/** Campo de valor que só grava ao sair do campo, e só se o valor mudou. */
-function MoneyInput({ value, onCommit, title }: { value: number; onCommit: (v: number) => void; title: string }) {
+/**
+ * Campo de valor: as contas da linha e dos totais acompanham a digitação
+ * (onDraft), e o valor só é gravado ao sair do campo, se mudou (onCommit).
+ * Antes o subtotal ficava parado até sair do campo e a proposta voltar do
+ * servidor — digitando o preço de uma licença zerada, nada mudava na tela.
+ */
+function MoneyInput({ value, onCommit, onDraft, title }: {
+  value: number
+  onCommit: (v: number) => void
+  onDraft?: (v: number) => void
+  title: string
+}) {
+  const [texto, setTexto] = useState(value ? value.toFixed(2) : '')
+  const focado = useRef(false)
+  const gravado = useRef(value)
+  // Valor novo de fora só entra com o campo parado. Durante a digitação o
+  // próprio rascunho muda `value`; a comparação para gravar usa o valor que
+  // havia ao entrar no campo (senão o rascunho se compara consigo e não grava).
+  useEffect(() => {
+    if (!focado.current) { gravado.current = value; setTexto(value ? value.toFixed(2) : '') }
+  }, [value])
   return (
     <input
-      key={value}
       type="number"
       min={0}
       step={0.01}
-      defaultValue={value ? value.toFixed(2) : ''}
+      value={texto}
       placeholder="0,00"
       title={title}
+      onFocus={() => { focado.current = true; gravado.current = value }}
+      onChange={(e) => {
+        setTexto(e.target.value)
+        onDraft?.(parseFloat(e.target.value) || 0)
+      }}
       onBlur={(e) => {
+        focado.current = false
         const v = parseFloat(e.target.value) || 0
-        if (Math.abs(v - value) > 0.004) onCommit(v)
+        if (Math.abs(v - gravado.current) > 0.004) onCommit(v)
       }}
       onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
       className="w-24 text-right border border-line/15 bg-surface text-ink rounded-lg px-1.5 py-1 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition"
@@ -93,6 +120,7 @@ export default function BOMTable({
   onDiscountChange,
   onPriceChange,
   onCostChange,
+  onDraft,
   onRemove,
   tableLabels = {},
   readonly = false,
@@ -177,14 +205,14 @@ export default function BOMTable({
                     guardado no item — é o que dá sentido à coluna Margem. */}
                 <td className="px-4 py-3 text-right text-ink/65 font-medium">
                   {!readonly && onCostChange ? (
-                    <MoneyInput value={Number(item.cost)} onCommit={(v) => onCostChange(item.id, v)} title="Custo unitário" />
+                    <MoneyInput value={Number(item.cost)} onCommit={(v) => onCostChange(item.id, v)} onDraft={(v) => onDraft?.(item.id, { cost: v })} title="Custo unitário" />
                   ) : (
                     <>R$ {Number(item.cost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right text-ink/65 font-medium">
                   {!readonly && onPriceChange ? (
-                    <MoneyInput value={unitPrice} onCommit={(v) => onPriceChange(item.id, v)} title="Preço unitário — editar marca o item como manual" />
+                    <MoneyInput value={unitPrice} onCommit={(v) => onPriceChange(item.id, v)} onDraft={(v) => onDraft?.(item.id, { unitPrice: v })} title="Preço unitário — editar marca o item como manual" />
                   ) : (
                     <>R$ {unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</>
                   )}

@@ -271,6 +271,16 @@ export default function ProposalDetailPage() {
     await loadProposal()
   }
 
+  // Enquanto digita preço ou custo, o item muda só na tela: subtotal, totais
+  // e margem acompanham. O valor é gravado ao sair do campo (handlePriceChange
+  // / handleCostChange) e a proposta volta do servidor.
+  const rascunhoItem = (itemId: string, patch: { unitPrice?: number; cost?: number }) => {
+    setProposal(p => p && ({
+      ...p,
+      items: p.items.map(i => i.id === itemId ? { ...i, ...patch } : i),
+    }))
+  }
+
   const handlePriceChange = async (itemId: string, unitPrice: number) => {
     await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}/items`, {
       method: 'PUT',
@@ -925,6 +935,7 @@ export default function ProposalDetailPage() {
                   onDiscountChange={handleDiscountChange}
                   onPriceChange={handlePriceChange}
                   onCostChange={handleCostChange}
+                  onDraft={rascunhoItem}
                   onRemove={handleRemoveItem}
                   tableLabels={tableLabels}
                 />
