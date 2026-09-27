@@ -33,6 +33,8 @@ const emptyForm = {
 interface SyncProgress {
   total: number; totalPages: number; page: number
   synced: number; errors: number; errorMessage?: string
+  /** Saíram da loja e foram desativados no fim da carga. */
+  desativados?: number
 }
 
 function SkeletonRow() {
@@ -408,7 +410,7 @@ export default function ProductsPage() {
       } else if (data.type === 'progress') {
         setSyncProgress(p => ({ ...p, page: data.page, totalPages: data.totalPages, synced: data.synced, errors: data.errors }))
       } else if (data.type === 'done') {
-        setSyncProgress(p => ({ ...p, synced: data.synced, errors: data.errors }))
+        setSyncProgress(p => ({ ...p, synced: data.synced, errors: data.errors, desativados: data.desativados }))
         setSyncStatus('done')
         es.close()
         load()
@@ -736,6 +738,9 @@ export default function ProductsPage() {
                     <p className="text-base font-black text-ink">Sincronização concluída!</p>
                     <p className="text-sm text-ink/55 mt-1">
                       <span className="font-bold text-ink">{syncProgress.synced.toLocaleString('pt-BR')}</span> produtos importados
+                      {(syncProgress.desativados ?? 0) > 0 && (
+                        <> · {syncProgress.desativados!.toLocaleString('pt-BR')} saíram da loja e foram desativados</>
+                      )}
                       {syncProgress.errors > 0 && (
                         <> · <span className="text-amber-600 font-semibold">{syncProgress.errors} erro{syncProgress.errors !== 1 ? 's' : ''}</span></>
                       )}

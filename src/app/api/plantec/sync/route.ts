@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { tiersOf } from '@/lib/pricing'
 import { buildSpecAttributes, fetchSpecOptionMaps, type SpecOptionMaps } from '@/lib/magentoSpecs'
+import { normalizarMarca } from '@/lib/brands'
 import { classificarPorRegra, classificacaoGuardada, type Classificacao } from '@/lib/taxonomy'
 
 const BASE   = (process.env.MAGENTO_URL  ?? '').replace(/\/$/, '')
@@ -40,12 +41,6 @@ function primaryImage(p: MagentoProduct): string | null {
     p.media_gallery_entries?.find(m => !m.disabled && m.types?.includes('image') && m.file) ??
     p.media_gallery_entries?.find(m => !m.disabled && m.file)
   return entry ? `${BASE}/media/catalog/product${entry.file}` : null
-}
-
-function cleanBrand(raw: string): string {
-  if (!raw) return raw
-  const first = raw.trim().split(/\s+/)[0]
-  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()
 }
 
 // Entidades HTML do Magento. Antes elas viravam espaço, e o resultado era
@@ -165,12 +160,14 @@ export async function GET(req: NextRequest) {
 
         let synced = 0
         let errors = 0
+        const vistos: string[] = []
 
         for (let page = 1; page <= totalPages; page++) {
           if (req.signal.aborted) break
 
           try {
             const items = await fetchPage(page, pageSize)
+            vistos.push(...items.map(i => i.sku))
 
             // O sync reescreve `attributes` inteiro; o que foi posto à mão
             // precisa ser trazido de volta: a ficha dos produtos de catálogo
@@ -188,10 +185,10 @@ export async function GET(req: NextRequest) {
                 const mfrId = attr(p, 'manufacturer')
                 const desc  = attr(p, 'description')
                 const image = primaryImage(p)
-                const brand = mfr[mfrId] ? cleanBrand(mfr[mfrId]) : null
+                const brand = normalizarMarca(mfr[mfrId], p.name)
 
                 const existente = existentePorSku.get(p.sku)
-                const ea = (existente?.attributes ?? {}) as { specsManuais?: boolean; specs?: unknown; specsFonte?: unknown }
+                const ea = (existente?.attributes ?? {}) as { specsManuais?: boolean; specs?: unknown; specsFonte?: unknown; inativadoPeloSync?: boolean }
                 const curado = ea.specsManuais === true ? existente : undefined
                 const fichaManual: Record<string, unknown> = {}
                 if (curado) {
@@ -247,6 +244,9 @@ export async function GET(req: NextRequest) {
                     name:        p.name,
                     description: desc ? stripHtml(desc) : null,
                     brand,
+                    // Voltou para a loja: reativa o que o próprio sync tinha
+                    // desativado (desativação feita à mão continua valendo).
+                    ...(ea.inativadoPeloSync ? { active: true } : {}),
                     // Os carregadores veiculares chegam como CFTV (nsegmento 5):
                     // por isso a classificação vence o nsegmento.
                     category,
@@ -278,7 +278,25 @@ export async function GET(req: NextRequest) {
           send({ type: 'progress', page, totalPages, synced, errors })
         }
 
-        send({ type: 'done', total, synced, errors })
+        // Carga completa e sem erro: o que veio do Magento e não apareceu saiu
+        // da loja (status 0 ou apagado) e é desativado — sem apagar, porque
+        // pode estar em proposta. Fica de fora o catálogo provisório
+        // (specsManuais), que existe justamente por não estar ativo na loja.
+        // Carga parcial não desativa nada: faltar na página não prova nada.
+        let desativados = 0
+        if (!req.signal.aborted && errors === 0 && vistos.length > 0 && vistos.length >= total) {
+          desativados = await prisma.$executeRaw`
+            UPDATE "Product"
+               SET active = false,
+                   attributes = attributes || '{"inativadoPeloSync": true}'::jsonb,
+                   "updatedAt" = now()
+             WHERE active
+               AND attributes ? 'magento_price'
+               AND coalesce(attributes->>'specsManuais', '') <> 'true'
+               AND sku <> ALL(${vistos}::text[])`
+        }
+
+        send({ type: 'done', total, synced, errors, desativados })
       } catch (e) {
         send({ type: 'error', message: e instanceof Error ? e.message : 'Erro desconhecido' })
       } finally {

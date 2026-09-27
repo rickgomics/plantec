@@ -278,6 +278,12 @@ Magento (4 valores) não serve: "Redes" levava disjuntor e ferramenta, nobreak f
 - `npm run catalogo:classificar` só gera relatório (CSV); `-- --apply` grava produtos e renomeia a
   subcategoria das regras do motor ("Cameras IP" → "Câmeras IP").
 - Filtros usam `/api/products/categories` (contagem real), não lista fixa.
+- O que as regras não pegam vai para `npm run catalogo:ia -- enviar | coletar <id> | aplicar <json> [--apply]`
+  (Message Batches, enum "Categoria > Sub" por structured outputs; só confiança alta/média é aplicada).
+- Marca: `src/lib/brands.ts` junta os rótulos do Magento (9 divisões Intelbras, Pial/Legrand…) e, se o
+  fabricante for PLANTEC ou N/D, tira a marca do fim do nome.
+- Sync completo e sem erro desativa (não apaga) o que saiu da loja, marcando `inativadoPeloSync`; se o
+  produto voltar, o sync reativa. Catálogo provisório (`specsManuais`) nunca é desativado.
 
 ## Importação de Itens (Portal e Hub Intelbras)
 

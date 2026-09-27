@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { tiersOf } from '@/lib/pricing'
 import { buildSpecAttributes, fetchSpecOptionMaps, type SpecOptionMaps } from '@/lib/magentoSpecs'
+import { normalizarMarca } from '@/lib/brands'
 import { classificarPorRegra } from '@/lib/taxonomy'
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -90,13 +91,6 @@ function primaryImage(p: MagentoProduct): string | null {
 }
 
 // "INTELBRAS COMUNICAÇÃO" → "Intelbras"  |  "HIKVISION" → "Hikvision"
-function cleanBrand(raw: string): string {
-  if (!raw) return raw
-  // Take only the first word and title-case it (removes division suffixes)
-  const first = raw.trim().split(/\s+/)[0]
-  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()
-}
-
 // Entidades HTML do Magento. Antes elas viravam espaço, e o resultado era
 // "resid ncias" e "M dulo" gravados no catálogo — 1.269 produtos afetados.
 // A descrição vem misturada: parte em UTF-8 literal, parte em entidade.
@@ -158,7 +152,7 @@ function normalize(p: MagentoProduct, mfr: Record<string, string>, qty: number, 
     sku:         p.sku,
     name:        p.name,
     description: desc ? stripHtml(desc) : null,
-    brand:       mfr[mfrId] ? cleanBrand(mfr[mfrId]) : null,
+    brand:       normalizarMarca(mfr[mfrId], p.name),
     category:    regra?.category ?? SEGMENT_MAP[nseg] ?? 'Outros',
     subcategory: regra?.subcategory ?? null,
     basePrice:   bestPrice(p.price, p.tier_prices),

@@ -11,7 +11,8 @@
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
     "seed:brands": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed-brands.ts",
     "seed:carregadores": "set -a && . ./.env && set +a && ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed-carregadores-veiculares.ts",
-    "catalogo:classificar": "set -a && . ./.env && set +a && ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/classificar-catalogo.ts"
+    "catalogo:classificar": "set -a && . ./.env && set +a && ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/classificar-catalogo.ts",
+    "catalogo:ia": "set -a && . ./.env && set +a && ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/classificar-catalogo-ia.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
