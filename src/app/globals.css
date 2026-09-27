@@ -386,23 +386,29 @@ table.data-table tbody tr:hover { background: var(--pt-surface-2); }
 .nav-sub { font-size: 11.5px; color: var(--pt-ink-faint); margin-top: 2px; }
 
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
-/* Clara, como as telas do Portal (27/09/2026, mesma decisão do KPI Dashboard:
-   sem faixa azul-marinho nem logo de fundo escuro). Reage ao tema. */
+/* Identidade PlantecIA: azul-marinho fixo com o logo PlantecIA (que só se lê
+   sobre fundo escuro), não reage ao tema. Pedido do usuário em 27/09/2026:
+   o menu lateral fica PlantecIA; o resto das telas segue o Padrão Visual do
+   Portal. A cor é fixa aqui porque a escala brand-* do Tailwind virou teal. */
 
 .sidebar {
-  background: var(--pt-surface);
-  border-right: 1px solid var(--pt-line);
+  background: #0F1438;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 .sidebar-link {
   display: flex; align-items: center; gap: 10px;
   border-radius: 9px; padding: 8px 12px;
   font-size: 13px; font-weight: 500;
-  color: var(--pt-ink-soft);
+  color: rgba(255, 255, 255, 0.72);
   transition: background-color 0.15s, color 0.15s;
 }
-.sidebar-link:hover { background: var(--pt-surface-2); color: var(--pt-ink); }
-.sidebar-link.active { background: var(--pt-brand-soft); color: var(--pt-brand-ink); font-weight: 600; }
-.sidebar-link:focus-visible { outline: 2px solid var(--pt-brand); outline-offset: 2px; }
+.sidebar-link:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.sidebar-link.active { background: rgba(255, 255, 255, 0.12); color: #fff; font-weight: 600; }
+.sidebar-link:focus-visible { outline: 2px solid #5FCCC4; outline-offset: 2px; }
+.sidebar-grupo {
+  font-family: var(--font-mono), monospace; font-size: 10px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 255, 255, 0.4);
+}
 
 /* ── Peças do Design System que faltavam ─────────────────────────────────── */
 

@@ -24,7 +24,7 @@ export default function ThemeToggle({ compact = false }: { compact?: boolean }) 
       <button
         onClick={toggle}
         title={dark ? 'Modo claro' : 'Modo escuro'}
-        className="p-1.5 rounded-lg text-ink/55 hover:bg-ink/5 hover:text-ink transition-colors flex-shrink-0"
+        className="p-1.5 rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition-colors flex-shrink-0"
       >
         {dark ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
       </button>

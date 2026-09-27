@@ -6,8 +6,10 @@ import { FiGrid, FiFileText, FiDownload, FiPackage, FiUsers, FiBriefcase, FiTag 
 import { IconType } from 'react-icons'
 import ThemeToggle from './ThemeToggle'
 
-// Padrão Visual do Portal: barra clara, sem logo (o logo PlantecIA só se lê
-// sobre fundo escuro) — mesma decisão do KPI Dashboard em 27/09/2026.
+const bp = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+
+// Menu lateral com a identidade PlantecIA (azul-marinho e logo), por pedido
+// do usuário em 27/09/2026; as telas seguem o Padrão Visual do Portal.
 const navItems: { href: string; label: string; icon: IconType; grupo?: string }[] = [
   { href: '/dashboard',         label: 'Painel',       icon: FiGrid },
   { href: '/proposals',         label: 'Propostas',    icon: FiFileText },
@@ -22,26 +24,30 @@ export default function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="sidebar w-56 min-h-screen flex flex-col flex-shrink-0">
-      <div className="px-4 pt-5 pb-4 flex items-start justify-between gap-2">
-        <div>
-          <div className="eyebrow">Plantec</div>
-          <div className="font-display font-extrabold uppercase text-[22px] leading-none tracking-[0.01em] text-ink mt-1">
-            BOM Builder
-          </div>
+    <aside className="sidebar w-60 min-h-screen flex flex-col flex-shrink-0">
+      <div className="px-4 pt-4 pb-3 border-b border-white/10">
+        <div className="flex items-center justify-between gap-2">
+          {/* Logo completo — texto branco/ciano lê bem sobre o azul-marinho */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`${bp}/plantec-logo-full.png`}
+            alt="Plantec IA"
+            className="h-[135px] w-auto object-contain object-left flex-1 min-w-0"
+          />
+          <ThemeToggle compact />
         </div>
-        <ThemeToggle compact />
+        <div className="text-[#5FCCC4] text-[9px] font-bold tracking-[0.2em] uppercase mt-2 pl-0.5">
+          BOM Builder
+        </div>
       </div>
 
-      <nav className="flex-1 px-3 pb-4 space-y-0.5">
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           const Icon = item.icon
           return (
             <div key={item.href}>
-              {item.grupo && (
-                <div className="eyebrow !text-ink/45 px-3 pt-4 pb-1.5 !text-[10px]">{item.grupo}</div>
-              )}
+              {item.grupo && <div className="sidebar-grupo px-3 pt-4 pb-1.5">{item.grupo}</div>}
               <Link href={item.href} className={`sidebar-link ${isActive ? 'active' : ''}`}>
                 <Icon className="w-4 h-4 flex-shrink-0" />
                 <span>{item.label}</span>
@@ -51,7 +57,7 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="px-4 py-3 border-t border-line/10 text-[11px] text-ink/45">
+      <div className="px-4 py-3 border-t border-white/10 text-[10px] text-white/40">
         Plantec Distribuidora
       </div>
     </aside>
