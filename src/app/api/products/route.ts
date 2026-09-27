@@ -1,13 +1,16 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { classificacaoGuardada } from '@/lib/taxonomy'
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') ?? ''
     const category = searchParams.get('category') ?? ''
+    const subcategory = searchParams.get('subcategory') ?? ''
     const active = searchParams.get('active')
 
     const products = await prisma.product.findMany({
@@ -15,6 +18,7 @@ export async function GET(request: NextRequest) {
         AND: [
           active !== null ? { active: active === 'true' } : {},
           category ? { category } : {},
+          subcategory ? { subcategory } : {},
           search
             ? {
                 OR: [
@@ -67,6 +71,25 @@ export async function POST(request: NextRequest) {
 
     // upsert=true: create if new, update metadata if exists (preserves local price/cost/stock)
     if (doUpsert) {
+      // Como no sync: o que foi posto à mão no produto que já existe não pode
+      // ser apagado por quem o adiciona à BOM pela busca ao vivo do Magento —
+      // a ficha do catálogo provisório e a classificação manual/IA.
+      const atual = await prisma.product.findUnique({
+        where: { sku },
+        select: { category: true, subcategory: true, attributes: true },
+      })
+      const aa = (atual?.attributes ?? {}) as Prisma.JsonObject
+      const guardada = classificacaoGuardada(aa)
+      const manterClassif = guardada && guardada.fonte !== 'regra'
+      const preservar: Prisma.JsonObject = {}
+      if (aa.specsManuais === true) {
+        preservar.specsManuais = true
+        if (aa.specs      != null) preservar.specs      = aa.specs
+        if (aa.specsFonte != null) preservar.specsFonte = aa.specsFonte
+      }
+      if (manterClassif) preservar.classificacao = aa.classificacao
+      const keepCat = manterClassif || aa.specsManuais === true
+
       const product = await prisma.product.upsert({
         where: { sku },
         create: {
@@ -90,13 +113,19 @@ export async function POST(request: NextRequest) {
           name,
           description,
           brand,
-          category,
-          subcategory,
+          category:    keepCat ? atual!.category : category,
+          subcategory: keepCat ? atual!.subcategory : subcategory,
           unit: unit ?? 'un',
-          attributes: attributes ?? {},
+          attributes: { ...(attributes ?? {}), ...preservar },
         },
       })
       return NextResponse.json({ product }, { status: 200 })
+    }
+
+    // Cadastro à mão: a categoria escolhida é classificação manual.
+    const attrsNovo = { ...(attributes ?? {}) } as Prisma.JsonObject
+    if (!classificacaoGuardada(attrsNovo)) {
+      attrsNovo.classificacao = { category, subcategory: subcategory || null, fonte: 'manual', em: new Date().toISOString() }
     }
 
     const product = await prisma.product.create({
@@ -106,12 +135,12 @@ export async function POST(request: NextRequest) {
         description,
         brand,
         category,
-        subcategory,
+        subcategory: subcategory || null,
         basePrice: basePrice ?? 0,
         cost: cost ?? 0,
         stock: stock ?? 0,
         unit: unit ?? 'un',
-        attributes: attributes ?? {},
+        attributes: attrsNovo,
         compatible: compatible ?? [],
         required: required ?? [],
         suggested: suggested ?? [],

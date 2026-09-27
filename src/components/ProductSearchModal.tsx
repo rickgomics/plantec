@@ -3,13 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Product } from '@/types'
 import { HiMagnifyingGlass, HiXMark, HiKey } from 'react-icons/hi2'
+import CategoryFilter from '@/components/CategoryFilter'
 
 interface ProductSearchModalProps {
   onClose: () => void
   onAdd: (product: Product, quantity: number) => void
 }
 
-const CATEGORIES = ['CFTV', 'Energia', 'Mobilidade Elétrica', 'Redes', 'Controle de Acesso', 'Cabeamento', 'Nobreaks', 'Racks', 'Serviços']
 const LIC_FABRICANTES = ['', '3CX', 'INTELBRAS - COMUNICAÇÃO', 'INTELBRAS - SEGURANÇA ELETRONICA', 'KHOMP - COMUNICAÇÃO', 'SOMA TARIFADOR', 'KHOMP - IOT', 'ALTISTECH']
 
 type Mode = 'probing' | 'magento' | 'local' | 'licencas'
@@ -32,6 +32,7 @@ function isExternalProduct(id: string) {
 export default function ProductSearchModal({ onClose, onAdd }: ProductSearchModalProps) {
   const [search, setSearch]         = useState('')
   const [category, setCategory]     = useState('')
+  const [subcategory, setSubcat]    = useState('')
   const [licFabricante, setLicFab]  = useState('')
   const [products, setProducts]     = useState<Product[]>([])
   const [licencas, setLicencas]     = useState<LicencaItem[]>([])
@@ -82,12 +83,13 @@ export default function ProductSearchModal({ onClose, onAdd }: ProductSearchModa
       const p = new URLSearchParams()
       if (search)   p.set('search',   search)
       if (category) p.set('category', category)
+      if (subcategory) p.set('subcategory', subcategory)
       const r = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/products?${p}`)
       const data = await r.json()
       setProducts(data.products ?? [])
     } catch { setProducts([]) }
     finally { setLoading(false) }
-  }, [mode, search, category])
+  }, [mode, search, category, subcategory])
 
   useEffect(() => {
     const delay = mode === 'magento' ? 500 : 300
@@ -298,12 +300,12 @@ export default function ProductSearchModal({ onClose, onAdd }: ProductSearchModa
             />
           </div>
           {mode === 'local' && (
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className="input w-44">
-              <option value="">Todas categorias</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+            <CategoryFilter
+              category={category}
+              subcategory={subcategory}
+              onChange={(c, sc) => { setCategory(c); setSubcat(sc) }}
+              className="w-44"
+            />
           )}
           {mode === 'licencas' && (
             <select value={licFabricante} onChange={(e) => setLicFab(e.target.value)} className="input w-48 text-xs">

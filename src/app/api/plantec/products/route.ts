@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { tiersOf } from '@/lib/pricing'
 import { buildSpecAttributes, fetchSpecOptionMaps, type SpecOptionMaps } from '@/lib/magentoSpecs'
+import { classificarPorRegra } from '@/lib/taxonomy'
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -150,6 +151,7 @@ function normalize(p: MagentoProduct, mfr: Record<string, string>, qty: number, 
   const mfrId = attr(p, 'manufacturer')
   const desc  = attr(p, 'description')
   const image = primaryImage(p)
+  const regra = classificarPorRegra(p.name)
 
   return {
     id:          `magento_${p.sku}`,
@@ -157,8 +159,8 @@ function normalize(p: MagentoProduct, mfr: Record<string, string>, qty: number, 
     name:        p.name,
     description: desc ? stripHtml(desc) : null,
     brand:       mfr[mfrId] ? cleanBrand(mfr[mfrId]) : null,
-    category:    SEGMENT_MAP[nseg] ?? 'Outros',
-    subcategory: null,
+    category:    regra?.category ?? SEGMENT_MAP[nseg] ?? 'Outros',
+    subcategory: regra?.subcategory ?? null,
     basePrice:   bestPrice(p.price, p.tier_prices),
     cost:        0,
     stock:       qty,
@@ -173,6 +175,7 @@ function normalize(p: MagentoProduct, mfr: Record<string, string>, qty: number, 
       // preço de cada grupo de cliente (tabelas de preço)
       tierPrices:      tiersOf(p.tier_prices),
       ...buildSpecAttributes(p.custom_attributes, specMaps),
+      ...(regra ? { classificacao: regra } : {}),
     },
     image,
     compatible: [] as string[],

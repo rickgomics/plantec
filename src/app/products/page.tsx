@@ -8,8 +8,9 @@ import {
   HiTag, HiCube, HiCurrencyDollar, HiArchiveBox,
 } from 'react-icons/hi2'
 import { Product } from '@/types'
+import CategoryFilter from '@/components/CategoryFilter'
+import { CATEGORY_NAMES, subcategoriesOf } from '@/lib/taxonomy'
 
-const CATEGORIES = ['CFTV', 'Energia', 'Mobilidade Elétrica', 'Redes', 'Controle de Acesso', 'Cabeamento', 'Nobreaks', 'Racks', 'Serviços']
 
 function marginColor(cost: number, price: number) {
   if (price === 0) return 'text-ink/45'
@@ -318,6 +319,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
+  const [subcategory, setSubcategory] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -337,11 +339,12 @@ export default function ProductsPage() {
     const p = new URLSearchParams()
     if (search) p.set('search', search)
     if (category) p.set('category', category)
+    if (subcategory) p.set('subcategory', subcategory)
     const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/products?${p}`)
     const data = await res.json()
     setProducts(data.products ?? [])
     setLoading(false)
-  }, [search, category])
+  }, [search, category, subcategory])
 
   useEffect(() => {
     const t = setTimeout(load, 300)
@@ -467,10 +470,11 @@ export default function ProductsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <select className="input w-48" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="">Todas categorias</option>
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <CategoryFilter
+            category={category}
+            subcategory={subcategory}
+            onChange={(c, s) => { setCategory(c); setSubcategory(s) }}
+          />
         </div>
 
         {/* Tabela */}
@@ -628,11 +632,24 @@ export default function ProductsPage() {
                 </div>
                 <div>
                   <label className="label">Categoria *</label>
-                  <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value, subcategory: '' })}>
+                    {!CATEGORY_NAMES.includes(form.category) && <option value={form.category}>{form.category} (antiga)</option>}
+                    {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
+              {subcategoriesOf(form.category).length > 0 && (
+                <div>
+                  <label className="label">Subcategoria</label>
+                  <select className="input" value={form.subcategory} onChange={(e) => setForm({ ...form, subcategory: e.target.value })}>
+                    <option value="">—</option>
+                    {form.subcategory && !subcategoriesOf(form.category).includes(form.subcategory) && (
+                      <option value={form.subcategory}>{form.subcategory} (antiga)</option>
+                    )}
+                    {subcategoriesOf(form.category).map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="label">Preço (R$)</label>

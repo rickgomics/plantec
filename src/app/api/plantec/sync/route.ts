@@ -1,9 +1,11 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { tiersOf } from '@/lib/pricing'
 import { buildSpecAttributes, fetchSpecOptionMaps, type SpecOptionMaps } from '@/lib/magentoSpecs'
+import { classificarPorRegra, classificacaoGuardada, type Classificacao } from '@/lib/taxonomy'
 
 const BASE   = (process.env.MAGENTO_URL  ?? '').replace(/\/$/, '')
 const TOKEN  = process.env.MAGENTO_TOKEN ?? ''
@@ -170,18 +172,15 @@ export async function GET(req: NextRequest) {
           try {
             const items = await fetchPage(page, pageSize)
 
-            // Catálogo provisório: produtos cuja ficha técnica e categoria foram
-            // preenchidas à mão (a loja não tem attribute set para eles). O sync
-            // reescreve `attributes` inteiro, então sem isto a ficha sumiria na
-            // carga seguinte. Marcados por `attributes.specsManuais = true`.
-            const curados = await prisma.product.findMany({
-              where: {
-                sku: { in: items.map(i => i.sku) },
-                attributes: { path: ['specsManuais'], equals: true },
-              },
+            // O sync reescreve `attributes` inteiro; o que foi posto à mão
+            // precisa ser trazido de volta: a ficha dos produtos de catálogo
+            // provisório (`specsManuais`) e a classificação manual ou por IA
+            // (`classificacao`, ver src/lib/taxonomy.ts).
+            const existentes = await prisma.product.findMany({
+              where: { sku: { in: items.map(i => i.sku) } },
               select: { sku: true, category: true, subcategory: true, attributes: true },
             })
-            const curadoPorSku = new Map(curados.map(c => [c.sku, c]))
+            const existentePorSku = new Map(existentes.map(c => [c.sku, c]))
 
             const results = await Promise.allSettled(
               items.map(p => {
@@ -191,14 +190,28 @@ export async function GET(req: NextRequest) {
                 const image = primaryImage(p)
                 const brand = mfr[mfrId] ? cleanBrand(mfr[mfrId]) : null
 
-                const curado = curadoPorSku.get(p.sku)
+                const existente = existentePorSku.get(p.sku)
+                const ea = (existente?.attributes ?? {}) as { specsManuais?: boolean; specs?: unknown; specsFonte?: unknown }
+                const curado = ea.specsManuais === true ? existente : undefined
                 const fichaManual: Record<string, unknown> = {}
                 if (curado) {
-                  const a = curado.attributes as { specs?: unknown; specsFonte?: unknown }
                   fichaManual.specsManuais = true
-                  if (a.specs      != null) fichaManual.specs      = a.specs
-                  if (a.specsFonte != null) fichaManual.specsFonte = a.specsFonte
+                  if (ea.specs      != null) fichaManual.specs      = ea.specs
+                  if (ea.specsFonte != null) fichaManual.specsFonte = ea.specsFonte
                 }
+
+                // Classificação: manual/IA gravada vence; senão a regra pelo
+                // nome (refeita a cada carga, para regra nova valer); senão a
+                // categoria posta à mão do catálogo provisório; senão o
+                // nsegmento da loja, sem classificação — fica para a IA.
+                const guardada = classificacaoGuardada(existente?.attributes)
+                const classificacao: Classificacao | null =
+                  guardada && guardada.fonte !== 'regra' ? guardada
+                  : curado ? { category: curado.category, subcategory: curado.subcategory, fonte: 'manual' }
+                  : classificarPorRegra(p.name)
+                const category    = classificacao?.category ?? SEGMENT_MAP[nseg] ?? 'Outros'
+                const subcategory = classificacao?.subcategory ?? null
+                const comClassificacao = classificacao ? { classificacao: classificacao as unknown as Prisma.InputJsonObject } : {}
 
                 return prisma.product.upsert({
                   where: { sku: p.sku },
@@ -207,7 +220,8 @@ export async function GET(req: NextRequest) {
                     name:        p.name,
                     description: desc ? stripHtml(desc) : null,
                     brand,
-                    category:    SEGMENT_MAP[nseg] ?? 'Outros',
+                    category,
+                    subcategory,
                     basePrice:   bestPrice(p.price, p.tier_prices),
                     cost:        0,
                     stock:       0,
@@ -222,6 +236,7 @@ export async function GET(req: NextRequest) {
                       // preço de cada grupo de cliente (tabelas de preço)
                       tierPrices:      tiersOf(p.tier_prices),
                       ...buildSpecAttributes(p.custom_attributes, specMaps),
+                      ...comClassificacao,
                     },
                     compatible: [],
                     required:   [],
@@ -232,10 +247,10 @@ export async function GET(req: NextRequest) {
                     name:        p.name,
                     description: desc ? stripHtml(desc) : null,
                     brand,
-                    // Categoria curada à mão vence o nsegmento da loja: os
-                    // carregadores veiculares chegam como CFTV (nsegmento 5).
-                    category:    curado?.category ?? SEGMENT_MAP[nseg] ?? 'Outros',
-                    ...(curado?.subcategory ? { subcategory: curado.subcategory } : {}),
+                    // Os carregadores veiculares chegam como CFTV (nsegmento 5):
+                    // por isso a classificação vence o nsegmento.
+                    category,
+                    subcategory,
                     attributes: {
                       nsegmento:       nseg,
                       manufacturer_id: mfrId,
@@ -245,8 +260,9 @@ export async function GET(req: NextRequest) {
                       // preço de cada grupo de cliente (tabelas de preço)
                       tierPrices:      tiersOf(p.tier_prices),
                       ...buildSpecAttributes(p.custom_attributes, specMaps),
-                      // por último: a ficha manual sobrevive à carga
+                      // por último: ficha manual e classificação sobrevivem à carga
                       ...fichaManual,
+                      ...comClassificacao,
                     },
                   },
                 })

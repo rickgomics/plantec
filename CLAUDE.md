@@ -265,6 +265,29 @@ O Magento tem um `price` de tabela e, por cima, um tier price de quantidade 1 po
 
 ---
 
+## Classificação do Catálogo (`src/lib/taxonomy.ts`)
+
+Categoria > subcategoria da Plantec, única fonte para filtros, formulário e BOM. O `nsegmento` do
+Magento (4 valores) não serve: "Redes" levava disjuntor e ferramenta, nobreak ficava em "Telecom".
+
+- Cada produto guarda `attributes.classificacao = { category, subcategory, fonte, regra?, em }`.
+  Prioridade: `manual` > `ia` > `regra`. O sync, o upsert da busca ao vivo e o PUT preservam
+  manual/IA; a regra é refeita a cada carga. Trocar a categoria na tela grava `manual`.
+- Regras pelo nome normalizado, em ordem (a primeira que casa vence). Pegam ~80% da base; o resto
+  fica para a etapa da IA.
+- `npm run catalogo:classificar` só gera relatório (CSV); `-- --apply` grava produtos e renomeia a
+  subcategoria das regras do motor ("Cameras IP" → "Câmeras IP").
+- Filtros usam `/api/products/categories` (contagem real), não lista fixa.
+
+## Importação de Itens (Portal e Hub Intelbras)
+
+`/api/products/resolve` casa só por SKU **igual** ao código; sem isso devolve candidatos e a
+`ImportReviewModal` deixa o usuário escolher ou deixar de fora. Nunca usar a busca da tela
+(contém, sem limite) para casar item importado — foi o que punha produto errado na BOM.
+Preço do orçamento do Portal pode entrar como preço manual (`unitPrice` no POST de itens).
+
+---
+
 ## Motor de Regras (`src/services/ruleEngine.ts`)
 
 Função pura `evaluateRules(items, rules, globalDiscount)`. Avalia cada `Rule` contra os itens da BOM:
