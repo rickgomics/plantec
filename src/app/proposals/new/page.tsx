@@ -55,7 +55,7 @@ export default function NewProposalPage() {
     <AppLayout>
       <div className="shell">
         <div className="mb-6">
-          <div className="eyebrow">BOM Builder</div>
+          <div className="eyebrow">Portal Plantec · BOM Builder</div>
             <h1 className="page-title">Nova Proposta</h1>
           <p className="text-ink/55 text-sm mt-0.5">Preencha os dados para iniciar a proposta</p>
         </div>

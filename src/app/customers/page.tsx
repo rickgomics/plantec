@@ -128,7 +128,7 @@ export default function CustomersPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="eyebrow">BOM Builder</div>
+            <div className="eyebrow">Portal Plantec · BOM Builder</div>
             <h1 className="page-title">Clientes</h1>
             <p className="page-subtitle">
               {loading ? 'Carregando...' : `${customers.length} cliente${customers.length !== 1 ? 's' : ''}`}

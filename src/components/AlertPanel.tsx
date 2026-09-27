@@ -30,7 +30,7 @@ function AlertItem({ alert, onAction }: { alert: RuleAlert; onAction?: (skus: st
           {alert.skus && alert.skus.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1">
               {alert.skus.map((sku) => (
-                <span key={sku} className="font-mono text-[10px] bg-white/70 px-1.5 py-0.5 rounded-md border border-current/20 font-semibold">
+                <span key={sku} className="font-mono text-[10px] bg-surface px-1.5 py-0.5 rounded-md border border-current/20 font-semibold">
                   {sku}
                 </span>
               ))}

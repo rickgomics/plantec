@@ -98,7 +98,7 @@ export default function BrandsPage() {
     <div className="shell">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <div className="eyebrow">Configurações</div>
+          <div className="eyebrow">Portal Plantec · Configurações</div>
             <h1 className="page-title">Fabricantes Parceiros</h1>
           <p className="text-sm text-ink/55 mt-1.5">Logotipos e descrições exibidos na página de fabricantes das propostas PDF</p>
         </div>

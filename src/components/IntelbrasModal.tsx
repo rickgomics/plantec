@@ -1,5 +1,7 @@
 'use client'
 
+import { FiRadio, FiCamera, FiVideo, FiThermometer, FiUser, FiMonitor, FiHardDrive, FiBell, FiZap, FiShuffle, FiTool, FiAlertTriangle } from 'react-icons/fi'
+import type { IconType } from 'react-icons'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   HiXMark, HiMagnifyingGlass, HiPlus, HiCheck,
@@ -14,7 +16,7 @@ type FlagDef       = { key: string; label: string }
 
 type CategoryDef = {
   label:         string
-  icon:          string
+  icon:          IconType
   endpoint:      string
   filters:       FilterDef[]
   flags:         FlagDef[]
@@ -38,7 +40,7 @@ export type IntelbrasProduct = {
 
 const CATS: Record<string, CategoryDef> = {
   vip: {
-    label: 'Câmeras Fixas', icon: '📷', endpoint: 'vip',
+    label: 'Câmeras Fixas', icon: FiCamera, endpoint: 'vip',
     filters: [
       { key: 'resolucao_mp', label: 'Resolução', options: [
         { value: '1', label: 'HD' }, { value: '2', label: '2 MP' }, { value: '4', label: '4 MP' },
@@ -73,22 +75,22 @@ const CATS: Record<string, CategoryDef> = {
     summaryFields: [['Resolução', 'resolucao_formatada'], ['Lente', 'lente_tipo'], ['IR', 'dist_ir_formatada']],
   },
   sd: {
-    label: 'Speed Dome', icon: '🎥', endpoint: 'sd',
+    label: 'Speed Dome', icon: FiVideo, endpoint: 'sd',
     filters: [], flags: [],
     summaryFields: [['Resolução', 'resolucao_formatada'], ['Zoom', 'zoom_otico']],
   },
   termicas: {
-    label: 'Térmicas', icon: '🌡️', endpoint: 'termicas',
+    label: 'Térmicas', icon: FiThermometer, endpoint: 'termicas',
     filters: [], flags: [],
     summaryFields: [['Resolução', 'resolucao_formatada']],
   },
   faciais: {
-    label: 'Faciais', icon: '👤', endpoint: 'faciais',
+    label: 'Faciais', icon: FiUser, endpoint: 'faciais',
     filters: [], flags: [],
     summaryFields: [['Faces', 'capacidade_facial_formatada']],
   },
   nvr: {
-    label: 'NVR', icon: '🖥️', endpoint: 'nvr',
+    label: 'NVR', icon: FiMonitor, endpoint: 'nvr',
     filters: [
       { key: 'canais', label: 'Canais', options: [
         { value: '4', label: '4 ch' }, { value: '8', label: '8 ch' },
@@ -109,7 +111,7 @@ const CATS: Record<string, CategoryDef> = {
     summaryFields: [['Canais', 'canais'], ['HDs', 'qtd_hds'], ['Throughput', 'throughput']],
   },
   dvr: {
-    label: 'DVR', icon: '📼', endpoint: 'dvr',
+    label: 'DVR', icon: FiHardDrive, endpoint: 'dvr',
     filters: [
       { key: 'canais', label: 'Canais', options: [
         { value: '4', label: '4 ch' }, { value: '8', label: '8 ch' },
@@ -132,7 +134,7 @@ const CATS: Record<string, CategoryDef> = {
     summaryFields: [['Canais', 'canais'], ['Resolução', 'resolucao_max']],
   },
   alarmes: {
-    label: 'Alarmes', icon: '🔔', endpoint: 'alarmes',
+    label: 'Alarmes', icon: FiBell, endpoint: 'alarmes',
     filters: [
       { key: 'zona_com_fio', label: 'Zonas com fio', options: [
         { value: '0', label: 'Nenhuma' }, { value: '4', label: '4' }, { value: '12', label: '12' },
@@ -156,7 +158,7 @@ const CATS: Record<string, CategoryDef> = {
     summaryFields: [['Fio', 'zona_com_fio'], ['Sem fio', 'zona_sem_fio'], ['Partições', 'particoes']],
   },
   nobreaks: {
-    label: 'Nobreaks', icon: '⚡', endpoint: 'nobreaks',
+    label: 'Nobreaks', icon: FiZap, endpoint: 'nobreaks',
     filters: [
       { key: 'potencia_va', label: 'Potência', options: [
         { value: '600', label: '600 VA' }, { value: '700', label: '700 VA' },
@@ -177,12 +179,12 @@ const CATS: Record<string, CategoryDef> = {
     summaryFields: [['Potência', 'potencia_va_formatada'], ['Topologia', 'topologia_grupo']],
   },
   eletrificadores: {
-    label: 'Eletrificadores', icon: '⚡', endpoint: 'eletrificadores',
+    label: 'Eletrificadores', icon: FiZap, endpoint: 'eletrificadores',
     filters: [], flags: [],
     summaryFields: [],
   },
   switches: {
-    label: 'Switches', icon: '🔀', endpoint: 'switches',
+    label: 'Switches', icon: FiShuffle, endpoint: 'switches',
     wizardKeys: ['alimentacao', 'poe'],
     filters: [
       { key: 'alimentacao', label: 'Alimentação', singleSelect: true, options: [
@@ -210,7 +212,7 @@ const CATS: Record<string, CategoryDef> = {
     ],
   },
   servicos: {
-    label: 'Serviços SVA', icon: '🛠️', endpoint: 'servicos',
+    label: 'Serviços SVA', icon: FiTool, endpoint: 'servicos',
     filters: [
       { key: 'categoria_servico', label: 'Tipo de serviço', singleSelect: true, options: [
         { value: 'INSTALAÇÃO',             label: 'Instalação' },
@@ -378,7 +380,7 @@ function ProductCard({
       <div className="w-14 h-14 flex-shrink-0 rounded-lg bg-background border border-line/10 flex items-center justify-center overflow-hidden">
         {product.imagem_url
           ? <img src={`${BP}${product.imagem_url as string}`} alt={name} className="w-full h-full object-contain p-1" />
-          : <span className="text-2xl">{catDef.icon}</span>
+          : <catDef.icon className="w-7 h-7 text-ink/35" />
         }
       </div>
 
@@ -593,14 +595,14 @@ export default function IntelbrasModal({ onClose, onImport }: IntelbrasModalProp
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-brand-900 border-b border-white/10 shadow-sm flex-shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 bg-surface border-b border-line/10 flex-shrink-0">
         <div className="flex items-center gap-2.5 flex-1 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-base flex-shrink-0">📡</div>
+          <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center flex-shrink-0"><FiRadio className="w-4 h-4" /></div>
           <div>
-            <div className="font-bold text-white text-sm">Hub Intelbras</div>
+            <div className="font-bold text-ink text-sm">Hub Intelbras</div>
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
-              <span className="text-[11px] text-white/50">Catálogo técnico · {total > 0 ? `${total} modelos em ${catDef.label}` : 'conectado'}</span>
+              <span className="text-[11px] text-ink/55">Catálogo técnico · {total > 0 ? `${total} modelos em ${catDef.label}` : 'conectado'}</span>
             </div>
           </div>
         </div>
@@ -608,15 +610,15 @@ export default function IntelbrasModal({ onClose, onImport }: IntelbrasModalProp
           <button
             onClick={handleImport}
             disabled={importing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-brand-900 text-xs font-bold hover:bg-white/90 transition-colors disabled:opacity-50"
+            className="btn-primary btn-sm"
           >
             {importing
-              ? <span className="w-3.5 h-3.5 border-2 border-brand-900 border-t-transparent rounded-full animate-spin" />
+              ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               : <HiPlus className="w-3.5 h-3.5" />}
             Adicionar {selected.size} à BOM
           </button>
         )}
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white flex-shrink-0 transition-colors">
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-ink/5 text-ink/45 hover:text-ink flex-shrink-0 transition-colors">
           <HiXMark className="w-5 h-5" />
         </button>
       </div>
@@ -636,7 +638,7 @@ export default function IntelbrasModal({ onClose, onImport }: IntelbrasModalProp
                   : 'border-transparent text-ink/55 hover:text-ink/80 hover:bg-background'
               }`}
             >
-              <span>{def.icon}</span>
+              <def.icon className="w-3.5 h-3.5" />
               {def.label}
             </button>
           )
@@ -704,7 +706,7 @@ export default function IntelbrasModal({ onClose, onImport }: IntelbrasModalProp
           <div className="flex-1 overflow-y-auto p-4">
             {wizardMissing ? (
               <div className="flex flex-col items-center justify-center h-40 gap-3 text-center">
-                <span className="text-3xl">{catDef.icon}</span>
+                <catDef.icon className="w-8 h-8 text-ink/30" />
                 <p className="text-sm text-ink/60">
                   {category === 'switches'
                     ? 'Selecione a Alimentação e o PoE no painel lateral para ver os modelos compatíveis.'
@@ -713,7 +715,7 @@ export default function IntelbrasModal({ onClose, onImport }: IntelbrasModalProp
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center h-48 gap-4 text-center px-8">
-                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center text-xl">⚠️</div>
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center text-xl"><FiAlertTriangle className="w-5 h-5 text-red-600" /></div>
                 <div>
                   <p className="font-semibold text-red-600 dark:text-red-400 text-sm">Erro de conexão com o Hub Intelbras</p>
                   <p className="text-xs text-ink/55 mt-1">{error}</p>
@@ -777,15 +779,15 @@ export default function IntelbrasModal({ onClose, onImport }: IntelbrasModalProp
 
       {/* ── Selected rail ── */}
       {selected.size > 0 && (
-        <div className="border-t border-line/15 bg-brand-900 px-4 py-2.5 flex items-center gap-3 flex-shrink-0">
-          <span className="text-xs font-bold text-white/60 whitespace-nowrap">
+        <div className="border-t border-line/15 bg-brand-50 px-4 py-2.5 flex items-center gap-3 flex-shrink-0">
+          <span className="text-xs font-bold text-brand-700 whitespace-nowrap">
             {selected.size} selecionado{selected.size > 1 ? 's' : ''}:
           </span>
           <div className="flex-1 flex flex-wrap gap-1.5 overflow-hidden max-h-12">
             {Array.from(selected.values()).map(p => (
               <span
                 key={p.id}
-                className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/10 border border-white/20 rounded-full text-[11px] font-semibold text-white"
+                className="inline-flex items-center gap-1 px-2 py-0.5 bg-surface border border-brand-200 rounded-full text-[11px] font-semibold text-brand-700 font-mono"
               >
                 {productCode(p)}
                 <button onClick={(e) => { e.stopPropagation(); toggleSelected(p) }} className="hover:text-red-400 transition-colors">
@@ -797,10 +799,10 @@ export default function IntelbrasModal({ onClose, onImport }: IntelbrasModalProp
           <button
             onClick={handleImport}
             disabled={importing}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-white text-brand-900 text-sm font-bold hover:bg-white/90 transition-colors flex-shrink-0 disabled:opacity-50"
+            className="btn-primary btn-sm flex-shrink-0"
           >
             {importing
-              ? <span className="w-3.5 h-3.5 border-2 border-brand-900 border-t-transparent rounded-full animate-spin" />
+              ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               : <HiPlus className="w-4 h-4" />}
             Adicionar à BOM
           </button>

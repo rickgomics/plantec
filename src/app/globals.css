@@ -5,19 +5,22 @@
 /* ── Color tokens ─────────────────────────────────────────────────────────── */
 
 :root {
-  --background: 245 246 251;
-  --foreground: 20 22 58;
-  --ink:     15 20 56;
+  /* Triplas "R G B" dos mesmos valores de --pt-bg / --pt-ink / --pt-surface
+     (Padrão Visual do Portal), para as utilitárias com opacidade (text-ink/50).
+     Até 27/09/2026 eram o azul-marinho do Cockpit. */
+  --background: 243 244 241;
+  --foreground: 18 24 26;
+  --ink:     18 24 26;
   --surface: 255 255 255;
-  --line:    15 20 56;
+  --line:    18 24 26;
 }
 
 .dark {
-  --background: 10 11 26;
-  --foreground: 231 232 245;
-  --ink:     231 232 245;
-  --surface: 20 22 58;
-  --line:    231 232 245;
+  --background: 16 21 20;
+  --foreground: 238 242 240;
+  --ink:     238 242 240;
+  --surface: 23 29 28;
+  --line:    238 242 240;
 }
 
 
@@ -99,15 +102,6 @@
 /* ── Components ───────────────────────────────────────────────────────────── */
 
 @layer components {
-  /* Sidebar */
-  .sidebar-link {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium
-           text-brand-200 hover:bg-white/5 hover:text-white transition-colors;
-  }
-  .sidebar-link.active {
-    @apply bg-white/10 text-white;
-  }
-
   /* Cards */
   .card {
     @apply rounded-xl border border-line/10 bg-surface p-5 shadow-sm;
@@ -385,17 +379,52 @@ table.data-table tbody tr:hover { background: var(--pt-surface-2); }
 .nav-sub { font-size: 11.5px; color: var(--pt-ink-faint); margin-top: 2px; }
 
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
-/* Continua escura e fixa, como nos demais apps — não reage ao tema. */
+/* Clara, como as telas do Portal (27/09/2026, mesma decisão do KPI Dashboard:
+   sem faixa azul-marinho nem logo de fundo escuro). Reage ao tema. */
 
+.sidebar {
+  background: var(--pt-surface);
+  border-right: 1px solid var(--pt-line);
+}
 .sidebar-link {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px;
   border-radius: 9px; padding: 8px 12px;
   font-size: 13px; font-weight: 500;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--pt-ink-soft);
   transition: background-color 0.15s, color 0.15s;
 }
-.sidebar-link:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
-.sidebar-link.active { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.sidebar-link:hover { background: var(--pt-surface-2); color: var(--pt-ink); }
+.sidebar-link.active { background: var(--pt-brand-soft); color: var(--pt-brand-ink); font-weight: 600; }
+.sidebar-link:focus-visible { outline: 2px solid var(--pt-brand); outline-offset: 2px; }
+
+/* ── Peças do Design System que faltavam ─────────────────────────────────── */
+
+.num-mono { font-family: var(--font-mono), monospace; font-variant-numeric: tabular-nums; }
+.badge-neutral { background: var(--pt-surface-2); color: var(--pt-ink-soft); }
+
+.pt-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--pt-line); }
+.pt-tab {
+  font: 600 13px/1.2 var(--font-body), sans-serif;
+  padding: 9px 14px; color: var(--pt-ink-soft); background: transparent;
+  border: 0; border-bottom: 2px solid transparent;
+  border-radius: 8px 8px 0 0; cursor: pointer;
+}
+.pt-tab:hover { color: var(--pt-brand-ink); background: var(--pt-surface-2); }
+.pt-tab-ativa, .pt-tab-ativa:hover { color: var(--pt-brand-ink); background: var(--pt-brand-soft); border-bottom-color: var(--pt-brand); }
+.pt-tab:focus-visible { outline: 2px solid var(--pt-brand); outline-offset: 2px; }
+
+.action-pill {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px;
+  font: 600 12px/1.4 var(--font-body), sans-serif; border: 0; border-radius: 999px;
+  text-decoration: none; cursor: pointer;
+}
+.action-pill-brand   { background: var(--pt-brand); color: #fff; }
+.action-pill-brand:hover { background: var(--pt-brand-ink); }
+.action-pill-violet  { background: var(--pt-violet-soft); color: var(--pt-violet); }
+.action-pill-amber   { background: var(--pt-warn-soft); color: var(--pt-warn); }
+.action-pill-emerald { background: var(--pt-good-soft); color: var(--pt-good); }
+.action-pill-slate   { background: var(--pt-surface-2); color: var(--pt-ink-soft); }
+.action-pill:focus-visible { outline: 2px solid var(--pt-brand); outline-offset: 2px; }
 
 
 
@@ -426,21 +455,21 @@ table.data-table tbody tr:hover { background: var(--pt-surface-2); }
 .btn-xs { font-size: 11px; padding: 5px 11px; border-radius: 7px; }
 .btn-block { display: flex; width: 100%; }
 
-/* Ação de IA: sempre a mesma, em qualquer tela. Fica em brand-soft com
-   contorno, e não no teal cheio, porque é ação assistiva ao lado do campo —
-   nunca a ação principal do formulário, que é Salvar. */
+/* Ação de IA: sempre a mesma, em qualquer tela, em violeta — no Padrão
+   Visual do Portal o violeta marca o que é gerado por IA e nada mais. Suave,
+   não cheio: é ação assistiva ao lado do campo, nunca a principal. */
 .btn-ai {
   font-family: var(--font-body), sans-serif;
   font-size: 12px;
   font-weight: 600;
   padding: 7px 14px;
   border-radius: 8px;
-  color: var(--pt-brand-ink);
-  background: var(--pt-brand-soft);
-  border: 1px solid var(--pt-brand);
+  color: var(--pt-violet);
+  background: var(--pt-violet-soft);
+  border: 1px solid transparent;
   cursor: pointer;
 }
-.btn-ai:hover:not(:disabled) { background: var(--pt-brand); color: #fff; }
+.btn-ai:hover:not(:disabled) { border-color: var(--pt-violet); }
 
 /* ── Compatibilidade: utilitárias Tailwind soltas → tokens do Portal ──────────
    As telas ainda carregam classes de cor cruas no JSX. Em vez de editar as
@@ -466,6 +495,18 @@ table.data-table tbody tr:hover { background: var(--pt-surface-2); }
 .hover\:text-teal-800:hover, .hover\:text-blue-700:hover { color: var(--pt-brand-ink) !important; }
 .hover\:border-blue-400:hover, .hover\:border-teal-400:hover { border-color: var(--pt-brand) !important; }
 
+/* Escala brand-* (teal): segue o tema pelos tokens, senão os destaques
+   ficam claros fixos no tema escuro. */
+.bg-brand-50, .bg-brand-100, .bg-brand-50\/40, .bg-brand-50\/60, .bg-brand-50\/30 { background-color: var(--pt-brand-soft) !important; }
+.hover\:bg-brand-50:hover, .hover\:bg-brand-50\/40:hover, .hover\:bg-brand-50\/30:hover { background-color: var(--pt-brand-soft) !important; }
+.bg-brand-500, .bg-brand-600 { background-color: var(--pt-brand) !important; }
+.text-brand-400, .text-brand-500 { color: var(--pt-brand) !important; }
+.text-brand-600, .text-brand-700, .text-brand-800 { color: var(--pt-brand-ink) !important; }
+.hover\:text-brand-600:hover, .hover\:text-brand-700:hover { color: var(--pt-brand-ink) !important; }
+.border-brand-100, .border-brand-200, .border-brand-300 { border-color: var(--pt-line-strong) !important; }
+.border-brand-400, .border-brand-500 { border-color: var(--pt-brand) !important; }
+.ring-brand-100, .ring-brand-200, .ring-brand-300 { --tw-ring-color: var(--pt-line-strong) !important; }
+
 /* Bom */
 .text-emerald-500, .text-emerald-600, .text-green-500, .text-green-600 { color: var(--pt-good) !important; }
 .text-emerald-700, .text-green-700 { color: var(--pt-good) !important; }
@@ -481,7 +522,7 @@ table.data-table tbody tr:hover { background: var(--pt-surface-2); }
 .border-amber-100, .border-amber-200, .border-amber-300, .ring-amber-200 { border-color: var(--pt-warn-soft) !important; }
 
 /* Crítico */
-.text-red-400, .text-red-500, .text-red-600, .text-red-700, .text-rose-600 { color: var(--pt-critical) !important; }
+.text-red-400, .text-red-500, .text-red-600, .text-red-700, .text-red-800, .text-rose-600 { color: var(--pt-critical) !important; }
 .bg-red-50, .bg-red-100, .bg-red-200, .bg-rose-50 { background-color: var(--pt-critical-soft) !important; }
 .bg-red-500, .bg-red-600 { background-color: var(--pt-critical) !important; }
 .border-red-100, .border-red-200, .ring-red-200 { border-color: var(--pt-critical-soft) !important; }

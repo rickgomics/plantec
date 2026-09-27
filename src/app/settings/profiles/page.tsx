@@ -169,7 +169,7 @@ export default function ProfilesPage() {
     <div className="shell">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <div className="eyebrow">Configurações</div>
+          <div className="eyebrow">Portal Plantec · Configurações</div>
             <h1 className="page-title">Perfis de Empresa</h1>
           <p className="text-sm text-ink/55 mt-1">Gerencie perfis para capas e introduções de propostas</p>
         </div>

@@ -125,7 +125,7 @@ export default function ImportPage() {
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <div className="eyebrow">BOM Builder</div>
+            <div className="eyebrow">Portal Plantec · BOM Builder</div>
             <h1 className="page-title">Importar Projetos</h1>
             <p className="text-sm text-ink/55 mt-1">
               Projetos pendentes no sistema de registro. Selecione e importe para criar propostas no BOM Builder.

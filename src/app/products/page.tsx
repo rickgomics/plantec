@@ -445,7 +445,7 @@ export default function ProductsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="eyebrow">BOM Builder</div>
+            <div className="eyebrow">Portal Plantec · BOM Builder</div>
             <h1 className="page-title">Produtos</h1>
             <p className="page-subtitle">
               {loading ? 'Carregando...' : `${products.length} produto${products.length !== 1 ? 's' : ''}`}

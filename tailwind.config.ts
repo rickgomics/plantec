@@ -16,20 +16,29 @@ const config: Config = {
         ink:     'rgb(var(--ink)     / <alpha-value>)',
         surface: 'rgb(var(--surface) / <alpha-value>)',
         line:    'rgb(var(--line)    / <alpha-value>)',
-        // Brand scale — fixed (sidebar always dark, badges always on-brand)
+        // Teal do Padrão Visual do Portal (Design System "Padrão Visual do Portal
+        // Plantec"). Até 27/09/2026 esta escala era o azul-marinho do Cockpit
+        // (#0F1438/#3547C8), sobra da reversão de 08/09: pintava o menu lateral
+        // e todo bg-brand-*/text-brand-* de azul.
         brand: {
-          50:  '#EEF0FC',
-          100: '#D9DDF7',
-          200: '#B3BBEF',
-          300: '#8C99E7',
-          400: '#5E6EDB',
-          500: '#3547C8',
-          600: '#2A38A3',
-          700: '#212C80',
-          800: '#181F5C',
-          900: '#0F1438',
-          950: '#080A1E',
+          50:  '#E0F3F1',
+          100: '#B6E6E1',
+          200: '#8DD6CF',
+          300: '#5FCCC4',
+          400: '#28B3AA',
+          500: '#0B8F88',
+          600: '#0A7D77',
+          700: '#075F59',
+          800: '#054A45',
+          900: '#04322F',
+          950: '#021F1D',
         },
+      },
+      // As três famílias do Padrão Visual do Portal (carregadas em layout.tsx)
+      fontFamily: {
+        display: ['var(--font-display)', '"Arial Narrow"', 'sans-serif'],
+        body:    ['var(--font-body)', 'sans-serif'],
+        mono:    ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
         card:    '0 1px 3px 0 rgba(0,0,0,.06), 0 1px 2px -1px rgba(0,0,0,.04)',

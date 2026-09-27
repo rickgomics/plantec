@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import AppLayout from '@/components/AppLayout'
 import StatusBadge from '@/components/StatusBadge'
-import { HiLink, HiClipboard, HiXMark, HiArrowDownTray } from 'react-icons/hi2'
+import { HiLink, HiClipboard, HiXMark, HiArrowDownTray, HiSparkles } from 'react-icons/hi2'
+import { FiSave, FiCheck, FiSend, FiCheckCircle, FiEye, FiDownload, FiRadio } from 'react-icons/fi'
 import BOMTable from '@/components/BOMTable'
 import AlertPanel from '@/components/AlertPanel'
 import ProductSearchModal from '@/components/ProductSearchModal'
@@ -823,20 +824,20 @@ export default function ProposalDetailPage() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={handleSave} disabled={saving} className="btn-secondary">
-              {saving ? 'Salvando...' : '💾 Salvar'}
+              <FiSave className="w-4 h-4" />{saving ? 'Salvando…' : 'Salvar'}
             </button>
             {canAdvance && (
               <button onClick={handleAdvanceStatus} disabled={saving} className="btn-primary">
-                {proposal.status === 'draft' ? '⚡ Gerar Proposta' :
-                 proposal.status === 'generated' ? '📧 Marcar Enviada' :
-                 '✅ Aprovar'}
+                {proposal.status === 'draft' ? <><FiCheck className="w-4 h-4" />Gerar Proposta</> :
+                 proposal.status === 'generated' ? <><FiSend className="w-4 h-4" />Marcar Enviada</> :
+                 <><FiCheckCircle className="w-4 h-4" />Aprovar</>}
               </button>
             )}
             <Link href={`/proposals/${id}/pdf`} target="_blank" className="btn-secondary">
-              👁 Preview
+              <FiEye className="w-4 h-4" />Preview
             </Link>
             <a href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/proposals/${id}/download`} download className="btn-primary">
-              ⬇ Baixar PDF
+              <FiDownload className="w-4 h-4" />Baixar PDF
             </a>
           </div>
         </div>
@@ -916,30 +917,30 @@ export default function ProposalDetailPage() {
                         className="btn-ai btn-xs"
                         title="Gera função de cada item com IA e preenche Descritivo com a descrição do produto"
                       >
-                        {fillingBom ? <span className="animate-spin">◌</span> : '◈'}
+                        <HiSparkles className="w-3.5 h-3.5" />
                         {fillingBom ? 'Preenchendo…' : 'Preencher BOM Técnica'}
                       </button>
                     )}
                     <button
                       onClick={() => setShowAIProject(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100 transition-colors"
-                      title="Montar BOM automaticamente com IA"
+                      className="btn-ai btn-xs"
+                      title="Montar a BOM com IA a partir de um texto (TR, e-mail, descrição do projeto)"
                     >
-                      ✨ IA
+                      <HiSparkles className="w-3.5 h-3.5" />Montar BOM de um texto
                     </button>
                     <button
                       onClick={() => setShowIntelbras(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                      className="btn-secondary btn-xs"
                       title="Buscar produtos no catálogo Intelbras"
                     >
-                      📷 Intelbras
+                      <FiRadio className="w-3.5 h-3.5" />Intelbras
                     </button>
                     <button
                       onClick={() => { setShowPortalImport(true); setPortalStep('input'); setPortalError(''); setPortalItems([]) }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                      className="btn-secondary btn-xs"
                       title="Importar itens de um orçamento do Portal Plantec"
                     >
-                      <HiArrowDownTray className="w-3.5 h-3.5" />
+                      <FiDownload className="w-3.5 h-3.5" />
                       Portal Plantec
                     </button>
                     <button onClick={() => setShowAddProduct(true)} className="btn-primary btn-xs">
