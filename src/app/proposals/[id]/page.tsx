@@ -12,6 +12,7 @@ import MermaidDiagram from '@/components/MermaidDiagram'
 import DiagramZoom from '@/components/DiagramZoom'
 import IntelbrasModal, { IntelbrasProduct } from '@/components/IntelbrasModal'
 import AIProjectModal, { AIProjectImportItem } from '@/components/AIProjectModal'
+import ImportReviewModal, { ImportRow, ImportChoice } from '@/components/ImportReviewModal'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Proposal, ProposalItem, Product, RuleEngineResult, CompanyProfile } from '@/types'
@@ -568,27 +569,36 @@ export default function ProposalDetailPage() {
   // Intelbras Hub import
   const [showIntelbras, setShowIntelbras] = useState(false)
 
-  const handleIntelbrasImport = async (products: IntelbrasProduct[]) => {
+  // Importações de fora passam pela conferência (ImportReviewModal): só o SKU
+  // igual ao código entra sozinho, o resto o usuário escolhe ou deixa de fora.
+  const [importReview, setImportReview] = useState<{ title: string; rows: ImportRow[]; onDone?: () => void } | null>(null)
+
+  const addImportedItems = async (choices: ImportChoice[]) => {
     let imported = 0
-    for (const p of products) {
-      const code = (p.codigo_produto ?? p.cod_produto ?? '').trim()
-      if (!code) continue
-      const res  = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/products?search=${encodeURIComponent(code)}&limit=1`)
-      const data = await res.json()
-      const local = (data.products ?? [])[0]
-      if (local) {
-        await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}/items`, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ productId: local.id, quantity: 1 }),
-        })
-        imported++
-      }
+    for (const c of choices) {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}/items`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(c),
+      })
+      if (res.ok) imported++
     }
     await loadProposal()
-    const miss = products.length - imported
-    if (imported > 0) toast.success(`${imported} produto${imported > 1 ? 's' : ''} Intelbras adicionado${imported > 1 ? 's' : ''} à BOM`)
-    if (miss > 0)    toast.error(`${miss} produto${miss > 1 ? 's' : ''} não encontrado${miss > 1 ? 's' : ''} no catálogo local`)
+    if (imported > 0) toast.success(`${imported} produto${imported > 1 ? 's' : ''} adicionado${imported > 1 ? 's' : ''} à BOM`)
+    if (imported < choices.length) toast.error(`${choices.length - imported} não puderam ser adicionados`)
+    importReview?.onDone?.()
+    setImportReview(null)
+  }
+
+  const handleIntelbrasImport = async (products: IntelbrasProduct[]) => {
+    setImportReview({
+      title: 'Importar do Hub Intelbras',
+      rows: products.map(p => ({
+        code:     (p.codigo_produto ?? p.cod_produto ?? '').trim(),
+        name:     (p.produto ?? p.modelo ?? '').trim(),
+        quantity: 1,
+      })),
+    })
   }
 
   // Portal Plantec import
@@ -626,31 +636,17 @@ export default function ProposalDetailPage() {
     }
   }
 
-  const handlePortalImport = async () => {
-    setPortalImporting(true)
-    let imported = 0
-    for (const item of portalItems) {
-      // Search by SKU or name in the local product catalog
-      const query = item.code || item.name.split(' ').slice(0, 3).join(' ')
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/products?search=${encodeURIComponent(query)}&limit=1`)
-      const data = await res.json()
-      const product = (data.products ?? [])[0]
-      if (product) {
-        await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}/items`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productId: product.id, quantity: item.quantity }),
-        })
-        imported++
-      }
-    }
-    await loadProposal()
-    setPortalImporting(false)
-    setShowPortalImport(false)
-    setPortalStep('input')
-    setPortalItems([])
-    setPortalQuotationId('')
-    toast.success(`${imported} de ${portalItems.length} produtos importados`)
+  const handlePortalImport = () => {
+    setImportReview({
+      title: `Importar orçamento #${portalQuotationId} do Portal`,
+      rows: portalItems.map(it => ({ code: it.code, name: it.name, quantity: it.quantity, unitPrice: it.unitPrice })),
+      onDone: () => {
+        setShowPortalImport(false)
+        setPortalStep('input')
+        setPortalItems([])
+        setPortalQuotationId('')
+      },
+    })
   }
 
   // Auto-fill BOM Técnica: AI roles + product descriptions as "Descritivo"
@@ -1818,7 +1814,7 @@ export default function ProposalDetailPage() {
                   </table>
                 </div>
                 <p className="text-xs text-ink/45">
-                  Os produtos serão buscados no catálogo local por SKU ou nome. Produtos não encontrados serão ignorados.
+                  No próximo passo você confere cada código contra o catálogo antes de entrar na BOM.
                 </p>
                 <div className="flex gap-3 pt-2">
                   <button
@@ -1832,17 +1828,22 @@ export default function ProposalDetailPage() {
                     disabled={portalImporting}
                     className="btn-primary btn-block"
                   >
-                    {portalImporting ? (
-                      <><span className="animate-spin">◌</span> Importando...</>
-                    ) : (
-                      <>+ Importar {portalItems.length} Itens</>
-                    )}
+                    Conferir {portalItems.length} itens →
                   </button>
                 </div>
               </div>
             )}
           </div>
         </div>
+      )}
+
+      {importReview && (
+        <ImportReviewModal
+          title={importReview.title}
+          rows={importReview.rows}
+          onClose={() => setImportReview(null)}
+          onConfirm={addImportedItems}
+        />
       )}
     </AppLayout>
   )

@@ -8,7 +8,7 @@ import { bookFromAttributes, priceFrom, MANUAL_TABLE } from '@/lib/pricing'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json()
-  const { productId, quantity = 1, discount = 0, role, technicalNotes } = body
+  const { productId, quantity = 1, discount = 0, role, technicalNotes, unitPrice: priceOverride } = body
 
   const [product, proposal] = await Promise.all([
     prisma.product.findUnique({ where: { id: productId } }),
@@ -18,10 +18,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   // Preço pela tabela que o projetista escolheu para esta proposta, a partir
   // do cache do último sync. "Atualizar preços" busca o valor ao vivo.
-  const { price: unitPrice, table } = priceFrom(
-    bookFromAttributes(product.attributes, Number(product.basePrice)),
-    proposal?.priceTable,
-  )
+  // Preço informado (ex.: o do orçamento do Portal) entra como manual, e a
+  // atualização em lote não o sobrescreve.
+  const override = Number(priceOverride)
+  const { price: unitPrice, table } = override > 0
+    ? { price: override, table: MANUAL_TABLE }
+    : priceFrom(
+        bookFromAttributes(product.attributes, Number(product.basePrice)),
+        proposal?.priceTable,
+      )
   const cost = Number(product.cost)
   const { subtotal, margin } = itemMath(unitPrice, cost, quantity, discount)
 
