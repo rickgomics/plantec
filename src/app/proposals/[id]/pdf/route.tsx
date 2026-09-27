@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/prisma'
 import { getCoverStyle } from '@/lib/coverStyles'
 import { itensDaProposta } from '@/lib/services'
+import { lerTopologia, renderTopologiaSvg } from '@/lib/topologia'
+import { normalizar } from '@/lib/taxonomy'
 
 async function mermaidToSvg(diagram: string): Promise<string | null> {
   try {
@@ -164,8 +166,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     }
   }
 
-  // Mermaid: convert to SVG via mermaid.ink
-  const diagramSvg = (diagramType === 'mermaid' && cleanDiagram) ? await mermaidToSvg(cleanDiagram) : null
+  // Diagrama próprio (topologia em JSON, desenhada aqui) ou legado Mermaid.
+  const topologia  = diagramType === 'plantec' ? lerTopologia(rawDiagram) : null
+  const diagramSvg = topologia
+    ? renderTopologiaSvg(topologia)
+    : (diagramType === 'mermaid' && cleanDiagram) ? await mermaidToSvg(cleanDiagram) : null
 
   const statusLabel: Record<string, string> = { draft: 'Rascunho', generated: 'Gerada', sent: 'Enviada', approved: 'Aprovada', rejected: 'Recusada' }
   const statusColor: Record<string, string> = { draft: '#6b7280', generated: '#0b8f88', sent: '#b45309', approved: '#15803d', rejected: '#dc2626' }
@@ -321,9 +326,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       const capFull = Math.max(1, Math.floor((CONTENT_H - base - TBL_HDR - TBL_FTR - TOTALS_BLK) / BOM_ROW_H))
       const capMore = Math.max(1, Math.floor((CONTENT_H - base - TBL_HDR) / BOM_ROW_H))
       const isLast  = rem.length <= capFull
-      const chunk   = isLast ? rem : rem.slice(0, capMore)
-      rem           = isLast ? [] : rem.slice(capMore)
-      const hdg     = first ? `<div class="section-heading"><h2>BOM Comercial</h2></div>` : ''
+      // Cabe tudo nesta página mas não o card de totais: deixa as últimas
+      // linhas para a próxima, senão os totais caem sozinhos numa página.
+      const levar   = !isLast && rem.length <= capMore ? rem.length - Math.min(3, rem.length - 1) : capMore
+      const chunk   = isLast ? rem : rem.slice(0, levar)
+      rem           = isLast ? [] : rem.slice(levar)
+      const hdg     = first ? `<div class="section-heading"><h2>Investimento</h2></div>` : ''
       const rows    = chunk.map(bomRow).join('')
       out.push(pg(`${hdg}<table class="data-table">${bomThead}<tbody>${rows}</tbody>${isLast ? bomTfoot : ''}</table>${isLast ? totalsCard : ''}`))
       if (isLast) tfootRendered = true
@@ -350,7 +358,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       const cap   = Math.max(1, Math.floor((CONTENT_H - base - TBL_HDR) / TECH_ROW_H))
       const chunk = rem.slice(0, cap)
       rem         = rem.slice(cap)
-      const hdg   = first ? `<div class="section-heading"><h2>BOM Técnica — Anexo</h2></div>` : ''
+      const hdg   = first ? `<div class="section-heading"><h2>Anexo — BOM Técnica</h2></div>` : ''
       const rows  = chunk.map(techRow).join('')
       out.push(pg(`${hdg}<table class="data-table">${techThead}<tbody>${rows}</tbody></table>`))
       first = false
@@ -359,9 +367,18 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 
   // ─── brands page ─────────────────────────────────────────────────────────
+  // Só as marcas que estão na BOM: listar parceiros que não entram na
+  // proposta confunde o cliente. Casamento por nome normalizado, nos dois
+  // sentidos ("Schneider" ↔ "Schneider Electric", "Pial" → Legrand já vem do sync).
+  const marcasBom = Array.from(new Set(proposal.items.map(i => i.product.brand).filter(Boolean).map(b => normalizar(b!).replace(/[^A-Z0-9]/g, ''))))
+  const brandsBom = brands.filter(b => {
+    const k = normalizar(b.name).replace(/[^A-Z0-9]/g, '')
+    return k.length >= 2 && marcasBom.some(m => m === k || (m.length >= 3 && (m.startsWith(k) || k.startsWith(m))))
+  })
+
   function buildBrandsPage(): string {
-    if (!brands.length) return ''
-    const cards = brands.map(b => {
+    if (!brandsBom.length) return ''
+    const cards = brandsBom.map(b => {
       const logoHtml = b.logoBase64
         ? `<img src="${esc(b.logoBase64)}" alt="${esc(b.name)}">`
         : `<div class="brand-no-logo">${esc(b.name.slice(0, 3).toUpperCase())}</div>`
@@ -379,14 +396,31 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     }).join('')
     return pg(`
       <div class="section-heading">
-        <h2>Fabricantes Parceiros<span class="brands-count-badge">${brands.length} marcas</span></h2>
+        <h2>Anexo — Fabricantes<span class="brands-count-badge">${brandsBom.length} ${brandsBom.length === 1 ? 'marca' : 'marcas'}</span></h2>
       </div>
       <div class="brands-intro">
-        Esta proposta foi elaborada com produtos e soluções das seguintes fabricantes parceiras, selecionadas pela excelência técnica, certificações internacionais e suporte ao mercado brasileiro.
+        Fabricantes dos equipamentos desta proposta — parceiros da ${esc(companyName)}, com garantia e suporte no mercado brasileiro.
       </div>
       <div class="brands-grid">${cards}</div>
     `)
   }
+
+  // ─── "investimento de relance" no resumo ─────────────────────────────────
+  const beneficios = (() => {
+    const m = (proposal.scenarioDesc ?? '').split(/^BENEF[IÍ]CIOS PARA O CLIENTE[ \t]*:?\s*$/im)[1] ?? ''
+    return m.split(/\n/).map(l => l.trim()).filter(l => /^[•\-*]/.test(l)).map(l => l.replace(/^[•\-*]\s*/, '')).slice(0, 3)
+  })()
+  const nItens = proposal.items.reduce((s, i) => s + i.quantity, 0)
+  const relance = `
+    <div class="glance">
+      <div class="glance-cells">
+        <div class="glance-cell glance-main"><label>Investimento total</label><span>${fmt(totalPrice)}</span></div>
+        <div class="glance-cell"><label>Validade</label><span>${esc(validUntil)}</span></div>
+        <div class="glance-cell"><label>Itens</label><span>${nItens.toLocaleString('pt-BR')} un. em ${proposal.items.length} ${proposal.items.length === 1 ? 'linha' : 'linhas'}</span></div>
+      </div>
+      ${beneficios.length ? `<div class="glance-gains"><label>Principais ganhos</label>${beneficios.map(b => `<div class="glance-gain">${esc(b)}</div>`).join('')}</div>` : ''}
+    </div>`
+  const RELANCE_H = 96 + (beneficios.length ? 34 + beneficios.length * 34 : 0) + 24
 
   // ─── mermaid fallback script (only when mermaid type and svg failed) ────────
   const mermaidFallback = (diagramType === 'mermaid' && cleanDiagram && !diagramSvg) ? `
@@ -416,6 +450,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   // ─── diagram block ────────────────────────────────────────────────────────
   function buildDiagramInner(): string {
     if (!cleanDiagram) return ''
+    if (topologia && diagramSvg) {
+      return `<div style="flex:1;display:flex;align-items:center;justify-content:center;min-height:0">
+        <div style="width:100%;max-height:800px;display:flex;justify-content:center">${diagramSvg}</div>
+      </div>`
+    }
     if (diagramType === 'eraser') {
       if (eraserImageUrl) {
         return `<div class="mermaid-wrap" style="padding:0;overflow:hidden;border-radius:10px;flex:1;display:flex;align-items:center;justify-content:center">
@@ -434,8 +473,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     </div>`
   }
 
-  // Split scenarioDesc across two pages: narrative intro + bullet sections
-  function buildScenarioPages(raw: string): string {
+  // Cenário em duas partes: a narrativa (necessidade e ambiente) vem antes do
+  // diagrama; vantagens e benefícios vêm depois dele, fechando a solução.
+  function buildScenarioPages(raw: string, parte: 'narrativa' | 'vantagens'): string {
     const SEC = /^(VANTAGENS TÉ?CNICAS?|BENEF[IÍ]CIOS PARA O CLIENTE)[ \t]*:?\s*$/im
     const parts = raw.split(SEC)
 
@@ -465,38 +505,37 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     // overflow:hidden e o excedente sumia sem aviso.
     const paginasNarrativa = intro ? paginarTexto(intro, 48) : []
 
-    let out = paginasNarrativa.length
+    if (parte === 'vantagens') {
+      return sectionsHtml ? pg(`
+        <div class="section">
+          <div class="section-heading"><h2>Solução Proposta — Vantagens e Benefícios</h2></div>
+          ${sectionsHtml}
+        </div>
+      `) : ''
+    }
+
+    return paginasNarrativa.length
       ? paginasNarrativa.map((texto, i) => pg(`
           <div class="section">
-            ${i === 0 ? '<div class="section-heading"><h2>Cenário Técnico</h2></div>' : ''}
+            ${i === 0 ? '<div class="section-heading"><h2>Entendimento e Cenário</h2></div>' : ''}
             <div class="scenario-desc scenario-body">${esc(texto)}</div>
           </div>
         `)).join('')
-      : pg(`
-          <div class="section">
-            <div class="section-heading"><h2>Cenário Técnico</h2></div>
-          </div>
-        `)
-
-    // Page 2 (only if bullet sections exist): VANTAGENS + BENEFÍCIOS
-    if (sectionsHtml) {
-      out += pg(`
-        <div class="section">
-          <div class="section-heading"><h2>Cenário Técnico — Vantagens e Benefícios</h2></div>
-          ${sectionsHtml}
-        </div>
-      `)
-    }
-
-    return out
+      : ''
   }
 
   function buildDiagramPage(): string {
     if (!cleanDiagram) return ''
+    if (diagramType === 'plantec' && !topologia) return ''
     return pgFull(`
-      <div class="section-heading"><h2>Diagrama de Topologia</h2></div>
+      <div class="section-heading"><h2>Solução Proposta — Topologia</h2></div>
       <div style="flex:1;display:flex;flex-direction:column;min-height:0">
         ${buildDiagramInner()}
+        ${topologia ? `<div class="diagram-legend" style="margin-top:12px">
+          <div class="legend-item"><div class="legend-dot" style="background:#E0F3F1;border:1.5px solid #0B8F88"></div>Fornecido nesta proposta</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#FFF7ED;border:1.5px solid #EA580C"></div>Já existente no cliente</div>
+          <div class="legend-item"><div class="legend-dot" style="background:white;border:1.5px dashed #94A3B8"></div>Necessário, fora desta proposta</div>
+        </div>` : ''}
         ${diagramType === 'mermaid' ? `<div class="diagram-legend" style="margin-top:12px">
           <div class="legend-item"><div class="legend-dot" style="background:#e0f3f1;border:1.5px solid #0b8f88"></div>Equipamentos propostos</div>
           <div class="legend-item"><div class="legend-dot" style="background:#FFF7ED;border:1.5px solid #EA580C"></div>Sistemas existentes</div>
@@ -574,6 +613,16 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .cover-footer-item span{font-size:10pt;font-weight:600;color:rgba(255,255,255,.9)}
 
     /* ── content elements ────────────────────────────────────── */
+    .glance{border:1px solid var(--t100);border-radius:12px;overflow:hidden;margin-bottom:24px}
+    .glance-cells{display:grid;grid-template-columns:1.3fr 1fr 1fr;background:var(--t50)}
+    .glance-cell{padding:14px 18px;border-right:1px solid var(--t100)}
+    .glance-cell:last-child{border-right:none}
+    .glance-cell label,.glance-gains label{display:block;font-size:7pt;font-weight:800;color:var(--t700);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+    .glance-cell span{font-size:10.5pt;font-weight:700;color:var(--g900)}
+    .glance-main span{font-size:15pt;font-weight:900;color:var(--t700)}
+    .glance-gains{padding:14px 18px;background:white}
+    .glance-gain{position:relative;padding:5px 0 5px 18px;font-size:9pt;line-height:1.45;color:var(--g700)}
+    .glance-gain::before{content:'';position:absolute;left:2px;top:11px;width:7px;height:7px;border-radius:2px;background:var(--t500)}
     .section{margin-bottom:28px}
     .section:last-child{margin-bottom:0}
     .section-heading{display:flex;align-items:center;gap:12px;margin-bottom:20px}
@@ -732,36 +781,84 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     </div>
   </div>
 
-  <!-- RESUMO EXECUTIVO logo depois da capa: é o que o decisor lê primeiro.
-       Tinha saído do PDF sem querer em 08/09 (0424013), junto com a mudança
-       que pôs Dados e Escopo na mesma página. -->
-  ${proposal.executiveSummary?.trim()
-    ? paginarTexto(proposal.executiveSummary).map((t, i) => pg(`
+  <!--
+    Ordem de proposta consultiva (27/09/2026): o que o decisor precisa vem
+    primeiro — resumo e investimento; depois o entendimento, a solução, o
+    escopo, o investimento detalhado e o aceite. O que é consulta vai para os
+    anexos no fim.
+  -->
+
+  <!-- 1. RESUMO EXECUTIVO + investimento de relance -->
+  ${(() => {
+    const paginas = proposal.executiveSummary?.trim()
+      ? paginarTexto(proposal.executiveSummary, 0, CONTENT_H - S_HDG - RELANCE_H)
+      : ['']
+    return paginas.map((t, i) => pg(`
+      <div class="section">
+        ${i === 0 ? `<div class="section-heading"><h2>Resumo Executivo</h2></div>${relance}` : ''}
+        ${t ? `<div class="text-content">${esc(t)}</div>` : ''}
+      </div>
+    `)).join('')
+  })()}
+
+  <!-- 2. ENTENDIMENTO E CENÁRIO (narrativa) -->
+  ${proposal.scenarioDesc ? buildScenarioPages(proposal.scenarioDesc, 'narrativa') : ''}
+
+  <!-- 3. SOLUÇÃO: topologia (página exclusiva) + vantagens e benefícios -->
+  ${buildDiagramPage()}
+  ${proposal.scenarioDesc ? buildScenarioPages(proposal.scenarioDesc, 'vantagens') : ''}
+
+  <!-- 4. ESCOPO -->
+  ${proposal.scope?.trim()
+    ? paginarTexto(proposal.scope).map((t, i) => pg(`
         <div class="section">
-          ${i === 0 ? '<div class="section-heading"><h2>Resumo Executivo</h2></div>' : ''}
+          ${i === 0 ? '<div class="section-heading"><h2>Escopo do Projeto</h2></div>' : ''}
           <div class="text-content">${esc(t)}</div>
         </div>
       `)).join('')
     : ''}
 
-  <!-- DADOS DA PROPOSTA + ESCOPO na mesma página. Os dois cartões ocupam
-       cerca de um terço da altura útil, e o escopo sozinho deixava outra
-       página quase vazia. O escopo continua nas seguintes se não couber. -->
+  <!-- 5. INVESTIMENTO (BOM comercial, auto-paginada) -->
+  ${buildBomPages()}
+
+  <!-- CONDIÇÕES & ACEITE -->
+  ${pg(`
+    ${proposal.commercialTerms ? `<div class="section"><div class="section-heading"><h2>Condições Comerciais</h2></div><div class="text-content">${esc(proposal.commercialTerms)}</div></div>` : ''}
+    <div class="section">
+      <div class="section-heading"><h2>Validade e Aceite</h2></div>
+      <div class="validity-card">Esta proposta é válida por <strong>${proposal.validityDays} dias</strong> a partir de ${esc(today)}, ou seja, até <strong>${esc(validUntil)}</strong>. Após este prazo, os valores e condições aqui descritos estão sujeitos a revisão.</div>
+      <div class="sig-section">
+        <div class="sig-box">
+          <div class="sig-head">Fornecedor</div>
+          <div class="sig-body"><div class="sig-line">${esc(companyName)}</div><div class="sig-sub">Responsável comercial</div></div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-head">Cliente</div>
+          <div class="sig-body"><div class="sig-line">${esc(proposal.customer.companyName)}</div><div class="sig-sub">${esc(proposal.customer.contactName ?? 'Representante autorizado')}</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:32px;text-align:center">
+      <span style="display:inline-block;padding:4px 16px;border-radius:20px;font-size:9pt;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${statusColor[proposal.status] ?? '#6b7280'};border:1.5px solid ${statusColor[proposal.status] ?? '#6b7280'}">
+        ${statusLabel[proposal.status] ?? esc(proposal.status)}
+      </span>
+    </div>
+  `)}
+
+  <!-- ANEXOS -->
+  ${buildTechPages()}
+  ${buildBrandsPage()}
+  ${companyDescription ? pg(`
+    <div class="section">
+      <div class="section-heading"><h2>Anexo — Sobre a ${esc(companyName)}</h2></div>
+      ${logoSrc ? `<div class="intro-grid"><div class="intro-logo-box"><img src="${esc(logoSrc)}" alt="${esc(companyName)}"></div><div class="text-content">${esc(companyDescription)}</div></div>` : `<div class="text-content">${esc(companyDescription)}</div>`}
+    </div>
+  `) : ''}
   ${(() => {
-    const nFornecedor = 1 + [companyWebsite, companyEmail, companyPhone, companyAddress].filter(Boolean).length
-    const nCliente = 1 + [
-      proposal.customer.tradeName, proposal.customer.cnpj, proposal.customer.contactName,
-      proposal.customer.email, proposal.customer.phone, localCliente,
-    ].filter(Boolean).length
-    // .info-row = ~17px de texto + 7 de margem; cabeçalho do cartão 36; padding 28.
-    const alturaDados = S_HDG + 36 + 28 + Math.max(nFornecedor, nCliente) * 24 + 20
-    const paginasEscopo = proposal.scope
-      ? paginarTexto(proposal.scope, 0, CONTENT_H - alturaDados - S_HDG)
-      : []
 
     const dados = `
       <div class="section">
-        <div class="section-heading"><h2>Dados da Proposta</h2></div>
+        <div class="section-heading"><h2>Anexo — Dados Cadastrais</h2></div>
       <div class="info-grid">
         <div class="info-card">
           <div class="info-card-head">Fornecedor</div>
@@ -789,63 +886,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       </div>
     `
 
-    if (!paginasEscopo.length) return pg(dados)
-
-    return paginasEscopo.map((t, i) => pg(`
-      ${i === 0 ? dados : ''}
-      <div class="section">
-        ${i === 0 ? '<div class="section-heading"><h2>Escopo do Projeto</h2></div>' : ''}
-        <div class="text-content">${esc(t)}</div>
-      </div>
-    `)).join('')
+    return pg(dados)
   })()}
-
-  <!-- SOBRE A EMPRESA (página própria se presente) -->
-  ${companyDescription ? pg(`
-    <div class="section">
-      <div class="section-heading"><h2>Sobre a ${esc(companyName)}</h2></div>
-      ${logoSrc ? `<div class="intro-grid"><div class="intro-logo-box"><img src="${esc(logoSrc)}" alt="${esc(companyName)}"></div><div class="text-content">${esc(companyDescription)}</div></div>` : `<div class="text-content">${esc(companyDescription)}</div>`}
-    </div>
-  `) : ''}
-
-  <!-- FABRICANTES PARCEIROS -->
-  ${buildBrandsPage()}
-
-  <!-- CENÁRIO TÉCNICO (descrição) — split across pages as needed -->
-  ${proposal.scenarioDesc ? buildScenarioPages(proposal.scenarioDesc) : ''}
-
-  <!-- DIAGRAMA DE TOPOLOGIA (página exclusiva, tamanho máximo) -->
-  ${buildDiagramPage()}
-
-  <!-- BOM COMERCIAL (auto-paginado) -->
-  ${buildBomPages()}
-
-  <!-- BOM TÉCNICA (auto-paginado) -->
-  ${buildTechPages()}
-
-  <!-- CONDIÇÕES & ACEITE -->
-  ${pg(`
-    ${proposal.commercialTerms ? `<div class="section"><div class="section-heading"><h2>Condições Comerciais</h2></div><div class="text-content">${esc(proposal.commercialTerms)}</div></div>` : ''}
-    <div class="section">
-      <div class="section-heading"><h2>Validade e Aceite</h2></div>
-      <div class="validity-card">Esta proposta é válida por <strong>${proposal.validityDays} dias</strong> a partir de ${esc(today)}, ou seja, até <strong>${esc(validUntil)}</strong>. Após este prazo, os valores e condições aqui descritos estão sujeitos a revisão.</div>
-      <div class="sig-section">
-        <div class="sig-box">
-          <div class="sig-head">Fornecedor</div>
-          <div class="sig-body"><div class="sig-line">${esc(companyName)}</div><div class="sig-sub">Responsável comercial</div></div>
-        </div>
-        <div class="sig-box">
-          <div class="sig-head">Cliente</div>
-          <div class="sig-body"><div class="sig-line">${esc(proposal.customer.companyName)}</div><div class="sig-sub">${esc(proposal.customer.contactName ?? 'Representante autorizado')}</div></div>
-        </div>
-      </div>
-    </div>
-    <div style="margin-top:32px;text-align:center">
-      <span style="display:inline-block;padding:4px 16px;border-radius:20px;font-size:9pt;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${statusColor[proposal.status] ?? '#6b7280'};border:1.5px solid ${statusColor[proposal.status] ?? '#6b7280'}">
-        ${statusLabel[proposal.status] ?? esc(proposal.status)}
-      </span>
-    </div>
-  `)}
 
 </div>
 

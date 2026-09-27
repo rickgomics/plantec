@@ -30,12 +30,28 @@ export default function ProposalAIPanel({
   const [gerando, setGerando] = useState(false)
   const [chars, setChars] = useState(0)
   const [avisos, setAvisos] = useState<Aviso[] | null>(null)
+  const [verificando, setVerificando] = useState(false)
+  const [pdf, setPdf] = useState<{ paginas: number; cortes: { pagina: number; secao: string; excesso: number }[] } | null>(null)
+
+  const verificarPdf = async () => {
+    setVerificando(true)
+    try {
+      const r = await fetch(`${BASE}/api/proposals/${proposalId}/pdf-check`)
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`)
+      setPdf(d)
+    } catch (e) {
+      toast.error(`Não foi possível verificar o PDF: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setVerificando(false)
+    }
+  }
 
   const conferir = useCallback(() => {
     carregarConferencia(proposalId).then(r => setAvisos(r.avisos)).catch(() => setAvisos(null))
   }, [proposalId])
 
-  useEffect(() => { conferir() }, [conferir, versao])
+  useEffect(() => { conferir(); setPdf(null) }, [conferir, versao])
 
   const salvarBrief = async (b: Brief) => {
     await fetch(`${BASE}/api/proposals/${proposalId}`, {
@@ -51,7 +67,7 @@ export default function ProposalAIPanel({
     try {
       await antesDeGerar?.()
       await salvarBrief(brief)
-      const r = await gerarIA(proposalId, { secoes: ['resumo', 'escopo', 'cenario', 'funcoes'] }, setChars)
+      const r = await gerarIA(proposalId, { secoes: ['resumo', 'escopo', 'cenario', 'funcoes', 'topologia'] }, setChars)
       if (!r) return
       await onGerado(r)
       setAvisos(r.avisos)
@@ -75,7 +91,7 @@ export default function ProposalAIPanel({
         <div>
           <h3 className="font-black text-ink tracking-tight text-sm">Textos da proposta</h3>
           <p className="text-xs text-ink/45 mt-0.5">
-            A IA escreve resumo, escopo, cenário e a função de cada item a partir do brief e da BOM completa.
+            A IA escreve resumo, escopo, cenário, a função de cada item e o diagrama, a partir do brief e da BOM completa.
           </p>
         </div>
         <button type="button" className="btn-ai btn-sm flex-shrink-0" onClick={gerar} disabled={gerando}>
@@ -109,7 +125,7 @@ export default function ProposalAIPanel({
       </div>
 
       {avisos && (
-        <div className="border-t border-line/10 pt-3">
+        <div className="border-t border-line/10 pt-3 space-y-2">
           {!erros.length && !atencoes.length ? (
             <p className="flex items-center gap-2 text-xs font-semibold text-emerald-700">
               <HiCheckCircle className="w-4 h-4" /> Conferência ok: nada que saia errado no PDF
@@ -127,6 +143,19 @@ export default function ProposalAIPanel({
               ))}
             </ul>
           )}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button type="button" className="btn-secondary btn-xs" onClick={verificarPdf} disabled={verificando}>
+              {verificando ? 'Verificando o PDF…' : 'Verificar páginas do PDF'}
+            </button>
+            {pdf && !pdf.cortes.length && (
+              <span className="text-xs font-semibold text-emerald-700">{pdf.paginas} páginas, nada cortado</span>
+            )}
+            {pdf && pdf.cortes.map(c => (
+              <span key={c.pagina} className="text-xs font-semibold text-red-700">
+                Página {c.pagina} ({c.secao}): {c.excesso}px de conteúdo não sai no papel
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>

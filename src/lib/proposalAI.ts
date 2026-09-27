@@ -11,6 +11,7 @@
  * não depende mais de o modelo obedecer.
  */
 import { isServico } from './services'
+import { SCHEMA_TOPOLOGIA, type Topologia } from './topologia'
 
 // ── Brief ─────────────────────────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ export type Brief = Partial<Record<BriefKey, string>>
 
 // ── Seções ────────────────────────────────────────────────────────────────────
 
-export const SECOES = ['resumo', 'escopo', 'cenario', 'funcoes'] as const
+export const SECOES = ['resumo', 'escopo', 'cenario', 'funcoes', 'topologia'] as const
 export type Secao = typeof SECOES[number]
 
 export const SECAO_LABEL: Record<Secao, string> = {
@@ -35,10 +36,11 @@ export const SECAO_LABEL: Record<Secao, string> = {
   escopo: 'Escopo',
   cenario: 'Cenário técnico',
   funcoes: 'Função na solução (BOM técnica)',
+  topologia: 'Diagrama de topologia',
 }
 
 /** Onde cada seção é gravada na proposta. */
-export const SECAO_CAMPO: Record<Exclude<Secao, 'funcoes'>, 'executiveSummary' | 'scope' | 'scenarioDesc'> = {
+export const SECAO_CAMPO: Record<Exclude<Secao, 'funcoes' | 'topologia'>, 'executiveSummary' | 'scope' | 'scenarioDesc'> = {
   resumo: 'executiveSummary',
   escopo: 'scope',
   cenario: 'scenarioDesc',
@@ -158,6 +160,7 @@ const SCHEMA_SECAO = {
       properties: { sku: str, funcao: str },
     },
   },
+  topologia: SCHEMA_TOPOLOGIA,
 } as const
 
 export function schemaPara(secoes: Secao[]) {
@@ -174,6 +177,7 @@ export interface Gerado {
   escopo?: { incluso: string[]; naoIncluso: string[]; condicoes: string[] }
   cenario?: { paragrafos: string[]; vantagens: string[]; beneficios: string[] }
   funcoes?: { sku: string; funcao: string }[]
+  topologia?: Topologia
 }
 
 // ── Conversão para o texto que o PDF e a tela já leem ─────────────────────────
@@ -225,7 +229,7 @@ interface PropostaConferencia {
   scope?: string | null
   scenarioDesc?: string | null
   includeServices?: boolean | null
-  items: { role?: string | null; product: { sku: string; name: string; category: string } }[]
+  items: { role?: string | null; unitPrice?: unknown; product: { sku: string; name: string; category: string } }[]
 }
 
 const PARAGRAFOS_CENARIO = /^(VANTAGENS TÉ?CNICAS?|BENEF[IÍ]CIOS PARA O CLIENTE)[ \t]*:?\s*$/im
@@ -267,6 +271,15 @@ export function conferir(p: PropostaConferencia): Aviso[] {
     avisos.push({
       secao: 'funcoes', nivel: 'atencao',
       texto: `${semFuncao.length} ${semFuncao.length === 1 ? 'item sem' : 'itens sem'} "Função na solução" — sai "a definir" na BOM técnica`,
+    })
+  }
+
+  // Preço digitado pelo projetista (licença, serviço) esquecido: sai R$ 0,00 no PDF
+  const zerados = itens.filter(i => i.unitPrice !== undefined && Number(i.unitPrice) <= 0)
+  if (zerados.length) {
+    avisos.push({
+      secao: 'geral', nivel: 'erro',
+      texto: `${zerados.length} ${zerados.length === 1 ? 'item com' : 'itens com'} preço R$ 0,00 na BOM: ${zerados.slice(0, 3).map(i => i.product.name.slice(0, 40)).join('; ')}${zerados.length > 3 ? '…' : ''}`,
     })
   }
 

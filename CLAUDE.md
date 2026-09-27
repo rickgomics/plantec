@@ -329,16 +329,24 @@ Cada página é um `<div class="page">` com `height: 297mm; overflow: hidden`. O
   .pf (page footer — nome empresa + data)
 ```
 
-### Páginas geradas
-1. **Capa** — full bleed, sem header/footer, com tema de cor aplicado
-2. **Dados da Proposta** — grid 2 colunas (Fornecedor / Cliente)
-3. **Resumo Executivo** — se preenchido (página própria)
-4. **Escopo do Projeto** — se preenchido (página própria)
-5. **Sobre a Empresa** — se preenchido (página própria)
-6. **Cenário Técnico** — descrição + diagrama Mermaid (SVG, max-height:420px)
-7. **BOM Comercial** — auto-split: servidor calcula quantas linhas cabem por página
-8. **BOM Técnica** — auto-split (mesmo algoritmo)
-9. **Condições & Aceite** — termos + assinaturas + status badge
+### Páginas geradas (ordem de proposta consultiva, desde 27/09/2026)
+1. **Capa**
+2. **Resumo Executivo** com o quadro "investimento de relance" (total, validade, itens, 3 benefícios do cenário)
+3. **Entendimento e Cenário** — a narrativa do `scenarioDesc`
+4. **Solução Proposta — Topologia** (página exclusiva) e **Vantagens e Benefícios**
+5. **Escopo do Projeto**
+6. **Investimento** — BOM comercial; o card de totais nunca fica sozinho (leva as últimas linhas junto)
+7. **Validade e Aceite**
+8. **Anexos**: BOM Técnica, Fabricantes (só marcas da BOM), Sobre a empresa, Dados Cadastrais
+
+### Diagrama próprio (`src/lib/topologia.ts`, `diagramType = 'plantec'`)
+A IA devolve a topologia em JSON (grupos em faixas, nós proposto/existente/externo, ligações) e
+`renderTopologiaSvg` desenha — mesma função na tela e no PDF. Ligação que pula faixas desce pela calha
+da esquerda, nunca cruza caixa. Mermaid e Eraser seguem como legado.
+
+### Verificação de corte (`GET /api/proposals/[id]/pdf-check`)
+Abre o PDF no Chromium do download e mede cada `.pc`: conteúdo mais alto que a página é texto que
+some no papel. Botão "Verificar páginas do PDF" no painel de textos.
 
 ### Constantes de paginação (px a 96dpi)
 ```typescript

@@ -16,6 +16,7 @@ import ImportReviewModal, { ImportRow, ImportChoice } from '@/components/ImportR
 import ProposalAIPanel from '@/components/ProposalAIPanel'
 import RefazerSecao from '@/components/RefazerSecao'
 import { gerarIA, type ResultadoIA } from '@/lib/aiClient'
+import { lerTopologia, renderTopologiaSvg } from '@/lib/topologia'
 import type { Brief } from '@/lib/proposalAI'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -121,7 +122,9 @@ export default function ProposalDetailPage() {
   const [editingSummary, setEditingSummary] = useState(false)
 
   // Scenario diagram — each type keeps its own content, switching never destroys the other
-  const [diagramType, setDiagramType] = useState<'mermaid' | 'eraser'>('mermaid')
+  // 'plantec' = topologia em JSON desenhada pelo app (src/lib/topologia.ts); Mermaid e Eraser são legado
+  const [diagramType, setDiagramType] = useState<'plantec' | 'mermaid' | 'eraser'>('plantec')
+  const [plantecCode, setPlantecCode] = useState('')
   const [mermaidCode, setMermaidCode] = useState('')
   const [eraserCode, setEraserCode] = useState('')
   const [eraserPreviewUrl, setEraserPreviewUrl] = useState<string | null>(null)
@@ -132,11 +135,16 @@ export default function ProposalDetailPage() {
   const [eraserPreviewing, setEraserPreviewing] = useState(false)
 
   // Derived: active diagram content routes to the right state
-  const scenarioDiagram = diagramType === 'eraser' ? eraserCode : mermaidCode
+  const scenarioDiagram = diagramType === 'eraser' ? eraserCode : diagramType === 'plantec' ? plantecCode : mermaidCode
   const setScenarioDiagram = (v: string) => {
     if (diagramType === 'eraser') setEraserCode(v)
+    else if (diagramType === 'plantec') setPlantecCode(v)
     else setMermaidCode(v)
   }
+  const topologiaSvg = useMemo(() => {
+    const t = diagramType === 'plantec' ? lerTopologia(plantecCode) : null
+    return t ? renderTopologiaSvg(t) : null
+  }, [diagramType, plantecCode])
 
   const [scenarioGenerating, setScenarioGenerating] = useState(false)
   const [scenarioStep, setScenarioStep] = useState<'idle' | 'desc' | 'diagram'>('idle')
@@ -151,10 +159,13 @@ export default function ProposalDetailPage() {
       setExecutiveSummary(p.executiveSummary ?? '')
       setScope(p.scope ?? '')
       setScenarioDesc(p.scenarioDesc ?? '')
-      const savedType = (p.diagramType as 'mermaid' | 'eraser') ?? 'mermaid'
+      // Sem diagrama ainda: começa no diagrama próprio
+      const savedType = !p.scenarioDiagram?.trim() ? 'plantec' : ((p.diagramType as 'plantec' | 'mermaid' | 'eraser') ?? 'mermaid')
       setDiagramType(savedType)
       // Populate the right slot — the other slot stays empty until the user generates it
-      if (savedType === 'eraser') {
+      if (savedType === 'plantec') {
+        setPlantecCode(p.scenarioDiagram ?? '')
+      } else if (savedType === 'eraser') {
         setEraserCode(p.scenarioDiagram ?? '')
       } else {
         setMermaidCode(p.scenarioDiagram ?? '')
@@ -376,6 +387,7 @@ export default function ProposalDetailPage() {
     if (r.textos.executiveSummary !== undefined) { setExecutiveSummary(r.textos.executiveSummary); setEditingSummary(false) }
     if (r.textos.scope !== undefined) { setScope(r.textos.scope); setEditingScope(false) }
     if (r.textos.scenarioDesc !== undefined) setScenarioDesc(r.textos.scenarioDesc)
+    if (r.topologia) { setPlantecCode(r.topologia); setDiagramType('plantec') }
     if (r.funcoes) await loadProposal()
     setVersaoIA(v => v + 1)
   }
@@ -430,6 +442,14 @@ export default function ProposalDetailPage() {
   const handleGenerateDiagram = async (descOverride?: string) => {
     setScenarioGenerating(true)
     setScenarioStep('diagram')
+    if (diagramType === 'plantec') {
+      try {
+        const r = await gerarIA(id, { secoes: ['topologia'] })
+        if (r) await aplicarIA(r)
+      } catch (e) { toast.error(`Erro ao gerar diagrama: ${e instanceof Error ? e.message : e}`) }
+      finally { setScenarioGenerating(false); setScenarioStep('idle') }
+      return
+    }
     const desc = descOverride ?? scenarioDesc
     const aiType = diagramType === 'eraser' ? 'scenarioDiagramEraser' : 'scenarioDiagram'
     try {
@@ -463,6 +483,15 @@ export default function ProposalDetailPage() {
   const handleGenerateScenario = async () => {
     setScenarioGenerating(true)
     setScenarioStep('desc')
+    if (diagramType === 'plantec') {
+      // descrição e topologia no mesmo pedido
+      try {
+        const r = await gerarIA(id, { secoes: ['cenario', 'topologia'] })
+        if (r) await aplicarIA(r)
+      } catch (e) { toast.error(`Erro ao gerar o cenário: ${e instanceof Error ? e.message : e}`) }
+      finally { setScenarioGenerating(false); setScenarioStep('idle') }
+      return
+    }
     let desc = scenarioDesc
     try {
       // a rota da IA grava a descrição; se o diagrama falhar, ela fica
@@ -536,15 +565,17 @@ export default function ProposalDetailPage() {
   const isEraserDsl = (text: string) =>
     /\[icon:/i.test(text) || /^title\s/im.test(text) || /^direction\s/im.test(text)
 
-  const handleDiagramTypeChange = async (t: 'mermaid' | 'eraser') => {
+  const handleDiagramTypeChange = async (t: 'plantec' | 'mermaid' | 'eraser') => {
     if (t === diagramType) return
     setDiagramType(t)
     // Restore saved Eraser preview when switching back to eraser
-    if (t === 'mermaid') setEraserPreviewUrl(null)
-    // Persist only the type change — diagram content of each mode is preserved independently
+    if (t !== 'eraser') setEraserPreviewUrl(null)
+    // O banco guarda um diagrama só: leva junto o conteúdo do tipo escolhido,
+    // senão o PDF tentaria desenhar o código do tipo anterior.
+    const conteudo = t === 'plantec' ? plantecCode : t === 'eraser' ? eraserCode : mermaidCode
     await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ diagramType: t }),
+      body: JSON.stringify(conteudo.trim() ? { diagramType: t, scenarioDiagram: conteudo } : { diagramType: t }),
     })
   }
 
@@ -1511,6 +1542,12 @@ export default function ProposalDetailPage() {
                 {/* Type toggle */}
                 <div className="flex items-center gap-1 bg-ink/5 rounded-lg p-1 self-start">
                   <button
+                    onClick={() => handleDiagramTypeChange('plantec')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${diagramType === 'plantec' ? 'bg-surface shadow text-ink' : 'text-ink/55 hover:text-ink/75'}`}
+                  >
+                    Plantec
+                  </button>
+                  <button
                     onClick={() => handleDiagramTypeChange('mermaid')}
                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${diagramType === 'mermaid' ? 'bg-surface shadow text-ink' : 'text-ink/55 hover:text-ink/75'}`}
                   >
@@ -1524,7 +1561,43 @@ export default function ProposalDetailPage() {
                   </button>
                 </div>
 
-                {diagramType === 'mermaid' ? (
+                {diagramType === 'plantec' ? (
+                  <>
+                    <p className="text-xs text-ink/55 leading-relaxed">
+                      A IA descreve a topologia (faixas, equipamentos da BOM, o que já existe e o que falta) e o app desenha,
+                      igual na tela e no PDF. Sai junto com &quot;Gerar textos da proposta&quot; ou pelo botão abaixo.
+                    </p>
+                    <button
+                      onClick={() => handleGenerateDiagram()}
+                      disabled={scenarioGenerating}
+                      className="btn-ai btn-sm self-start"
+                    >
+                      {scenarioGenerating && scenarioStep === 'diagram' ? 'Desenhando…' : plantecCode.trim() ? '↺ Refazer diagrama' : '✦ Gerar diagrama'}
+                    </button>
+                    <div className="text-[10px] text-ink/45 font-medium space-y-0.5">
+                      <div><span className="inline-block w-3 h-3 rounded-sm bg-brand-50 border border-brand-300 mr-1" />Fornecido nesta proposta</div>
+                      <div><span className="inline-block w-3 h-3 rounded-sm bg-amber-50 border border-amber-300 mr-1" />Já existente no cliente</div>
+                      <div><span className="inline-block w-3 h-3 rounded-sm border border-dashed border-ink/30 mr-1" />Necessário, fora desta proposta</div>
+                    </div>
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-ink/45 font-semibold">Editar a topologia (JSON)</summary>
+                      <textarea
+                        value={plantecCode}
+                        onChange={e => setPlantecCode(e.target.value)}
+                        onBlur={e => {
+                          if (lerTopologia(e.target.value)) fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ scenarioDiagram: e.target.value, diagramType: 'plantec' }),
+                          })
+                          else if (e.target.value.trim()) toast.error('JSON inválido: a topologia não foi salva')
+                        }}
+                        rows={16}
+                        spellCheck={false}
+                        className="input font-mono text-[11px] leading-relaxed mt-2"
+                      />
+                    </details>
+                  </>
+                ) : diagramType === 'mermaid' ? (
                   <>
                     <div className="flex items-center justify-between">
                       <span className="label">Código Mermaid</span>
@@ -1591,7 +1664,7 @@ export default function ProposalDetailPage() {
               {/* Right: preview panel */}
               <div className="col-span-3 card p-5 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="label">{diagramType === 'eraser' ? 'Diagrama Eraser' : 'Topologia de Rede'}</span>
+                  <span className="label">{diagramType === 'eraser' ? 'Diagrama Eraser' : 'Topologia'}</span>
                   {scenarioDiagram && diagramType === 'mermaid' && (
                     <span className="text-[10px] font-bold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-full ring-1 ring-inset ring-brand-200">
                       ● ao vivo
@@ -1607,13 +1680,23 @@ export default function ProposalDetailPage() {
                         de equipamento e de enlace, então o zoom abre em cheio. */}
                     <DiagramZoom
                       imageUrl={diagramType === 'eraser' ? eraserPreviewUrl : null}
-                      svg={diagramType === 'mermaid' ? mermaidSvg : null}
+                      svg={diagramType === 'mermaid' ? mermaidSvg : diagramType === 'plantec' ? topologiaSvg : null}
                       titulo={`${proposal.number} — ${diagramType === 'eraser' ? 'Diagrama Eraser' : 'Topologia de Rede'}`}
                     />
                   </div>
                 </div>
 
-                {diagramType === 'eraser' ? (
+                {diagramType === 'plantec' ? (
+                  topologiaSvg ? (
+                    <div className="flex-1 min-h-[440px] flex items-start justify-center overflow-auto bg-white rounded-lg" dangerouslySetInnerHTML={{ __html: topologiaSvg }} />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center flex-1 min-h-[440px] border-2 border-dashed border-line/10 rounded-xl text-center">
+                      <div className="text-5xl mb-3 opacity-20 select-none">◈</div>
+                      <p className="text-sm font-semibold text-ink/45">Diagrama de topologia aparece aqui</p>
+                      <p className="text-xs text-ink/35 mt-1 font-medium">Clique em &quot;Gerar diagrama&quot; — usa o brief e a BOM</p>
+                    </div>
+                  )
+                ) : diagramType === 'eraser' ? (
                   eraserPreviewUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={eraserPreviewUrl} alt="Diagrama Eraser" className="w-full rounded-lg border border-line/10 object-contain" style={{ maxHeight: 480 }} />

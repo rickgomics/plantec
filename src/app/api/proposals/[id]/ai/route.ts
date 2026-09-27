@@ -63,6 +63,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             }
             return true
           }
+          if (s === 'topologia') {
+            const legado = proposal.diagramType !== 'plantec' && !!proposal.scenarioDiagram?.trim()
+            if (legado && !sobrescrever.has(s)) {
+              send({ type: 'pulado', secao: s, motivo: 'já tem diagrama Mermaid/Eraser' })
+              return false
+            }
+            return true
+          }
           if (secoesMeta[s]?.fonte === 'manual' && !sobrescrever.has(s)) {
             send({ type: 'pulado', secao: s, motivo: 'editado à mão' })
             return false
@@ -83,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           itensAlvo.length && itensAlvo.length < proposal.items.length
             ? `Em "funcoes", responda só estes SKUs: ${itensAlvo.join(', ')}.`
             : '',
-          secoes.some(s => s !== 'funcoes' && proposal[SECAO_CAMPO[s as Exclude<Secao, 'funcoes'>]])
+          secoes.some(s => s !== 'funcoes' && s !== 'topologia' && proposal[SECAO_CAMPO[s]])
             ? 'Há versões anteriores destas seções; escreva de novo a partir do brief e da BOM, sem se prender a elas.'
             : '',
           instrucao ? `Pedido do projetista para esta versão: ${instrucao}` : '',
@@ -133,6 +141,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         if (g.escopo)  textos.scope            = textoEscopo(g.escopo)
         if (g.cenario) textos.scenarioDesc     = textoCenario(g.cenario)
         Object.assign(data, textos)
+        if (g.topologia) {
+          data.scenarioDiagram = JSON.stringify(g.topologia)
+          data.diagramType = 'plantec'
+          data.eraserImageUrl = null
+        }
         for (const sec of secoes) secoesMeta[sec] = { fonte: 'ia', em: agora, modelo: msg.model }
         data.aiMeta = { ...meta, secoes: secoesMeta } as Prisma.InputJsonValue
 
@@ -156,6 +169,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           type: 'pronto',
           textos,
           funcoes,
+          topologia: g.topologia ? data.scenarioDiagram : undefined,
           uso: { entrada: msg.usage.input_tokens, cache: msg.usage.cache_read_input_tokens ?? 0, saida: msg.usage.output_tokens },
           avisos: conferir(atualizada),
         })
@@ -188,5 +202,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     include: { items: { include: { product: true } } },
   })
   if (!proposal) return Response.json({ error: 'Proposta não encontrada' }, { status: 404 })
-  return Response.json({ avisos: conferir(proposal), aiMeta: proposal.aiMeta ?? {} })
+  return Response.json({
+    avisos: conferir(proposal),
+    aiMeta: proposal.aiMeta ?? {},
+    diagramaLegado: proposal.diagramType !== 'plantec' && !!proposal.scenarioDiagram?.trim(),
+  })
 }

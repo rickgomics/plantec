@@ -8,11 +8,13 @@ const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
 export interface ResultadoIA {
   textos: Partial<Record<'executiveSummary' | 'scope' | 'scenarioDesc', string>>
   funcoes: number
+  /** JSON da topologia gravado em scenarioDiagram (diagramType 'plantec'). */
+  topologia?: string
   avisos: Aviso[]
   pulados: { secao: Secao; motivo: string }[]
 }
 
-export async function carregarConferencia(proposalId: string): Promise<{ avisos: Aviso[]; aiMeta: AiMeta }> {
+export async function carregarConferencia(proposalId: string): Promise<{ avisos: Aviso[]; aiMeta: AiMeta; diagramaLegado?: boolean }> {
   const r = await fetch(`${BASE}/api/proposals/${proposalId}/ai`)
   if (!r.ok) return { avisos: [], aiMeta: {} }
   return r.json()
@@ -28,12 +30,14 @@ export async function gerarIA(
   opts: { secoes: Secao[]; instrucao?: string; substituirFuncoes?: boolean },
   onProgresso?: (chars: number) => void,
 ): Promise<ResultadoIA | null> {
-  const { aiMeta } = await carregarConferencia(proposalId)
-  const manuais = opts.secoes.filter(s => s !== 'funcoes' && aiMeta.secoes?.[s]?.fonte === 'manual')
+  const { aiMeta, diagramaLegado } = await carregarConferencia(proposalId)
+  const manuais = opts.secoes.filter(s =>
+    s === 'topologia' ? !!diagramaLegado
+    : s !== 'funcoes' && aiMeta.secoes?.[s]?.fonte === 'manual')
   const sobrescrever: Secao[] = opts.substituirFuncoes ? ['funcoes'] : []
   if (manuais.length) {
     const nomes = manuais.map(s => SECAO_LABEL[s]).join(', ')
-    const ok = window.confirm(`${nomes} ${manuais.length > 1 ? 'foram editados' : 'foi editado'} à mão.\n\nOK substitui pelo texto novo da IA. Cancelar mantém o seu texto e gera só o resto.`)
+    const ok = window.confirm(`${nomes} ${manuais.length > 1 ? 'foram editados' : 'foi editado'} à mão (ou é diagrama Mermaid/Eraser).\n\nOK substitui pelo conteúdo novo da IA. Cancelar mantém o que existe e gera só o resto.`)
     if (ok) sobrescrever.push(...manuais)
     else if (manuais.length === opts.secoes.length) return null
   }
@@ -62,7 +66,7 @@ export async function gerarIA(
       if (ev.type === 'progresso') onProgresso?.(ev.chars)
       else if (ev.type === 'pulado') pulados.push({ secao: ev.secao, motivo: ev.motivo })
       else if (ev.type === 'erro') throw new Error(ev.message)
-      else if (ev.type === 'pronto') return { textos: ev.textos ?? {}, funcoes: ev.funcoes ?? 0, avisos: ev.avisos ?? [], pulados }
+      else if (ev.type === 'pronto') return { textos: ev.textos ?? {}, funcoes: ev.funcoes ?? 0, topologia: ev.topologia, avisos: ev.avisos ?? [], pulados }
     }
   }
   throw new Error('A conexão com a IA terminou sem resposta')
