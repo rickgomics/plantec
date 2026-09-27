@@ -30,28 +30,12 @@ export default function ProposalAIPanel({
   const [gerando, setGerando] = useState(false)
   const [chars, setChars] = useState(0)
   const [avisos, setAvisos] = useState<Aviso[] | null>(null)
-  const [verificando, setVerificando] = useState(false)
-  const [pdf, setPdf] = useState<{ paginas: number; cortes: { pagina: number; secao: string; excesso: number }[] } | null>(null)
-
-  const verificarPdf = async () => {
-    setVerificando(true)
-    try {
-      const r = await fetch(`${BASE}/api/proposals/${proposalId}/pdf-check`)
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`)
-      setPdf(d)
-    } catch (e) {
-      toast.error(`Não foi possível verificar o PDF: ${e instanceof Error ? e.message : e}`)
-    } finally {
-      setVerificando(false)
-    }
-  }
 
   const conferir = useCallback(() => {
     carregarConferencia(proposalId).then(r => setAvisos(r.avisos)).catch(() => setAvisos(null))
   }, [proposalId])
 
-  useEffect(() => { conferir(); setPdf(null) }, [conferir, versao])
+  useEffect(() => { conferir() }, [conferir, versao])
 
   const salvarBrief = async (b: Brief) => {
     await fetch(`${BASE}/api/proposals/${proposalId}`, {
@@ -126,6 +110,7 @@ export default function ProposalAIPanel({
 
       {avisos && (
         <div className="border-t border-line/10 pt-3 space-y-2">
+          <p className="text-[11px] text-ink/45">A medição das páginas do PDF fica na etapa Revisar e gerar.</p>
           {!erros.length && !atencoes.length ? (
             <p className="flex items-center gap-2 text-xs font-semibold text-emerald-700">
               <HiCheckCircle className="w-4 h-4" /> Conferência ok: nada que saia errado no PDF
@@ -143,19 +128,6 @@ export default function ProposalAIPanel({
               ))}
             </ul>
           )}
-          <div className="flex items-center gap-3 flex-wrap">
-            <button type="button" className="btn-secondary btn-xs" onClick={verificarPdf} disabled={verificando}>
-              {verificando ? 'Verificando o PDF…' : 'Verificar páginas do PDF'}
-            </button>
-            {pdf && !pdf.cortes.length && (
-              <span className="text-xs font-semibold text-emerald-700">{pdf.paginas} páginas, nada cortado</span>
-            )}
-            {pdf && pdf.cortes.map(c => (
-              <span key={c.pagina} className="text-xs font-semibold text-red-700">
-                Página {c.pagina} ({c.secao}): {c.excesso}px de conteúdo não sai no papel
-              </span>
-            ))}
-          </div>
         </div>
       )}
     </div>

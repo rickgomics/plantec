@@ -82,7 +82,9 @@ function paginarTexto(texto: string, extra = 0, alturaPrimeira?: number): string
   return paginas
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  // ?embed=1: dentro do editor (etapa Revisar, PDF ao lado) a barra de ações sobra
+  const embed = new URL(req.url).searchParams.get('embed') === '1'
   const [proposal, brands] = await Promise.all([
     prisma.proposal.findUnique({
       where: { id: params.id },
@@ -734,6 +736,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 </head>
 <body>
 
+${embed ? '<style>.toolbar{display:none!important}.outer{padding-top:16px!important}</style>' : ''}
 <div class="toolbar">
   <div class="toolbar-left">
     ${logoSrc ? `<img src="${esc(logoSrc)}" alt="" style="height:28px;object-fit:contain;filter:brightness(0) invert(1)">` : `<div class="toolbar-logo">P</div>`}

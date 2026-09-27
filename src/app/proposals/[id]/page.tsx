@@ -1,14 +1,14 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import AppLayout from '@/components/AppLayout'
 import StatusBadge from '@/components/StatusBadge'
 import { HiLink, HiClipboard, HiXMark, HiArrowDownTray, HiSparkles } from 'react-icons/hi2'
-import { FiSave, FiCheck, FiSend, FiCheckCircle, FiEye, FiDownload, FiRadio } from 'react-icons/fi'
+import { FiSave, FiCheck, FiSend, FiCheckCircle, FiEye, FiDownload, FiRadio, FiColumns, FiArrowRight } from 'react-icons/fi'
+import RevisarEtapa from '@/components/RevisarEtapa'
 import BOMTable from '@/components/BOMTable'
 import AlertPanel from '@/components/AlertPanel'
 import ProductSearchModal from '@/components/ProductSearchModal'
-import AIGenerateButton from '@/components/AIGenerateButton'
 import MermaidDiagram from '@/components/MermaidDiagram'
 import DiagramZoom from '@/components/DiagramZoom'
 import IntelbrasModal, { IntelbrasProduct } from '@/components/IntelbrasModal'
@@ -33,7 +33,8 @@ const STATUS_FLOW: Record<string, string> = {
   sent: 'approved',
 }
 
-type Tab = 'bom' | 'cover' | 'intro' | 'scenario'
+// Etapas na ordem do documento (27/09/2026); antes eram as abas BOM/Capa/Introdução/Cenário
+type Tab = 'bom' | 'conteudo' | 'visual' | 'revisar'
 
 // ── Scope visual preview ────────────────────────────────────────────────────
 type ParsedLine =
@@ -104,6 +105,12 @@ export default function ProposalDetailPage() {
   const [showAddProduct, setShowAddProduct] = useState(false)
   const [globalDiscount, setGlobalDiscount] = useState(0)
   const [activeTab, setActiveTab] = useState<Tab>('bom')
+  // PDF ao lado nas etapas de conteúdo e apresentação; recarrega a cada salvamento
+  const [pdfAoLado, setPdfAoLado] = useState(false)
+  const [pdfVersao, setPdfVersao] = useState(0)
+  const [salvoEm, setSalvoEm] = useState<Date | null>(null)
+  useEffect(() => { try { setPdfAoLado(localStorage.getItem('bom-pdf-ao-lado') === '1') } catch { /* sem storage */ } }, [])
+  const alternarPdf = () => setPdfAoLado(v => { try { localStorage.setItem('bom-pdf-ao-lado', v ? '0' : '1') } catch { /* sem storage */ } return !v })
   const [profiles, setProfiles] = useState<CompanyProfile[]>([])
 
   // editable fields for new tabs
@@ -113,7 +120,6 @@ export default function ProposalDetailPage() {
   const [coverStyle, setCoverStyle] = useState('teal')
   const [coverProfileId, setCoverProfileId] = useState<string>('')
   const [introProfileId, setIntroProfileId] = useState<string>('')
-  const [introText, setIntroText] = useState('')
   const [showUnitPrice, setShowUnitPrice] = useState(true)
   const [externalProjectId, setExternalProjectId] = useState('')
   const [linkingExt, setLinkingExt] = useState(false)
@@ -130,9 +136,6 @@ export default function ProposalDetailPage() {
   const [eraserCode, setEraserCode] = useState('')
   const [eraserPreviewUrl, setEraserPreviewUrl] = useState<string | null>(null)
   const [mermaidSvg, setMermaidSvg] = useState<string | null>(null)
-  // O cenário completo leva ~77s (descrição 47s + diagrama 13s + render 18s).
-  // Sem tempo decorrido na tela, esse silêncio parece travamento.
-  const [scenarioElapsed, setScenarioElapsed] = useState(0)
   const [eraserPreviewing, setEraserPreviewing] = useState(false)
 
   // Derived: active diagram content routes to the right state
@@ -192,27 +195,13 @@ export default function ProposalDetailPage() {
     fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/company-profiles`).then(r => r.json()).then(d => setProfiles(d.profiles ?? []))
   }, [])
   useEffect(() => {
-    if (introProfileId && profiles.length > 0) {
-      const p = profiles.find(pr => pr.id === introProfileId)
-      if (p?.description) setIntroText(p.description)
-    }
-  }, [introProfileId, profiles])
-  useEffect(() => {
     if (proposal?.items?.length) evaluate()
   }, [proposal?.items, evaluate])
-
-  // Cronômetro do cenário: começa em 0 a cada geração e conta enquanto roda.
-  useEffect(() => {
-    if (!scenarioGenerating) return
-    setScenarioElapsed(0)
-    const t = setInterval(() => setScenarioElapsed(s => s + 1), 1000)
-    return () => clearInterval(t)
-  }, [scenarioGenerating])
 
   // Auto-render Eraser preview when entering scenario tab with Eraser content
   useEffect(() => {
     if (
-      activeTab === 'scenario' &&
+      activeTab === 'conteudo' &&
       diagramType === 'eraser' &&
       scenarioDiagram.trim() &&
       !eraserPreviewUrl &&
@@ -379,6 +368,8 @@ export default function ProposalDetailPage() {
       }),
     })
     setSaving(false)
+    setSalvoEm(new Date())
+    setPdfVersao(v => v + 1)
   }
 
   // Resultado da IA já está gravado no banco: só traz para a tela. Funções
@@ -391,7 +382,23 @@ export default function ProposalDetailPage() {
     if (r.topologia) { setPlantecCode(r.topologia); setDiagramType('plantec') }
     if (r.funcoes) await loadProposal()
     setVersaoIA(v => v + 1)
+    setPdfVersao(v => v + 1)
   }
+
+  // Salvamento automático: 1,5 s depois da última mudança nos campos da
+  // proposta. Substitui o botão Salvar — texto digitado e não salvo sumia ao
+  // trocar de proposta. O primeiro disparo depois de carregar só regrava o
+  // que veio do banco (o PUT compara e não marca nada como editado à mão).
+  const salvarRef = useRef(handleSave)
+  salvarRef.current = handleSave
+  const carregado = useRef(false)
+  useEffect(() => {
+    if (!proposal) return
+    if (!carregado.current) { carregado.current = true; return }
+    const t = setTimeout(() => { salvarRef.current() }, 1500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [executiveSummary, scope, scenarioDesc, globalDiscount, coverStyle, coverProfileId, introProfileId, showUnitPrice])
 
   const handleAdvanceStatus = async () => {
     if (!proposal) return
@@ -428,17 +435,6 @@ export default function ProposalDetailPage() {
     })),
   })
 
-  // Generate description only (always regenerates)
-  const handleGenerateDesc = async () => {
-    setScenarioGenerating(true)
-    setScenarioStep('desc')
-    try {
-      const r = await gerarIA(id, { secoes: ['cenario'] })
-      if (r) await aplicarIA(r)
-    } catch (e) { toast.error(`Erro ao gerar descrição: ${e instanceof Error ? e.message : e}`) }
-    finally { setScenarioGenerating(false); setScenarioStep('idle') }
-  }
-
   // Generate diagram only (always regenerates, auto-renders Eraser)
   const handleGenerateDiagram = async (descOverride?: string) => {
     setScenarioGenerating(true)
@@ -473,58 +469,6 @@ export default function ProposalDetailPage() {
           setScenarioStep('idle')
           // slight delay so state settles before render call
           setTimeout(() => handleEraserPreviewWith(d.text), 200)
-          return
-        }
-      }
-    } catch (e) { toast.error(`Erro ao gerar diagrama: ${e instanceof Error ? e.message : e}`) }
-    finally { setScenarioGenerating(false); setScenarioStep('idle') }
-  }
-
-  // Generate description then diagram sequentially
-  const handleGenerateScenario = async () => {
-    setScenarioGenerating(true)
-    setScenarioStep('desc')
-    if (diagramType === 'plantec') {
-      // descrição e topologia no mesmo pedido
-      try {
-        const r = await gerarIA(id, { secoes: ['cenario', 'topologia'] })
-        if (r) await aplicarIA(r)
-      } catch (e) { toast.error(`Erro ao gerar o cenário: ${e instanceof Error ? e.message : e}`) }
-      finally { setScenarioGenerating(false); setScenarioStep('idle') }
-      return
-    }
-    let desc = scenarioDesc
-    try {
-      // a rota da IA grava a descrição; se o diagrama falhar, ela fica
-      const r = await gerarIA(id, { secoes: ['cenario'] })
-      if (r) {
-        await aplicarIA(r)
-        if (r.textos.scenarioDesc) desc = r.textos.scenarioDesc
-      }
-    } catch (e) {
-      toast.error(`Erro ao gerar descrição: ${e instanceof Error ? e.message : e}`)
-      setScenarioGenerating(false); setScenarioStep('idle'); return
-    }
-    // Now generate diagram with fresh description
-    setScenarioStep('diagram')
-    const aiType = diagramType === 'eraser' ? 'scenarioDiagramEraser' : 'scenarioDiagram'
-    try {
-      const r2 = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/ai/generate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: aiType, context: { ...buildScenarioContext(), description: desc } }),
-      })
-      const d2 = await r2.json()
-      if (d2.error) throw new Error(d2.error)
-      if (d2.text) {
-        setScenarioDiagram(d2.text)
-        setEraserPreviewUrl(null)
-        await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scenarioDesc: desc, scenarioDiagram: d2.text, diagramType, eraserImageUrl: null }),
-        })
-        if (diagramType === 'eraser') {
-          setScenarioGenerating(false); setScenarioStep('idle')
-          setTimeout(() => handleEraserPreviewWith(d2.text), 200)
           return
         }
       }
@@ -701,31 +645,11 @@ export default function ProposalDetailPage() {
     finally { setFillingBom(false) }
   }
 
-  // Save intro text back to the selected company profile
-  const [savingProfile, setSavingProfile] = useState(false)
-  const handleSaveProfileDesc = async () => {
-    if (!introProfileId) return
-    setSavingProfile(true)
-    await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/company-profiles/${introProfileId}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description: introText }),
-    })
-    setProfiles(prev => prev.map(p => p.id === introProfileId ? { ...p, description: introText } : p))
-    setSavingProfile(false)
-  }
-
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   const canAdvance = proposal && STATUS_FLOW[proposal.status] && !ruleResult?.isBlocked
 
   const coverProfile = profiles.find(p => p.id === coverProfileId)
   const introProfile = profiles.find(p => p.id === introProfileId)
-  const aiContext = {
-    title: proposal?.title,
-    vertical: proposal?.vertical,
-    customer: proposal?.customer?.companyName,
-    itemCount: proposal?.items?.length,
-    totalPrice: totals?.totalPrice,
-  }
 
   if (loading) {
     return <AppLayout><div className="p-10 text-center text-ink/45">Carregando proposta...</div></AppLayout>
@@ -745,7 +669,7 @@ export default function ProposalDetailPage() {
               <StatusBadge status={proposal.status} />
             </div>
             <div className="eyebrow">Proposta</div>
-            <h1 className="page-title truncate">{proposal.title}</h1>
+            <h1 className="page-title !text-[26px] !leading-tight line-clamp-2 max-w-[62ch]" title={proposal.title}>{proposal.title}</h1>
             <p className="text-ink/55 text-sm">
               {proposal.customer.companyName} · {proposal.vertical} ·{' '}
               Válida por {proposal.validityDays} dias
@@ -823,9 +747,6 @@ export default function ProposalDetailPage() {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={handleSave} disabled={saving} className="btn-secondary">
-              <FiSave className="w-4 h-4" />{saving ? 'Salvando…' : 'Salvar'}
-            </button>
             {canAdvance && (
               <button onClick={handleAdvanceStatus} disabled={saving} className="btn-primary">
                 {proposal.status === 'draft' ? <><FiCheck className="w-4 h-4" />Gerar Proposta</> :
@@ -842,26 +763,35 @@ export default function ProposalDetailPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-0.5 mb-6 border-b border-line/15">
-          {([
-            { key: 'bom',      label: 'BOM'        },
-            { key: 'cover',    label: 'Capa'       },
-            { key: 'intro',    label: 'Introdução' },
-            { key: 'scenario', label: 'Cenário'    },
-          ] as { key: Tab; label: string }[]).map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider border-b-2 transition-all -mb-px ${
-                activeTab === tab.key
-                  ? 'border-brand-500 text-brand-600'
-                  : 'border-transparent text-ink/45 hover:text-ink/65 hover:border-line/15'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Etapas, na ordem do documento */}
+        <div className="flex items-end justify-between gap-4 mb-6 border-b border-line/10">
+          <div className="pt-tabs !border-0">
+            {([
+              { key: 'bom',      label: 'BOM' },
+              { key: 'conteudo', label: 'Conteúdo' },
+              { key: 'visual',   label: 'Apresentação' },
+              { key: 'revisar',  label: 'Revisar e gerar' },
+            ] as { key: Tab; label: string }[]).map((tab, i) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`pt-tab ${activeTab === tab.key ? 'pt-tab-ativa' : ''}`}
+              >
+                <span className="num-mono text-[11px] opacity-60 mr-1.5">{i + 1}</span>{tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 pb-2 text-xs text-ink/55">
+            <span className="inline-flex items-center gap-1.5" title="As mudanças são salvas sozinhas">
+              <FiSave className="w-3.5 h-3.5" />
+              {saving ? 'Salvando…' : salvoEm ? `Salvo às ${salvoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Salvamento automático'}
+            </span>
+            {(activeTab === 'conteudo' || activeTab === 'visual') && (
+              <button type="button" onClick={alternarPdf} className={`hidden 2xl:inline-flex btn-secondary btn-xs ${pdfAoLado ? '!border-brand-500 !text-brand-700' : ''}`}>
+                <FiColumns className="w-3.5 h-3.5" />{pdfAoLado ? 'Esconder PDF' : 'PDF ao lado'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Tab: BOM */}
@@ -1027,99 +957,348 @@ export default function ProposalDetailPage() {
                 </div>
               )}
 
-              <ProposalAIPanel
-                proposalId={id}
-                briefInicial={proposal.brief as Brief | null | undefined}
-                versao={versaoIA}
-                antesDeGerar={handleSave}
-                onGerado={aplicarIA}
-              />
-
-              {/* Resumo Executivo */}
-              <div className="card p-5">
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div>
-                    <h3 className="font-black text-ink tracking-tight text-sm">Resumo Executivo</h3>
-                    <p className="text-xs text-ink/45 font-medium mt-0.5">Destaque o valor entregue e o diferencial da Plantec</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <RefazerSecao proposalId={id} secao="resumo" temTexto={!!executiveSummary.trim()} antesDeGerar={handleSave} onGerado={aplicarIA} />
-                    {executiveSummary && (
-                      <button onClick={() => setEditingSummary(e => !e)} className="btn-secondary btn-xs">
-                        {editingSummary ? 'Ver' : 'Editar'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {editingSummary || !executiveSummary ? (
-                  <textarea
-                    value={executiveSummary}
-                    onChange={e => setExecutiveSummary(e.target.value)}
-                    rows={5}
-                    placeholder="Descreva o valor entregue ao cliente, o diferencial da solução e os benefícios esperados..."
-                    className="input"
-                    autoFocus={editingSummary}
-                  />
-                ) : (
-                  <div
-                    className="relative bg-brand-50/40 border border-brand-100 rounded-xl p-4 cursor-pointer group"
-                    onClick={() => setEditingSummary(true)}
-                  >
-                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-[10px] font-bold text-brand-500 bg-surface px-2 py-0.5 rounded-full border border-brand-200">editar</span>
-                    </div>
-                    <p className="text-sm text-ink/75 leading-relaxed whitespace-pre-line">{executiveSummary}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Escopo */}
-              <div className="card p-5">
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div>
-                    <h3 className="font-black text-ink tracking-tight text-sm">Escopo do Projeto</h3>
-                    <p className="text-xs text-ink/45 font-medium mt-0.5">O que está e não está incluso nesta proposta</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <RefazerSecao proposalId={id} secao="escopo" temTexto={!!scope.trim()} antesDeGerar={handleSave} onGerado={aplicarIA} />
-                    {scope && (
-                      <button onClick={() => setEditingScope(e => !e)} className="btn-secondary btn-xs">
-                        {editingScope ? 'Ver' : 'Editar'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {editingScope || !scope ? (
-                  <textarea
-                    value={scope}
-                    onChange={e => setScope(e.target.value)}
-                    rows={8}
-                    placeholder={`Está incluso:\n• Item 1\n• Item 2\n\nNão está incluso:\n• Item A\n• Item B`}
-                    className="input font-medium text-sm"
-                    autoFocus={editingScope}
-                  />
-                ) : (
-                  <div
-                    className="cursor-pointer group"
-                    onClick={() => setEditingScope(true)}
-                  >
-                    <div className="flex justify-end mb-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-[10px] font-bold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200">editar</span>
-                    </div>
-                    <ScopePreview text={scope} />
-                  </div>
-                )}
-              </div>
             </div>
 
           </div>
         )}
 
-        {/* Tab: Capa */}
-        {activeTab === 'cover' && (
-          <div className="max-w-2xl space-y-6">
+        {/* Etapa 2 — Conteúdo: brief, textos e diagrama, na ordem do documento */}
+        {activeTab === 'conteudo' && (
+          <div className={pdfAoLado ? 'grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_620px] gap-5 items-start' : ''}>
+          <div className="space-y-4 min-w-0">
+            <ProposalAIPanel
+              proposalId={id}
+              briefInicial={proposal.brief as Brief | null | undefined}
+              versao={versaoIA}
+              antesDeGerar={handleSave}
+              onGerado={aplicarIA}
+            />
+
+            {/* Resumo Executivo */}
+            <div className="card p-5">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="font-black text-ink tracking-tight text-sm">Resumo Executivo</h3>
+                  <p className="text-xs text-ink/45 font-medium mt-0.5">Destaque o valor entregue e o diferencial da Plantec</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <RefazerSecao proposalId={id} secao="resumo" temTexto={!!executiveSummary.trim()} antesDeGerar={handleSave} onGerado={aplicarIA} />
+                  {executiveSummary && (
+                    <button onClick={() => setEditingSummary(e => !e)} className="btn-secondary btn-xs">
+                      {editingSummary ? 'Ver' : 'Editar'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {editingSummary || !executiveSummary ? (
+                <textarea
+                  value={executiveSummary}
+                  onChange={e => setExecutiveSummary(e.target.value)}
+                  rows={5}
+                  placeholder="Descreva o valor entregue ao cliente, o diferencial da solução e os benefícios esperados..."
+                  className="input"
+                  autoFocus={editingSummary}
+                />
+              ) : (
+                <div
+                  className="relative bg-brand-50/40 border border-brand-100 rounded-xl p-4 cursor-pointer group"
+                  onClick={() => setEditingSummary(true)}
+                >
+                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] font-bold text-brand-500 bg-surface px-2 py-0.5 rounded-full border border-brand-200">editar</span>
+                  </div>
+                  <p className="text-sm text-ink/75 leading-relaxed whitespace-pre-line">{executiveSummary}</p>
+                </div>
+              )}
+            </div>
+
+
+            {/* Description row */}
+            <div className="card p-6">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="font-black text-ink tracking-tight text-sm">Cenário Técnico</h3>
+                  <p className="text-xs text-ink/45 font-medium mt-0.5">
+                    Ambiente e arquitetura, vantagens e benefícios. O diagrama fica logo abaixo.
+                  </p>
+                </div>
+
+                <RefazerSecao proposalId={id} secao="cenario" temTexto={!!scenarioDesc.trim()} antesDeGerar={handleSave} onGerado={aplicarIA} />
+              </div>
+
+              <textarea
+                value={scenarioDesc}
+                onChange={e => setScenarioDesc(e.target.value)}
+                onBlur={e => {
+                  if (e.target.value.trim()) fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scenarioDesc: e.target.value }),
+                  })
+                }}
+                rows={10}
+                placeholder={`A IA irá gerar um cenário completo com:\n\n• Descrição do ambiente físico e infraestrutura\n• Arquitetura da solução com os equipamentos da BOM\n• Integração com sistemas existentes e dependências externas\n\nVANTAGENS TÉCNICAS:\n• Redundância, escalabilidade, integração com sistemas legados…\n\nBENEFÍCIOS PARA O CLIENTE:\n• Redução de custos operacionais, aumento de segurança, ROI…`}
+                className="input font-sans text-sm leading-relaxed"
+              />
+
+              {/* BOM context chips */}
+              {proposal.items.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {proposal.items.slice(0, 12).map(i => (
+                    <span key={i.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 text-[10px] font-semibold ring-1 ring-inset ring-brand-200">
+                      <span className="font-mono text-brand-400">{i.quantity}×</span> {i.product.name}
+                    </span>
+                  ))}
+                  {proposal.items.length > 12 && (
+                    <span className="px-2 py-0.5 rounded-full bg-ink/5 text-ink/45 text-[10px] font-semibold">
+                      +{proposal.items.length - 12} itens
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Diagram row: code + preview */}
+            <div className="grid grid-cols-5 gap-5">
+
+              {/* Left: type selector + code editor */}
+              <div className="col-span-2 card p-5 flex flex-col gap-3">
+
+                {/* Type toggle */}
+                <div className="flex items-center gap-1 bg-ink/5 rounded-lg p-1 self-start">
+                  <button
+                    onClick={() => handleDiagramTypeChange('plantec')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${diagramType === 'plantec' ? 'bg-surface shadow text-ink' : 'text-ink/55 hover:text-ink/75'}`}
+                  >
+                    Plantec
+                  </button>
+                  <button
+                    onClick={() => handleDiagramTypeChange('mermaid')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${diagramType === 'mermaid' ? 'bg-surface shadow text-ink' : 'text-ink/55 hover:text-ink/75'}`}
+                  >
+                    Mermaid <span className="text-[10px] font-normal opacity-60">legado</span>
+                  </button>
+                  <button
+                    onClick={() => handleDiagramTypeChange('eraser')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${diagramType === 'eraser' ? 'bg-surface shadow text-ink' : 'text-ink/55 hover:text-ink/75'}`}
+                  >
+                    Eraser <span className="text-[10px] font-normal opacity-60">legado</span>
+                  </button>
+                </div>
+
+                {diagramType === 'plantec' ? (
+                  <>
+                    <p className="text-xs text-ink/55 leading-relaxed">
+                      A IA descreve a topologia (faixas, equipamentos da BOM, o que já existe e o que falta) e o app desenha,
+                      igual na tela e no PDF. Sai junto com &quot;Gerar textos da proposta&quot; ou pelo botão abaixo.
+                    </p>
+                    <button
+                      onClick={() => handleGenerateDiagram()}
+                      disabled={scenarioGenerating}
+                      className="btn-ai btn-sm self-start"
+                    >
+                      {scenarioGenerating && scenarioStep === 'diagram' ? 'Desenhando…' : plantecCode.trim() ? '↺ Refazer diagrama' : '✦ Gerar diagrama'}
+                    </button>
+                    <div className="text-[10px] text-ink/45 font-medium space-y-0.5">
+                      <div><span className="inline-block w-3 h-3 rounded-sm bg-brand-50 border border-brand-300 mr-1" />Fornecido nesta proposta</div>
+                      <div><span className="inline-block w-3 h-3 rounded-sm bg-amber-50 border border-amber-300 mr-1" />Já existente no cliente</div>
+                      <div><span className="inline-block w-3 h-3 rounded-sm border border-dashed border-ink/30 mr-1" />Necessário, fora desta proposta</div>
+                    </div>
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-ink/45 font-semibold">Editar a topologia (JSON)</summary>
+                      <textarea
+                        value={plantecCode}
+                        onChange={e => setPlantecCode(e.target.value)}
+                        onBlur={e => {
+                          if (lerTopologia(e.target.value)) fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ scenarioDiagram: e.target.value, diagramType: 'plantec' }),
+                          })
+                          else if (e.target.value.trim()) toast.error('JSON inválido: a topologia não foi salva')
+                        }}
+                        rows={16}
+                        spellCheck={false}
+                        className="input font-mono text-[11px] leading-relaxed mt-2"
+                      />
+                    </details>
+                  </>
+                ) : diagramType === 'mermaid' ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="label">Código Mermaid</span>
+                      <span className="text-[10px] text-ink/45 font-semibold font-mono bg-ink/5 px-2 py-0.5 rounded-md">editável</span>
+                    </div>
+                    <textarea
+                      value={scenarioDiagram}
+                      onChange={e => setScenarioDiagram(e.target.value)}
+                      onBlur={e => {
+                        if (e.target.value.trim()) fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
+                          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ scenarioDiagram: e.target.value, diagramType: 'mermaid' }),
+                        })
+                      }}
+                      rows={20}
+                      spellCheck={false}
+                      placeholder={'graph TD\n\n  subgraph Internet\n    CLOUD["☁ Nuvem"]\n  end\n\n  CAM["Câmera IP"] -->|"PoE"| SW\n  SW["Switch"] --> NVR\n  NVR --> CLOUD'}
+                      className="input font-mono text-xs leading-relaxed flex-1 resize-none"
+                      style={{ fontFamily: "'Courier New', monospace" }}
+                    />
+                    <div className="text-[10px] text-ink/45 font-medium space-y-0.5">
+                      <div><span className="inline-block w-3 h-3 rounded-sm bg-brand-50 border border-brand-300 mr-1" />Equipamentos propostos</div>
+                      <div><span className="inline-block w-3 h-3 rounded-sm bg-amber-50 border border-amber-300 mr-1" />Sistemas existentes</div>
+                      <div><span className="inline-block w-3 h-3 rounded-sm border border-line/20 mr-1" style={{ background: 'repeating-linear-gradient(45deg,#f1f5f9,#f1f5f9 2px,#fff 2px,#fff 5px)' }} />Módulos externos/faltantes</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="label">Prompt / Código Eraser</span>
+                      <a href="https://docs.eraser.io/docs/syntax" target="_blank" rel="noreferrer"
+                        className="text-[10px] text-brand-500 hover:underline font-semibold">
+                        sintaxe ↗
+                      </a>
+                    </div>
+                    <textarea
+                      value={scenarioDiagram}
+                      onChange={e => { setScenarioDiagram(e.target.value); setEraserPreviewUrl(null) }}
+                      onBlur={e => { if (e.target.value.trim()) saveEraserDiagram(e.target.value) }}
+                      rows={18}
+                      spellCheck={false}
+                      placeholder={`Descreva a arquitetura em linguagem natural ou use a sintaxe Eraser:\n\nCloud provider: AWS\n\nUsers > Internet Gateway\nInternet Gateway > Load Balancer\nLoad Balancer > [App Server 1, App Server 2]\n[App Server 1, App Server 2] > Database\n\n// Ou simplesmente descreva:\n// "NVR conectado via switch PoE a 12 câmeras IP\n//  em 3 andares, com acesso remoto via VPN"`}
+                      className="input text-xs leading-relaxed flex-1 resize-none"
+                      style={{ fontFamily: "'Courier New', monospace" }}
+                    />
+                    <button
+                      onClick={handleEraserPreview}
+                      disabled={eraserPreviewing || !scenarioDiagram.trim()}
+                      className="btn-primary btn-sm"
+                    >
+                      {eraserPreviewing ? (
+                        <><span className="animate-spin">◌</span> Gerando…</>
+                      ) : (
+                        <>✦ Gerar Preview</>
+                      )}
+                    </button>
+                    <p className="text-[10px] text-ink/45 leading-relaxed">
+                      Requer plano Starter+ do Eraser. Configure <code className="bg-ink/5 px-1 rounded">ERASER_API_KEY</code> no <code className="bg-ink/5 px-1 rounded">.env</code>.
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {/* Right: preview panel */}
+              <div className="col-span-3 card p-5 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="label">{diagramType === 'eraser' ? 'Diagrama Eraser' : 'Topologia'}</span>
+                  {scenarioDiagram && diagramType === 'mermaid' && (
+                    <span className="text-[10px] font-bold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-full ring-1 ring-inset ring-brand-200">
+                      ● ao vivo
+                    </span>
+                  )}
+                  <div className="flex items-center gap-2">
+                    {eraserPreviewUrl && (
+                      <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full ring-1 ring-inset ring-violet-200">
+                        ✦ Eraser
+                      </span>
+                    )}
+                    {/* O preview cabe em 480px; o projetista precisa ler rótulo
+                        de equipamento e de enlace, então o zoom abre em cheio. */}
+                    <DiagramZoom
+                      imageUrl={diagramType === 'eraser' ? eraserPreviewUrl : null}
+                      svg={diagramType === 'mermaid' ? mermaidSvg : diagramType === 'plantec' ? topologiaSvg : null}
+                      titulo={`${proposal.number} — ${diagramType === 'eraser' ? 'Diagrama Eraser' : 'Topologia de Rede'}`}
+                    />
+                  </div>
+                </div>
+
+                {diagramType === 'plantec' ? (
+                  topologiaSvg ? (
+                    <div className="flex-1 min-h-[440px] flex items-start justify-center overflow-auto bg-white rounded-lg" dangerouslySetInnerHTML={{ __html: topologiaSvg }} />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center flex-1 min-h-[440px] border-2 border-dashed border-line/10 rounded-xl text-center">
+                      <div className="text-5xl mb-3 opacity-20 select-none">◈</div>
+                      <p className="text-sm font-semibold text-ink/45">Diagrama de topologia aparece aqui</p>
+                      <p className="text-xs text-ink/35 mt-1 font-medium">Clique em &quot;Gerar diagrama&quot; — usa o brief e a BOM</p>
+                    </div>
+                  )
+                ) : diagramType === 'eraser' ? (
+                  eraserPreviewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={eraserPreviewUrl} alt="Diagrama Eraser" className="w-full rounded-lg border border-line/10 object-contain" style={{ maxHeight: 480 }} />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center flex-1 min-h-[440px] border-2 border-dashed border-violet-100 rounded-xl text-center bg-violet-50/30">
+                      <div className="text-4xl mb-3 opacity-30 select-none">✦</div>
+                      <p className="text-sm font-semibold text-ink/45">Preview do Eraser</p>
+                      <p className="text-xs text-ink/35 mt-1 font-medium">
+                        {scenarioDiagram.trim() ? 'Clique em "Gerar Preview" para renderizar' : 'Preencha o prompt à esquerda'}
+                      </p>
+                    </div>
+                  )
+                ) : scenarioDiagram ? (
+                  <MermaidDiagram code={scenarioDiagram} className="min-h-[440px] flex-1" onRendered={setMermaidSvg} />
+                ) : (
+                  <div className="flex flex-col items-center justify-center flex-1 min-h-[440px] border-2 border-dashed border-line/10 rounded-xl text-center">
+                    <div className="text-5xl mb-3 opacity-20 select-none">◈</div>
+                    <p className="text-sm font-semibold text-ink/45">Diagrama de topologia aparece aqui</p>
+                    <p className="text-xs text-ink/35 mt-1 font-medium">Descreva o cenário acima e clique em &quot;Gerar Diagrama&quot;</p>
+                  </div>
+                )}
+              </div>
+
+            </div>
+            {/* Escopo */}
+            <div className="card p-5">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="font-black text-ink tracking-tight text-sm">Escopo do Projeto</h3>
+                  <p className="text-xs text-ink/45 font-medium mt-0.5">O que está e não está incluso nesta proposta</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <RefazerSecao proposalId={id} secao="escopo" temTexto={!!scope.trim()} antesDeGerar={handleSave} onGerado={aplicarIA} />
+                  {scope && (
+                    <button onClick={() => setEditingScope(e => !e)} className="btn-secondary btn-xs">
+                      {editingScope ? 'Ver' : 'Editar'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {editingScope || !scope ? (
+                <textarea
+                  value={scope}
+                  onChange={e => setScope(e.target.value)}
+                  rows={8}
+                  placeholder={`Está incluso:\n• Item 1\n• Item 2\n\nNão está incluso:\n• Item A\n• Item B`}
+                  className="input font-medium text-sm"
+                  autoFocus={editingScope}
+                />
+              ) : (
+                <div
+                  className="cursor-pointer group"
+                  onClick={() => setEditingScope(true)}
+                >
+                  <div className="flex justify-end mb-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] font-bold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200">editar</span>
+                  </div>
+                  <ScopePreview text={scope} />
+                </div>
+              )}
+            </div>
+          </div>
+          {pdfAoLado && (
+            <div className="hidden 2xl:block sticky top-4 card !p-0 overflow-hidden h-[calc(100vh-2rem)]">
+              <iframe key={pdfVersao} src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/proposals/${id}/pdf?embed=1`} title="Prévia do PDF" className="w-full h-full border-0 bg-white" />
+            </div>
+          )}
+          </div>
+        )}
+
+        {/* Etapa 3 — Apresentação: capa, empresa apresentada e opções do PDF */}
+        {activeTab === 'visual' && (
+          <div className={pdfAoLado ? 'grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_620px] gap-5 items-start' : ''}>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start min-w-0">
+          <div className="space-y-6">
             <div className="card p-6 space-y-4">
               <h2 className="font-semibold text-ink">Perfil da Capa</h2>
               <p className="text-sm text-ink/55">Selecione o perfil que aparecerá na capa da proposta.</p>
@@ -1296,88 +1475,35 @@ export default function ProposalDetailPage() {
               })()}
             </div>
           </div>
-        )}
-
-        {/* Tab: Introdução */}
-        {activeTab === 'intro' && (
-          <div className="max-w-2xl space-y-6">
+          <div className="space-y-6">
             <div className="card p-6 space-y-4">
-              <h2 className="font-semibold text-ink">Empresa Apresentada</h2>
               <div>
-                <label className="block text-sm font-medium text-ink/75 mb-2">Perfil de Introdução</label>
-                <select
-                  value={introProfileId}
-                  onChange={e => {
-                    setIntroProfileId(e.target.value)
-                    const p = profiles.find(x => x.id === e.target.value)
-                    if (p?.description) setIntroText(p.description)
-                  }}
-                  className="input"
-                >
-                  <option value="">— Selecione um perfil —</option>
+                <h2 className="font-display font-extrabold uppercase text-[19px] leading-tight text-ink">Empresa apresentada</h2>
+                <p className="text-xs text-ink/55 mt-1">O texto institucional vem do perfil e sai no anexo &quot;Sobre a empresa&quot;. Para mudar o texto ou gerá-lo com IA, edite o perfil.</p>
+              </div>
+              <div>
+                <label className="label">Perfil de introdução</label>
+                <select value={introProfileId} onChange={e => setIntroProfileId(e.target.value)} className="input">
+                  <option value="">— Sem anexo &quot;Sobre a empresa&quot; —</option>
                   {profiles.map(p => (
-                    <option key={p.id} value={p.id}>
-                      [{p.type === 'plantec' ? 'Plantec' : 'Parceiro'}] {p.name}
-                    </option>
+                    <option key={p.id} value={p.id}>[{p.type === 'plantec' ? 'Plantec' : 'Parceiro'}] {p.name}</option>
                   ))}
                 </select>
               </div>
-
-              {introProfile?.logoBase64 && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={introProfile.logoBase64} alt={introProfile.name} className="h-14 object-contain" />
-              )}
-
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <label className="label">Texto de Apresentação</label>
-                    {introProfileId && (
-                      <p className="text-[10px] text-ink/45 font-medium mt-0.5">
-                        Edições aqui podem ser salvas de volta ao perfil
-                      </p>
-                    )}
-                  </div>
-                  <AIGenerateButton
-                    type="introText"
-                    context={{ company: introProfile?.name ?? 'Plantec Distribuidora', ...aiContext }}
-                    onGenerated={setIntroText}
-                    label="Gerar com IA"
-                  />
+              {introProfile && (
+                <div className="rounded-xl border border-line/10 bg-background p-4 space-y-3">
+                  {introProfile.logoBase64 && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={introProfile.logoBase64} alt={introProfile.name} className="h-10 object-contain" />
+                  )}
+                  <p className="text-sm text-ink/75 leading-relaxed whitespace-pre-line line-clamp-[8]">
+                    {introProfile.description?.trim() || 'Este perfil ainda não tem texto institucional — o anexo sai sem ele.'}
+                  </p>
                 </div>
-                <textarea
-                  value={introText}
-                  onChange={e => setIntroText(e.target.value)}
-                  rows={10}
-                  placeholder="Descreva a empresa apresentada nesta proposta..."
-                  className="input"
-                />
-                {introProfileId && introText && (
-                  <div className="mt-3 flex items-center justify-between">
-                    <p className="text-xs text-ink/45 font-medium">
-                      Este texto será salvo na proposta. Para reutilizar em outras propostas, salve no perfil.
-                    </p>
-                    <button
-                      onClick={handleSaveProfileDesc}
-                      disabled={savingProfile}
-                      className="btn-secondary btn-xs shrink-0 ml-3"
-                    >
-                      {savingProfile ? '…' : '↑'} Salvar no Perfil
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-1 flex items-center justify-between border-t border-line/10">
-                <Link href="/settings/profiles" className="text-xs font-semibold text-brand-600 hover:text-brand-700">
-                  + Criar ou editar perfis de empresa →
-                </Link>
-                {introProfile && (
-                  <span className="text-[10px] text-ink/45 font-medium">
-                    Perfil: {introProfile.type === 'plantec' ? 'Plantec' : 'Parceiro'} · {introProfile.name}
-                  </span>
-                )}
-              </div>
+              )}
+              <Link href="/settings/profiles" className="text-xs font-semibold text-brand-700 hover:underline inline-flex items-center gap-1">
+                Editar perfis e texto institucional <FiArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
 
             {/* Opções do PDF */}
@@ -1415,315 +1541,20 @@ export default function ProposalDetailPage() {
               </label>
             </div>
           </div>
-        )}
-
-        {/* Tab: Cenário */}
-        {activeTab === 'scenario' && (
-          <div className="space-y-5">
-
-            {/* Description row */}
-            <div className="card p-6">
-              {/* Header */}
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <h2 className="font-black text-ink tracking-tight">Cenário Técnico</h2>
-                  <p className="text-xs text-ink/45 font-medium mt-0.5">
-                    Ambiente · Arquitetura · Vantagens · Benefícios — a IA gera tudo com base na BOM
-                  </p>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                  {/* Primary: generate all */}
-                  <button
-                    onClick={handleGenerateScenario}
-                    disabled={scenarioGenerating}
-                    className="btn-primary btn-sm"
-                  >
-                    {scenarioGenerating ? (
-                      <>
-                        <span className="animate-spin text-base">◌</span>
-                        {scenarioStep === 'desc' ? 'Descrevendo…' : 'Desenhando…'}
-                      </>
-                    ) : '✦ Gerar Tudo'}
-                  </button>
-
-                  {/* Secondary: individual buttons */}
-                  {!scenarioGenerating && (
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={handleGenerateDesc}
-                        disabled={scenarioGenerating}
-                        className="btn-secondary btn-xs"
-                      >
-                        ↺ Só Descrição
-                      </button>
-                      <button
-                        onClick={() => handleGenerateDiagram()}
-                        disabled={scenarioGenerating || !scenarioDesc.trim()}
-                        className="btn-secondary btn-xs"
-                      >
-                        ↺ Só Diagrama
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Progresso: passo atual, concluídos marcados e tempo decorrido */}
-                  {(scenarioGenerating || eraserPreviewing) && (
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold">
-                        {(() => {
-                          const passos = [
-                            { id: 'desc', nome: 'Descrição', seg: 47 },
-                            { id: 'diagram', nome: 'Diagrama', seg: 13 },
-                            ...(diagramType === 'eraser' ? [{ id: 'render', nome: 'Render', seg: 18 }] : []),
-                          ]
-                          const atual = eraserPreviewing && !scenarioGenerating ? 'render' : scenarioStep
-                          const iAtual = passos.findIndex(p => p.id === atual)
-                          return passos.map((p, i) => (
-                            <span key={p.id} className="flex items-center gap-1.5">
-                              {i > 0 && <span className="text-ink/35">→</span>}
-                              <span className={`px-2 py-0.5 rounded-full ${
-                                i < iAtual ? 'bg-emerald-100 text-emerald-700'
-                                : i === iAtual ? 'bg-brand-500 text-white'
-                                : 'bg-ink/5 text-ink/45'}`}>
-                                {i < iAtual ? '✓' : i + 1} {p.nome}
-                                {i === iAtual && <span className="opacity-70"> ~{p.seg}s</span>}
-                              </span>
-                            </span>
-                          ))
-                        })()}
-                      </div>
-                      <span className="text-[10px] font-mono text-ink/45">
-                        {Math.floor(scenarioElapsed / 60)}:{String(scenarioElapsed % 60).padStart(2, '0')} decorrido
-                        {scenarioElapsed > 90 && ' · quase lá'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <textarea
-                value={scenarioDesc}
-                onChange={e => setScenarioDesc(e.target.value)}
-                onBlur={e => {
-                  if (e.target.value.trim()) fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ scenarioDesc: e.target.value }),
-                  })
-                }}
-                rows={10}
-                placeholder={`A IA irá gerar um cenário completo com:\n\n• Descrição do ambiente físico e infraestrutura\n• Arquitetura da solução com os equipamentos da BOM\n• Integração com sistemas existentes e dependências externas\n\nVANTAGENS TÉCNICAS:\n• Redundância, escalabilidade, integração com sistemas legados…\n\nBENEFÍCIOS PARA O CLIENTE:\n• Redução de custos operacionais, aumento de segurança, ROI…`}
-                className="input font-sans text-sm leading-relaxed"
-              />
-
-              {/* BOM context chips */}
-              {proposal.items.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {proposal.items.slice(0, 12).map(i => (
-                    <span key={i.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 text-[10px] font-semibold ring-1 ring-inset ring-brand-200">
-                      <span className="font-mono text-brand-400">{i.quantity}×</span> {i.product.name}
-                    </span>
-                  ))}
-                  {proposal.items.length > 12 && (
-                    <span className="px-2 py-0.5 rounded-full bg-ink/5 text-ink/45 text-[10px] font-semibold">
-                      +{proposal.items.length - 12} itens
-                    </span>
-                  )}
-                </div>
-              )}
+          </div>
+          {pdfAoLado && (
+            <div className="hidden 2xl:block sticky top-4 card !p-0 overflow-hidden h-[calc(100vh-2rem)]">
+              <iframe key={pdfVersao} src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/proposals/${id}/pdf?embed=1`} title="Prévia do PDF" className="w-full h-full border-0 bg-white" />
             </div>
-
-            {/* Diagram row: code + preview */}
-            <div className="grid grid-cols-5 gap-5">
-
-              {/* Left: type selector + code editor */}
-              <div className="col-span-2 card p-5 flex flex-col gap-3">
-
-                {/* Type toggle */}
-                <div className="flex items-center gap-1 bg-ink/5 rounded-lg p-1 self-start">
-                  <button
-                    onClick={() => handleDiagramTypeChange('plantec')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${diagramType === 'plantec' ? 'bg-surface shadow text-ink' : 'text-ink/55 hover:text-ink/75'}`}
-                  >
-                    Plantec
-                  </button>
-                  <button
-                    onClick={() => handleDiagramTypeChange('mermaid')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${diagramType === 'mermaid' ? 'bg-surface shadow text-ink' : 'text-ink/55 hover:text-ink/75'}`}
-                  >
-                    Mermaid
-                  </button>
-                  <button
-                    onClick={() => handleDiagramTypeChange('eraser')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${diagramType === 'eraser' ? 'bg-surface shadow text-ink' : 'text-ink/55 hover:text-ink/75'}`}
-                  >
-                    ✦ Eraser
-                  </button>
-                </div>
-
-                {diagramType === 'plantec' ? (
-                  <>
-                    <p className="text-xs text-ink/55 leading-relaxed">
-                      A IA descreve a topologia (faixas, equipamentos da BOM, o que já existe e o que falta) e o app desenha,
-                      igual na tela e no PDF. Sai junto com &quot;Gerar textos da proposta&quot; ou pelo botão abaixo.
-                    </p>
-                    <button
-                      onClick={() => handleGenerateDiagram()}
-                      disabled={scenarioGenerating}
-                      className="btn-ai btn-sm self-start"
-                    >
-                      {scenarioGenerating && scenarioStep === 'diagram' ? 'Desenhando…' : plantecCode.trim() ? '↺ Refazer diagrama' : '✦ Gerar diagrama'}
-                    </button>
-                    <div className="text-[10px] text-ink/45 font-medium space-y-0.5">
-                      <div><span className="inline-block w-3 h-3 rounded-sm bg-brand-50 border border-brand-300 mr-1" />Fornecido nesta proposta</div>
-                      <div><span className="inline-block w-3 h-3 rounded-sm bg-amber-50 border border-amber-300 mr-1" />Já existente no cliente</div>
-                      <div><span className="inline-block w-3 h-3 rounded-sm border border-dashed border-ink/30 mr-1" />Necessário, fora desta proposta</div>
-                    </div>
-                    <details className="text-xs">
-                      <summary className="cursor-pointer text-ink/45 font-semibold">Editar a topologia (JSON)</summary>
-                      <textarea
-                        value={plantecCode}
-                        onChange={e => setPlantecCode(e.target.value)}
-                        onBlur={e => {
-                          if (lerTopologia(e.target.value)) fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
-                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ scenarioDiagram: e.target.value, diagramType: 'plantec' }),
-                          })
-                          else if (e.target.value.trim()) toast.error('JSON inválido: a topologia não foi salva')
-                        }}
-                        rows={16}
-                        spellCheck={false}
-                        className="input font-mono text-[11px] leading-relaxed mt-2"
-                      />
-                    </details>
-                  </>
-                ) : diagramType === 'mermaid' ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="label">Código Mermaid</span>
-                      <span className="text-[10px] text-ink/45 font-semibold font-mono bg-ink/5 px-2 py-0.5 rounded-md">editável</span>
-                    </div>
-                    <textarea
-                      value={scenarioDiagram}
-                      onChange={e => setScenarioDiagram(e.target.value)}
-                      onBlur={e => {
-                        if (e.target.value.trim()) fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
-                          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ scenarioDiagram: e.target.value, diagramType: 'mermaid' }),
-                        })
-                      }}
-                      rows={20}
-                      spellCheck={false}
-                      placeholder={'graph TD\n\n  subgraph Internet\n    CLOUD["☁ Nuvem"]\n  end\n\n  CAM["Câmera IP"] -->|"PoE"| SW\n  SW["Switch"] --> NVR\n  NVR --> CLOUD'}
-                      className="input font-mono text-xs leading-relaxed flex-1 resize-none"
-                      style={{ fontFamily: "'Courier New', monospace" }}
-                    />
-                    <div className="text-[10px] text-ink/45 font-medium space-y-0.5">
-                      <div><span className="inline-block w-3 h-3 rounded-sm bg-brand-50 border border-brand-300 mr-1" />Equipamentos propostos</div>
-                      <div><span className="inline-block w-3 h-3 rounded-sm bg-amber-50 border border-amber-300 mr-1" />Sistemas existentes</div>
-                      <div><span className="inline-block w-3 h-3 rounded-sm border border-line/20 mr-1" style={{ background: 'repeating-linear-gradient(45deg,#f1f5f9,#f1f5f9 2px,#fff 2px,#fff 5px)' }} />Módulos externos/faltantes</div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="label">Prompt / Código Eraser</span>
-                      <a href="https://docs.eraser.io/docs/syntax" target="_blank" rel="noreferrer"
-                        className="text-[10px] text-brand-500 hover:underline font-semibold">
-                        sintaxe ↗
-                      </a>
-                    </div>
-                    <textarea
-                      value={scenarioDiagram}
-                      onChange={e => { setScenarioDiagram(e.target.value); setEraserPreviewUrl(null) }}
-                      onBlur={e => { if (e.target.value.trim()) saveEraserDiagram(e.target.value) }}
-                      rows={18}
-                      spellCheck={false}
-                      placeholder={`Descreva a arquitetura em linguagem natural ou use a sintaxe Eraser:\n\nCloud provider: AWS\n\nUsers > Internet Gateway\nInternet Gateway > Load Balancer\nLoad Balancer > [App Server 1, App Server 2]\n[App Server 1, App Server 2] > Database\n\n// Ou simplesmente descreva:\n// "NVR conectado via switch PoE a 12 câmeras IP\n//  em 3 andares, com acesso remoto via VPN"`}
-                      className="input text-xs leading-relaxed flex-1 resize-none"
-                      style={{ fontFamily: "'Courier New', monospace" }}
-                    />
-                    <button
-                      onClick={handleEraserPreview}
-                      disabled={eraserPreviewing || !scenarioDiagram.trim()}
-                      className="btn-primary btn-sm"
-                    >
-                      {eraserPreviewing ? (
-                        <><span className="animate-spin">◌</span> Gerando…</>
-                      ) : (
-                        <>✦ Gerar Preview</>
-                      )}
-                    </button>
-                    <p className="text-[10px] text-ink/45 leading-relaxed">
-                      Requer plano Starter+ do Eraser. Configure <code className="bg-ink/5 px-1 rounded">ERASER_API_KEY</code> no <code className="bg-ink/5 px-1 rounded">.env</code>.
-                    </p>
-                  </>
-                )}
-              </div>
-
-              {/* Right: preview panel */}
-              <div className="col-span-3 card p-5 flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="label">{diagramType === 'eraser' ? 'Diagrama Eraser' : 'Topologia'}</span>
-                  {scenarioDiagram && diagramType === 'mermaid' && (
-                    <span className="text-[10px] font-bold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-full ring-1 ring-inset ring-brand-200">
-                      ● ao vivo
-                    </span>
-                  )}
-                  <div className="flex items-center gap-2">
-                    {eraserPreviewUrl && (
-                      <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full ring-1 ring-inset ring-violet-200">
-                        ✦ Eraser
-                      </span>
-                    )}
-                    {/* O preview cabe em 480px; o projetista precisa ler rótulo
-                        de equipamento e de enlace, então o zoom abre em cheio. */}
-                    <DiagramZoom
-                      imageUrl={diagramType === 'eraser' ? eraserPreviewUrl : null}
-                      svg={diagramType === 'mermaid' ? mermaidSvg : diagramType === 'plantec' ? topologiaSvg : null}
-                      titulo={`${proposal.number} — ${diagramType === 'eraser' ? 'Diagrama Eraser' : 'Topologia de Rede'}`}
-                    />
-                  </div>
-                </div>
-
-                {diagramType === 'plantec' ? (
-                  topologiaSvg ? (
-                    <div className="flex-1 min-h-[440px] flex items-start justify-center overflow-auto bg-white rounded-lg" dangerouslySetInnerHTML={{ __html: topologiaSvg }} />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center flex-1 min-h-[440px] border-2 border-dashed border-line/10 rounded-xl text-center">
-                      <div className="text-5xl mb-3 opacity-20 select-none">◈</div>
-                      <p className="text-sm font-semibold text-ink/45">Diagrama de topologia aparece aqui</p>
-                      <p className="text-xs text-ink/35 mt-1 font-medium">Clique em &quot;Gerar diagrama&quot; — usa o brief e a BOM</p>
-                    </div>
-                  )
-                ) : diagramType === 'eraser' ? (
-                  eraserPreviewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={eraserPreviewUrl} alt="Diagrama Eraser" className="w-full rounded-lg border border-line/10 object-contain" style={{ maxHeight: 480 }} />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center flex-1 min-h-[440px] border-2 border-dashed border-violet-100 rounded-xl text-center bg-violet-50/30">
-                      <div className="text-4xl mb-3 opacity-30 select-none">✦</div>
-                      <p className="text-sm font-semibold text-ink/45">Preview do Eraser</p>
-                      <p className="text-xs text-ink/35 mt-1 font-medium">
-                        {scenarioDiagram.trim() ? 'Clique em "Gerar Preview" para renderizar' : 'Preencha o prompt à esquerda'}
-                      </p>
-                    </div>
-                  )
-                ) : scenarioDiagram ? (
-                  <MermaidDiagram code={scenarioDiagram} className="min-h-[440px] flex-1" onRendered={setMermaidSvg} />
-                ) : (
-                  <div className="flex flex-col items-center justify-center flex-1 min-h-[440px] border-2 border-dashed border-line/10 rounded-xl text-center">
-                    <div className="text-5xl mb-3 opacity-20 select-none">◈</div>
-                    <p className="text-sm font-semibold text-ink/45">Diagrama de topologia aparece aqui</p>
-                    <p className="text-xs text-ink/35 mt-1 font-medium">Descreva o cenário acima e clique em &quot;Gerar Diagrama&quot;</p>
-                  </div>
-                )}
-              </div>
-
-            </div>
+          )}
           </div>
         )}
+
+        {/* Etapa 4 — Revisar: conferência, páginas do PDF e o documento inteiro */}
+        {activeTab === 'revisar' && (
+          <RevisarEtapa proposalId={id} versao={pdfVersao} />
+        )}
+
       </div>
 
       {showAddProduct && (
