@@ -630,17 +630,11 @@ export default function ProposalDetailPage() {
     if (!proposal || proposal.items.length === 0) return
     setFillingBom(true)
     try {
-      // Funções pela IA (grava direto nos itens); o descritivo vem do catálogo
+      // Função e descritivo técnico pela IA, gravados direto nos itens. O
+      // descritivo não copia mais a descrição da loja ("CONHEÇA O PRODUTO…").
       const r = await gerarIA(id, { secoes: ['funcoes'], substituirFuncoes: true })
-      for (const item of proposal.items) {
-        if (item.technicalNotes?.trim() || !item.product.description) continue
-        await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}/items`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ itemId: item.id, technicalNotes: item.product.description }),
-        })
-      }
       await loadProposal()
-      if (r) { setVersaoIA(v => v + 1); toast.success(`${r.funcoes} funções preenchidas`) }
+      if (r) { setVersaoIA(v => v + 1); setPdfVersao(v => v + 1); toast.success(`Função e descritivo técnico de ${r.funcoes} itens`) }
     } catch (e) { toast.error(`Erro ao preencher BOM técnica: ${e instanceof Error ? e.message : e}`) }
     finally { setFillingBom(false) }
   }
@@ -845,10 +839,10 @@ export default function ProposalDetailPage() {
                         onClick={handleFillBomTech}
                         disabled={fillingBom}
                         className="btn-ai btn-xs"
-                        title="Gera função de cada item com IA e preenche Descritivo com a descrição do produto"
+                        title="A IA escreve a função de cada item no projeto e o descritivo técnico (a partir da ficha técnica)"
                       >
                         <HiSparkles className="w-3.5 h-3.5" />
-                        {fillingBom ? 'Preenchendo…' : 'Preencher BOM Técnica'}
+                        {fillingBom ? 'Escrevendo…' : 'BOM técnica com IA'}
                       </button>
                     )}
                     <button

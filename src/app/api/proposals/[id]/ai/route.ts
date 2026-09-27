@@ -7,7 +7,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import {
   SECOES, SECAO_CAMPO, SECAO_LABEL, VOZ,
-  montarContexto, schemaPara, conferir, corrigiveis, pedidoCorrecao, limpar,
+  montarContexto, schemaPara, conferir, corrigiveis, pedidoCorrecao, limpar, descritivoRuim,
   textoResumo, textoEscopo, textoCenario,
   type AiMeta, type Aviso, type Brief, type Gerado, type Secao,
 } from '@/lib/proposalAI'
@@ -67,7 +67,7 @@ async function chamar(contexto: string, secoes: Secao[], pedido: string, send: S
  */
 async function gravar(
   proposal: PropostaIA, g: Gerado, secoes: Secao[], skusFuncao: string[],
-  fonte: (s: Secao) => 'ia' | 'manual', modelo: string,
+  fonte: (s: Secao) => 'ia' | 'manual', modelo: string, refazerFuncoes = false,
 ) {
   const meta = (proposal.aiMeta ?? {}) as AiMeta
   const secoesMeta = { ...(meta.secoes ?? {}) }
@@ -86,11 +86,21 @@ async function gravar(
   for (const sec of secoes) secoesMeta[sec] = { fonte: fonte(sec), em: agora, modelo }
   data.aiMeta = { ...meta, secoes: secoesMeta } as Prisma.InputJsonValue
 
+  // Função e descritivo técnico de cada item. Sem "refazer", só preenche o
+  // que falta: função vazia e descritivo vazio ou copiado da loja ("CONHEÇA O
+  // PRODUTO…") — o que o projetista escreveu fica.
   const alvo = new Set(skusFuncao)
-  const porSku = new Map((g.funcoes ?? []).map(f => [f.sku.trim().toUpperCase(), limpar(f.funcao)]))
-  const updates = proposal.items
-    .filter(i => alvo.has(i.product.sku) && porSku.get(i.product.sku.toUpperCase()))
-    .map(i => prisma.proposalItem.update({ where: { id: i.id }, data: { role: porSku.get(i.product.sku.toUpperCase()) } }))
+  const porSku = new Map((g.funcoes ?? []).map(f => [f.sku.trim().toUpperCase(), f]))
+  const updates = proposal.items.flatMap(i => {
+    const f = porSku.get(i.product.sku.toUpperCase())
+    if (!alvo.has(i.product.sku) || !f) return []
+    const d: Prisma.ProposalItemUpdateInput = {}
+    const funcao = limpar(f.funcao ?? '')
+    const descritivo = limpar(f.descritivo ?? '')
+    if (funcao && (refazerFuncoes || !i.role?.trim())) d.role = funcao
+    if (descritivo && (refazerFuncoes || descritivoRuim(i.technicalNotes, i.product.description))) d.technicalNotes = descritivo
+    return Object.keys(d).length ? [prisma.proposalItem.update({ where: { id: i.id }, data: d })] : []
+  })
 
   await prisma.$transaction([...updates, prisma.proposal.update({ where: { id: proposal.id }, data })])
   return { textos, funcoes: updates.length, topologia: g.topologia ? (data.scenarioDiagram as string) : undefined }
@@ -109,10 +119,10 @@ function planoCorrecao(p: PropostaIA, avisos: Aviso[], limitarA?: Set<Secao>) {
   for (const [secao, lista] of Array.from(porSecao.entries())) {
     if (limitarA && !limitarA.has(secao)) continue
     if (secao === 'funcoes') {
-      skus = p.items.filter(i => !i.role?.trim()).map(i => i.product.sku)
+      skus = p.items.filter(i => !i.role?.trim() || descritivoRuim(i.technicalNotes, i.product.description)).map(i => i.product.sku)
       if (!skus.length) continue
       secoes.push('funcoes')
-      partes.push(`Em "funcoes", responda só estes SKUs, que estão sem função: ${skus.join(', ')}.`)
+      partes.push(`Em "funcoes", responda só estes SKUs, que estão sem função ou sem descritivo técnico: ${skus.join(', ')}.`)
       continue
     }
     if (secao === 'topologia') continue
@@ -188,9 +198,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           // Seções editadas à mão não são refeitas sem confirmação.
           const secoes = pedidas.filter(s => {
             if (s === 'funcoes') {
-              const vazias = p0.items.some(i => !i.role?.trim())
+              const vazias = p0.items.some(i => !i.role?.trim() || descritivoRuim(i.technicalNotes, i.product.description))
               if (!vazias && !sobrescrever.has('funcoes')) {
-                send({ type: 'pulado', secao: s, motivo: 'todas as funções já estão preenchidas' })
+                send({ type: 'pulado', secao: s, motivo: 'funções e descritivos já estão preenchidos' })
                 return false
               }
               return true
@@ -215,7 +225,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           }
 
           const skus = secoes.includes('funcoes')
-            ? p0.items.filter(i => sobrescrever.has('funcoes') || !i.role?.trim()).map(i => i.product.sku)
+            ? p0.items.filter(i => sobrescrever.has('funcoes') || !i.role?.trim() || descritivoRuim(i.technicalNotes, i.product.description)).map(i => i.product.sku)
             : []
           const pedido = [
             `Gere: ${secoes.map(s => SECAO_LABEL[s]).join(', ')}.`,
@@ -228,7 +238,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
           send({ type: 'inicio', secoes })
           const { g, msg } = await chamar(contexto, secoes, pedido, send)
-          somar(await gravar(p0, g, secoes, skus, () => 'ia', msg.model))
+          somar(await gravar(p0, g, secoes, skus, () => 'ia', msg.model, sobrescrever.has('funcoes')))
 
           // Conferência logo depois de gravar: o que a IA escreveu agora e
           // saiu com problema corrigível é corrigido já, uma vez só.

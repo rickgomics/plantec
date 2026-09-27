@@ -66,6 +66,26 @@ Voz:
 
 Cada campo da resposta vira um trecho do documento; escreva só o conteúdo do campo.`
 
+// ── Descrição da loja ─────────────────────────────────────────────────────────
+
+/**
+ * A descrição do produto vem do Magento: é o texto de venda da página da loja,
+ * e em metade do catálogo começa com o título da seção, "CONHEÇA O PRODUTO",
+ * colado depois que o HTML sai. Não serve de descritivo técnico.
+ */
+export function limparDescricaoLoja(d: string): string {
+  return d.replace(/^\s*conhe[cç]a o produto[:\s-]*/i, '').replace(/\s+/g, ' ').trim()
+}
+
+/** Descritivo técnico vazio ou copiado da descrição da loja: precisa ser gerado. */
+export function descritivoRuim(notas: string | null | undefined, descricaoProduto: string | null | undefined): boolean {
+  const n = (notas ?? '').trim()
+  if (!n) return true
+  if (/^conhe[cç]a\b/i.test(n)) return true
+  const d = (descricaoProduto ?? '').trim()
+  return !!d && (n === d || (n.length > 60 && d.startsWith(n.slice(0, 60))))
+}
+
 // ── Contexto (brief + BOM) ────────────────────────────────────────────────────
 
 interface ItemCtx {
@@ -99,7 +119,9 @@ export function montarContexto(p: PropostaCtx, brief: Brief): string {
       classe: [i.product.category, i.product.subcategory].filter(Boolean).join(' > '),
       quantidade: i.quantity,
       ...(ficha ? { ficha } : {}),
-      ...(!ficha && i.product.description ? { descricao: i.product.description.slice(0, 240) } : {}),
+      // sem ficha, a descrição da loja (texto de venda): vai limpa e maior, para
+      // a IA achar os dados técnicos no meio dela
+      ...(!ficha && i.product.description ? { descricao_loja: limparDescricaoLoja(i.product.description).slice(0, 600) } : {}),
     }
   })
 
@@ -154,10 +176,14 @@ const SCHEMA_SECAO = {
   },
   funcoes: {
     type: 'array',
-    description: 'Uma entrada por item da BOM: o que o produto faz NESTE projeto (até 40 palavras). Ex.: não "câmera IP", mas "Câmera dome que cobre a recepção e o corredor de acesso aos escritórios".',
+    description: 'Uma entrada por item da BOM, com a função no projeto e o descritivo técnico do produto.',
     items: {
-      type: 'object', additionalProperties: false, required: ['sku', 'funcao'],
-      properties: { sku: str, funcao: str },
+      type: 'object', additionalProperties: false, required: ['sku', 'funcao', 'descritivo'],
+      properties: {
+        sku: str,
+        funcao: { type: 'string', description: 'O que o produto faz NESTE projeto (até 40 palavras). Ex.: não "câmera IP", mas "Câmera dome que cobre a recepção e o corredor de acesso aos escritórios".' },
+        descritivo: { type: 'string', description: 'Características técnicas objetivas do produto, separadas por " · " (até 25 palavras): resolução, lente, alcance IR, portas, capacidade, alimentação, proteção, padrão. Use a ficha técnica; sem ela, extraia só os dados técnicos da descricao_loja. Nada de texto de venda ("desenvolvidas para cuidar da sua família"), nada do que o produto faz no projeto (isso é a função). Ex.: "2 MP Full HD · lente 2,8 mm · IR 30 m · PoE · IP67". Se não houver nenhum dado técnico, escreva o tipo do produto e o modelo.' },
+      },
     },
   },
   topologia: SCHEMA_TOPOLOGIA,
@@ -176,7 +202,7 @@ export interface Gerado {
   resumo?: { paragrafos: string[] }
   escopo?: { incluso: string[]; naoIncluso: string[]; condicoes: string[] }
   cenario?: { paragrafos: string[]; vantagens: string[]; beneficios: string[] }
-  funcoes?: { sku: string; funcao: string }[]
+  funcoes?: { sku: string; funcao: string; descritivo?: string }[]
   topologia?: Topologia
 }
 
@@ -237,7 +263,10 @@ interface PropostaConferencia {
   scope?: string | null
   scenarioDesc?: string | null
   includeServices?: boolean | null
-  items: { role?: string | null; unitPrice?: unknown; product: { sku: string; name: string; category: string } }[]
+  items: {
+    role?: string | null; technicalNotes?: string | null; unitPrice?: unknown
+    product: { sku: string; name: string; category: string; description?: string | null }
+  }[]
 }
 
 const PARAGRAFOS_CENARIO = /^(VANTAGENS TÉ?CNICAS?|BENEF[IÍ]CIOS PARA O CLIENTE)[ \t]*:?\s*$/im
@@ -296,6 +325,15 @@ export function conferir(p: PropostaConferencia): Aviso[] {
     avisos.push({
       secao: 'funcoes', nivel: 'atencao',
       texto: `${semFuncao.length} ${semFuncao.length === 1 ? 'item sem' : 'itens sem'} "Função na solução" — sai "a definir" na BOM técnica`,
+      correcao: 'gerar',
+    })
+  }
+
+  const semDescritivo = itens.filter(i => descritivoRuim(i.technicalNotes, i.product.description))
+  if (itens.length && semDescritivo.length) {
+    avisos.push({
+      secao: 'funcoes', nivel: 'atencao',
+      texto: `${semDescritivo.length} ${semDescritivo.length === 1 ? 'item sem' : 'itens sem'} descritivo técnico (ou com o texto de venda da loja) na BOM técnica`,
       correcao: 'gerar',
     })
   }

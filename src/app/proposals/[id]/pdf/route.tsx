@@ -5,6 +5,7 @@ import { getCoverStyle } from '@/lib/coverStyles'
 import { itensDaProposta } from '@/lib/services'
 import { lerTopologia, renderTopologiaSvg } from '@/lib/topologia'
 import { normalizar } from '@/lib/taxonomy'
+import { descritivoRuim } from '@/lib/proposalAI'
 
 async function mermaidToSvg(diagram: string): Promise<string | null> {
   try {
@@ -251,11 +252,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 
   function techRow(item: Item): string {
-    const desc  = item.product.description ?? ''
-    // A descrição aparece só na coluna Descritivo. Antes ela vinha também
-    // embaixo do nome, e a linha repetia o mesmo texto duas vezes — comendo
-    // altura sem acrescentar informação.
-    const notes = item.technicalNotes ?? (desc ? (desc.length > 220 ? desc.slice(0, 220) + '…' : desc) : '—')
+    // Descritivo técnico do item (IA ou projetista). A descrição da loja não
+    // entra mais como reserva: é texto de venda e metade começa com
+    // "CONHEÇA O PRODUTO". Sem descritivo, sai traço e a conferência avisa.
+    const notes = descritivoRuim(item.technicalNotes, item.product.description) ? '—' : item.technicalNotes!
     const clamp3 = 'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35'
     return `<tr>
       <td class="mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.product.sku)}</td>
