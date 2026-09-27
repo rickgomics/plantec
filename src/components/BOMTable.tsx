@@ -213,13 +213,18 @@ export default function BOMTable({
                     />
                   )}
                 </td>
-                <td className="px-4 py-3 text-right font-bold text-ink">
+                <td className="px-4 py-3 text-right font-bold text-ink num-mono whitespace-nowrap">
                   R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${marginBadge(margin)}`}>
-                    {margin.toFixed(1)}%
-                  </span>
+                  {/* sem custo digitado a margem sairia 100%: pede o custo em vez de mostrar número */}
+                  {cost > 0 ? (
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full num-mono ${marginBadge(margin)}`}>
+                      {margin.toFixed(1).replace('.', ',')}%
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-ink/45 whitespace-nowrap" title="Digite o custo do item para calcular a margem">sem custo</span>
+                  )}
                 </td>
                 {!readonly && (
                   <td className="px-4 py-3 text-center">

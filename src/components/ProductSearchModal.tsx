@@ -84,6 +84,9 @@ export default function ProductSearchModal({ onClose, onAdd }: ProductSearchModa
       if (search)   p.set('search',   search)
       if (category) p.set('category', category)
       if (subcategory) p.set('subcategory', subcategory)
+      // primeiros 60: a busca da BOM é para achar, não para navegar o catálogo
+      p.set('page', '1')
+      p.set('pageSize', '60')
       const r = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/products?${p}`)
       const data = await r.json()
       setProducts(data.products ?? [])

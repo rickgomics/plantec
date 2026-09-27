@@ -949,9 +949,13 @@ export default function ProposalDetailPage() {
                       <div className="flex justify-between font-bold text-ink text-base pt-2 border-t border-line/15">
                         <span>Total:</span><span>{fmt(totals.totalPrice)}</span>
                       </div>
-                      <div className={`flex justify-between font-medium ${totals.margin >= 15 ? 'text-green-600' : totals.margin >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>
-                        <span>Margem estimada:</span><span>{totals.margin.toFixed(1)}%</span>
-                      </div>
+                      {totals.totalCost > 0 ? (
+                        <div className={`flex justify-between font-medium ${totals.margin >= 15 ? 'text-green-600' : totals.margin >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>
+                          <span>Margem estimada:</span><span className="num-mono">{totals.margin.toFixed(1).replace('.', ',')}%</span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between text-ink/45"><span>Margem estimada:</span><span>sem custo nos itens</span></div>
+                      )}
                     </div>
                   </div>
                 </div>

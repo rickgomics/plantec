@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AppLayout from '@/components/AppLayout'
+import Paginacao from '@/components/Paginacao'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import type { ExternalProject } from '@/app/api/external-projects/route'
@@ -49,6 +50,8 @@ export default function ImportPage() {
   const [importing, setImporting]   = useState(false)
   const [results, setResults]       = useState<ImportResult[] | null>(null)
   const [search, setSearch]         = useState('')
+  const [page, setPage]             = useState(1)
+  const PAGE_SIZE = 50
 
   const load = async () => {
     setLoading(true)
@@ -77,6 +80,10 @@ export default function ImportPage() {
       (p.customer.cnpj ?? '').includes(q)
     )
   })
+
+  // 50 por página: a lista vinha inteira (página de 24 mil pixels)
+  const pagina = visible.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  useEffect(() => { setPage(1) }, [search])
 
   const allVisibleSelected = visible.length > 0 && visible.every(p => selected.has(p.id))
 
@@ -246,7 +253,7 @@ export default function ImportPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/10">
-                {visible.map(p => {
+                {pagina.map(p => {
                   const isSelected = selected.has(p.id)
                   const result     = results?.find(r => r.projectId === p.id)
                   return (
@@ -305,6 +312,7 @@ export default function ImportPage() {
                 })}
               </tbody>
             </table>
+            <Paginacao page={page} pageSize={PAGE_SIZE} total={visible.length} onPage={p => { setPage(p); window.scrollTo({ top: 0 }) }} />
           </div>
         ) : null}
       </div>

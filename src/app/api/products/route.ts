@@ -12,29 +12,40 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category') ?? ''
     const subcategory = searchParams.get('subcategory') ?? ''
     const active = searchParams.get('active')
+    // Paginado quando pedido (tela de Produtos, busca da BOM): antes a lista
+    // vinha inteira — 4.470 produtos numa página de 437 mil pixels.
+    const page = Math.max(1, Number(searchParams.get('page')) || 0)
+    const pageSize = Math.min(200, Math.max(1, Number(searchParams.get('pageSize')) || 50))
+    const paginar = searchParams.has('page')
 
-    const products = await prisma.product.findMany({
-      where: {
-        AND: [
-          active !== null ? { active: active === 'true' } : {},
-          category ? { category } : {},
-          subcategory ? { subcategory } : {},
-          search
-            ? {
-                OR: [
-                  { name: { contains: search, mode: 'insensitive' } },
-                  { sku: { contains: search, mode: 'insensitive' } },
-                  { brand: { contains: search, mode: 'insensitive' } },
-                  { description: { contains: search, mode: 'insensitive' } },
-                ],
-              }
-            : {},
-        ],
-      },
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
-    })
+    const where: Prisma.ProductWhereInput = {
+    AND: [
+      active !== null ? { active: active === 'true' } : {},
+      category ? { category } : {},
+      subcategory ? { subcategory } : {},
+      search
+        ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { sku: { contains: search, mode: 'insensitive' } },
+              { brand: { contains: search, mode: 'insensitive' } },
+              { description: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {},
+    ],
+    }
+    const orderBy: Prisma.ProductOrderByWithRelationInput[] = [{ category: 'asc' }, { name: 'asc' }]
 
-    return NextResponse.json({ products })
+    if (!paginar) {
+      const products = await prisma.product.findMany({ where, orderBy })
+      return NextResponse.json({ products })
+    }
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({ where, orderBy, skip: (page - 1) * pageSize, take: pageSize }),
+      prisma.product.count({ where }),
+    ])
+    return NextResponse.json({ products, total, page, pageSize })
   } catch (error) {
     console.error('GET /api/products error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
                 OR: [
                   { title: { contains: search, mode: 'insensitive' } },
                   { number: { contains: search, mode: 'insensitive' } },
+                  { customer: { companyName: { contains: search, mode: 'insensitive' } } },
+                  { customer: { tradeName: { contains: search, mode: 'insensitive' } } },
                 ],
               }
             : {},

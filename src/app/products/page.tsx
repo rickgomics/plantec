@@ -9,11 +9,13 @@ import {
 } from 'react-icons/hi2'
 import { Product } from '@/types'
 import CategoryFilter from '@/components/CategoryFilter'
+import Paginacao from '@/components/Paginacao'
 import { CATEGORY_NAMES, subcategoriesOf } from '@/lib/taxonomy'
 
 
+// O Magento não tem custo: sem custo informado a margem sairia 100% e enganaria.
 function marginColor(cost: number, price: number) {
-  if (price === 0) return 'text-ink/45'
+  if (price === 0 || cost === 0) return 'text-ink/45'
   const m = ((price - cost) / price) * 100
   if (m >= 15) return 'text-emerald-600'
   if (m >= 10) return 'text-amber-600'
@@ -21,8 +23,8 @@ function marginColor(cost: number, price: number) {
 }
 
 function marginPct(cost: number, price: number) {
-  if (price === 0) return '—'
-  return (((price - cost) / price) * 100).toFixed(1) + '%'
+  if (price === 0 || cost === 0) return '—'
+  return (((price - cost) / price) * 100).toFixed(1).replace('.', ',') + '%'
 }
 
 const emptyForm = {
@@ -319,6 +321,9 @@ const SPEC_LABELS: Record<string, string> = {
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const PAGE_SIZE = 50
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [subcategory, setSubcategory] = useState('')
@@ -342,11 +347,17 @@ export default function ProductsPage() {
     if (search) p.set('search', search)
     if (category) p.set('category', category)
     if (subcategory) p.set('subcategory', subcategory)
+    p.set('page', String(page))
+    p.set('pageSize', String(PAGE_SIZE))
     const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/products?${p}`)
     const data = await res.json()
     setProducts(data.products ?? [])
+    setTotal(data.total ?? 0)
     setLoading(false)
-  }, [search, category, subcategory])
+  }, [search, category, subcategory, page])
+
+  // filtro novo volta para a primeira página
+  useEffect(() => { setPage(1) }, [search, category, subcategory])
 
   useEffect(() => {
     const t = setTimeout(load, 300)
@@ -448,7 +459,7 @@ export default function ProductsPage() {
             <div className="eyebrow">Portal Plantec · BOM Builder</div>
             <h1 className="page-title">Produtos</h1>
             <p className="page-subtitle">
-              {loading ? 'Carregando...' : `${products.length} produto${products.length !== 1 ? 's' : ''}`}
+              {loading ? 'Carregando…' : `${total.toLocaleString('pt-BR')} produto${total !== 1 ? 's' : ''}${search || category ? ' no filtro' : ' no catálogo'}`}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -581,6 +592,7 @@ export default function ProductsPage() {
               })}
             </tbody>
           </table>
+          <Paginacao page={page} pageSize={PAGE_SIZE} total={total} onPage={p => { setPage(p); window.scrollTo({ top: 0 }) }} />
         </div>
       </div>
 

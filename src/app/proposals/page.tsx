@@ -78,7 +78,7 @@ export default function ProposalsPage() {
         <div className="card mb-4 p-4 flex gap-3">
           <input
             className="input flex-1"
-            placeholder="Buscar por título ou número..."
+            placeholder="Buscar por cliente, título ou número…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -124,8 +124,8 @@ export default function ProposalsPage() {
                 </tr>
               ) : proposals.map((p) => (
                 <tr key={p.id} className="hover:bg-brand-50/30 transition-colors group">
-                  <td className="px-4 py-3.5 font-mono text-[11px] text-ink/45 font-semibold">{p.number}</td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 num-mono text-[11px] text-ink/55 whitespace-nowrap">{p.number}</td>
+                  <td className="px-4 py-3.5 min-w-[300px]">
                     <Link
                       href={`/proposals/${p.id}`}
                       className="font-semibold text-ink hover:text-brand-600 transition-colors"
@@ -133,19 +133,24 @@ export default function ProposalsPage() {
                       {p.title}
                     </Link>
                   </td>
-                  <td className="px-4 py-3.5 text-ink/55 font-medium">{p.customer?.companyName}</td>
+                  <td className="px-4 py-3.5 text-ink/65 font-medium max-w-[220px]">{p.customer?.companyName}</td>
                   <td className="px-4 py-3.5 text-ink/55 font-medium">{p.vertical}</td>
                   <td className="px-4 py-3.5"><StatusBadge status={p.status} /></td>
-                  <td className="px-4 py-3.5 text-right font-bold text-ink">
+                  <td className="px-4 py-3.5 text-right font-semibold text-ink num-mono whitespace-nowrap">
                     {fmt(Number(p.totalPrice))}
                   </td>
-                  <td className={`px-4 py-3.5 text-right font-semibold ${
-                    Number(p.margin) >= 15 ? 'text-emerald-600' :
-                    Number(p.margin) >= 10 ? 'text-amber-600' : 'text-red-500'
-                  }`}>
-                    {Number(p.margin) > 0 ? `${Number(p.margin).toFixed(1)}%` : '—'}
-                  </td>
-                  <td className="px-4 py-3.5 text-right text-ink/45 text-xs font-semibold">
+                  {/* Sem custo digitado a margem sai 100% e engana: mostra que falta o custo */}
+                  {Number(p.totalCost) > 0 ? (
+                    <td className={`px-4 py-3.5 text-right font-semibold num-mono ${
+                      Number(p.margin) >= 15 ? 'text-emerald-600' :
+                      Number(p.margin) >= 10 ? 'text-amber-600' : 'text-red-500'
+                    }`}>
+                      {`${Number(p.margin).toFixed(1).replace('.', ',')}%`}
+                    </td>
+                  ) : (
+                    <td className="px-4 py-3.5 text-right text-xs text-ink/45 whitespace-nowrap" title="Nenhum item com custo informado">sem custo</td>
+                  )}
+                  <td className="px-4 py-3.5 text-right text-ink/55 text-xs num-mono whitespace-nowrap">
                     {new Date(p.createdAt).toLocaleDateString('pt-BR')}
                   </td>
                   <td className="px-4 py-3.5">
