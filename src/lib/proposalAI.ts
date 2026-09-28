@@ -181,8 +181,8 @@ const SCHEMA_SECAO = {
       type: 'object', additionalProperties: false, required: ['sku', 'funcao', 'descritivo'],
       properties: {
         sku: str,
-        funcao: { type: 'string', description: 'O que o produto faz NESTE projeto (até 40 palavras). Ex.: não "câmera IP", mas "Câmera dome que cobre a recepção e o corredor de acesso aos escritórios".' },
-        descritivo: { type: 'string', description: 'Características técnicas objetivas do produto, separadas por " · " (até 25 palavras): resolução, lente, alcance IR, portas, capacidade, alimentação, proteção, padrão. Use a ficha técnica; sem ela, extraia só os dados técnicos da descricao_loja. Nada de texto de venda ("desenvolvidas para cuidar da sua família"), nada do que o produto faz no projeto (isso é a função). Ex.: "2 MP Full HD · lente 2,8 mm · IR 30 m · PoE · IP67". Se não houver nenhum dado técnico, escreva o tipo do produto e o modelo.' },
+        funcao: { type: 'string', description: 'O que o produto faz NESTE projeto, sem limite de tamanho: o necessário para ficar claro onde fica, o que cobre e com o que se liga. Ex.: não "câmera IP", mas "Câmera dome que cobre a recepção e o corredor de acesso aos escritórios".' },
+        descritivo: { type: 'string', description: 'Características técnicas objetivas do produto, separadas por " · ", sem limite de tamanho — todas as relevantes: resolução, lente, alcance IR, portas, capacidade, alimentação, proteção, padrão. Use a ficha técnica; sem ela, extraia só os dados técnicos da descricao_loja. Nada de texto de venda ("desenvolvidas para cuidar da sua família"), nada do que o produto faz no projeto (isso é a função). Ex.: "2 MP Full HD · lente 2,8 mm · IR 30 m · PoE · IP67". Se não houver nenhum dado técnico, escreva o tipo do produto e o modelo.' },
       },
     },
   },

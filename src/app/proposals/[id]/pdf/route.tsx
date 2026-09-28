@@ -40,8 +40,22 @@ function fmtPct(v: number | string): string {
 // .pc padding: 36 top + 36 bottom = 72 px
 // Usable content area: 1122 - 81 - 42 - 72 = 927 px
 const CONTENT_H = 927
-const BOM_ROW_H  = 60   // tbody tr (padding 8×2 + nome em até 2 linhas + marca + gap)
-const TECH_ROW_H = 64   // tbody tr (nome em 2 linhas + marca, sem descrição duplicada)
+// Altura das linhas das BOMs: estimada pelo tamanho do texto de cada coluna
+// (nome, função e descritivo não são mais cortados — 28/09/2026). Largura
+// útil da tabela 682 px; td com padding 8×12. Larguras de caractere e fator
+// de folga pendem para cima: sobrar espaço é melhor que o texto sumir no
+// overflow:hidden da página — e o pdf-check mede de verdade.
+const TABELA_W   = 682
+const PAD_V      = 17   // padding 8×2 + borda
+function linhasDe(texto: string, larguraPx: number, pxPorChar: number): number {
+  const porLinha = Math.max(8, Math.floor(larguraPx / pxPorChar))
+  return String(texto ?? '').split('\n').reduce((n, par) => n + Math.max(1, Math.ceil(par.length * 1.12 / porLinha)), 0)
+}
+/** Altura da célula de produto: nome (8,5pt bold) + linha de marca (7pt). */
+function alturaNome(nome: string, colPct: number, temImg: boolean): number {
+  const w = TABELA_W * colPct - 24 - (temImg ? 37 : 0)
+  return Math.max(temImg ? 30 : 0, linhasDe(nome, w, 6.4) * 14.2 + 13)
+}
 const S_HDG      = 44   // .section-heading + margin-bottom:20
 const TBL_HDR    = 30   // thead tr
 const TBL_FTR    = 37   // tfoot tr
@@ -215,14 +229,15 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   function nameCell(item: Item, extraText?: string): string {
     const img  = productImg(item)
-    const text = `<div style="min-width:0;flex:1;overflow:hidden">
-      <span style="font-weight:700;color:#0F172A;font-size:8.5pt;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25">${esc(item.product.name)}</span>
+    // nome inteiro, sem corte (a altura da linha é estimada por ele)
+    const text = `<div style="min-width:0;flex:1">
+      <span style="display:block;font-weight:700;color:#0F172A;font-size:8.5pt;line-height:1.25">${esc(item.product.name)}</span>
       ${item.product.brand
         ? `<span style="display:block;font-size:7pt;color:#94A3B8;font-weight:500;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.product.brand)} · ${esc(item.product.category)}</span>`
         : ''}
       ${extraText ?? ''}
     </div>`
-    return `<td style="overflow:hidden"><div style="display:flex;align-items:center;gap:7px">${img}${text}</div></td>`
+    return `<td><div style="display:flex;align-items:flex-start;gap:7px">${img}${text}</div></td>`
   }
 
   function bomRow(item: Item): string {
@@ -251,12 +266,26 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     </tr>`
   }
 
+  const temImg = (item: Item) => !!(item.product.attributes as Record<string, unknown> | null)?.image_url
+  function alturaBom(item: Item): number {
+    return PAD_V + alturaNome(item.product.name, showUnit ? 0.42 : 0.58, temImg(item))
+  }
+  function alturaTech(item: Item): number {
+    const notes = descritivoRuim(item.technicalNotes, item.product.description) ? '—' : item.technicalNotes!
+    return PAD_V + Math.max(
+      alturaNome(item.product.name, 0.30, temImg(item)),
+      linhasDe(item.role || 'a definir', TABELA_W * 0.34 - 24, 6.1) * 15.3,
+      linhasDe(notes, TABELA_W * 0.26 - 24, 4.9) * 12.6,
+    )
+  }
+
   function techRow(item: Item): string {
     // Descritivo técnico do item (IA ou projetista). A descrição da loja não
     // entra mais como reserva: é texto de venda e metade começa com
     // "CONHEÇA O PRODUTO". Sem descritivo, sai traço e a conferência avisa.
     const notes = descritivoRuim(item.technicalNotes, item.product.description) ? '—' : item.technicalNotes!
-    const clamp3 = 'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35'
+    // função e descritivo inteiros, sem corte em 3 linhas
+    const clamp3 = 'line-height:1.35'
     return `<tr>
       <td class="mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.product.sku)}</td>
       ${nameCell(item)}
@@ -319,32 +348,30 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const items = proposal!.items
     if (!items.length) return ''
     const out: string[] = []
-    let rem = [...items]
+    let i = 0
     let first = true
-    let tfootRendered = false
-
-    while (rem.length > 0) {
-      const base    = first ? S_HDG : 0
-      const capFull = Math.max(1, Math.floor((CONTENT_H - base - TBL_HDR - TBL_FTR - TOTALS_BLK) / BOM_ROW_H))
-      const capMore = Math.max(1, Math.floor((CONTENT_H - base - TBL_HDR) / BOM_ROW_H))
-      const isLast  = rem.length <= capFull
-      // Cabe tudo nesta página mas não o card de totais: deixa as últimas
-      // linhas para a próxima, senão os totais caem sozinhos numa página.
-      const levar   = !isLast && rem.length <= capMore ? rem.length - Math.min(3, rem.length - 1) : capMore
-      const chunk   = isLast ? rem : rem.slice(0, levar)
-      rem           = isLast ? [] : rem.slice(levar)
-      const hdg     = first ? `<div class="section-heading"><h2>Investimento</h2></div>` : ''
-      const rows    = chunk.map(bomRow).join('')
-      out.push(pg(`${hdg}<table class="data-table">${bomThead}<tbody>${rows}</tbody>${isLast ? bomTfoot : ''}</table>${isLast ? totalsCard : ''}`))
-      if (isLast) tfootRendered = true
+    while (i < items.length) {
+      const disp = CONTENT_H - (first ? S_HDG : 0) - TBL_HDR
+      // enche a página pela altura estimada de cada linha
+      let fim = i, usado = 0
+      while (fim < items.length && (fim === i || usado + alturaBom(items[fim]) <= disp)) { usado += alturaBom(items[fim]); fim++ }
+      let ultima = fim >= items.length
+      if (ultima && usado + TBL_FTR + TOTALS_BLK > disp) {
+        // o card de totais não cabe: leva as últimas linhas junto para a
+        // próxima página (os totais nunca ficam sozinhos)
+        let volta = 0
+        while (fim - 1 > i && volta < 3 && usado + TBL_FTR + TOTALS_BLK > disp) { fim--; usado -= alturaBom(items[fim]); volta++ }
+        ultima = usado + TBL_FTR + TOTALS_BLK <= disp && fim >= items.length
+      }
+      const hdg  = first ? `<div class="section-heading"><h2>Investimento</h2></div>` : ''
+      const rows = items.slice(i, fim).map(bomRow).join('')
+      out.push(pg(`${hdg}<table class="data-table">${bomThead}<tbody>${rows}</tbody>${ultima ? bomTfoot : ''}</table>${ultima ? totalsCard : ''}`))
+      if (ultima) return out.join('')
+      i = fim
       first = false
     }
-
-    // Edge case: capFull < N <= capMore — loop exhausted rem without rendering tfoot
-    if (!tfootRendered) {
-      out.push(pg(`<table class="data-table">${bomTfoot}</table>${totalsCard}`))
-    }
-
+    // todas as linhas saíram e os totais não couberam na última página
+    out.push(pg(`<table class="data-table">${bomTfoot}</table>${totalsCard}`))
     return out.join('')
   }
 
@@ -353,16 +380,16 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const items = proposal!.items
     if (!items.length) return ''
     const out: string[] = []
-    let rem = [...items]
+    let i = 0
     let first = true
-    while (rem.length > 0) {
-      const base  = first ? S_HDG : 0
-      const cap   = Math.max(1, Math.floor((CONTENT_H - base - TBL_HDR) / TECH_ROW_H))
-      const chunk = rem.slice(0, cap)
-      rem         = rem.slice(cap)
-      const hdg   = first ? `<div class="section-heading"><h2>Anexo — BOM Técnica</h2></div>` : ''
-      const rows  = chunk.map(techRow).join('')
+    while (i < items.length) {
+      const disp = CONTENT_H - (first ? S_HDG : 0) - TBL_HDR
+      let fim = i, usado = 0
+      while (fim < items.length && (fim === i || usado + alturaTech(items[fim]) <= disp)) { usado += alturaTech(items[fim]); fim++ }
+      const hdg  = first ? `<div class="section-heading"><h2>Anexo — BOM Técnica</h2></div>` : ''
+      const rows = items.slice(i, fim).map(techRow).join('')
       out.push(pg(`${hdg}<table class="data-table">${techThead}<tbody>${rows}</tbody></table>`))
+      i = fim
       first = false
     }
     return out.join('')
