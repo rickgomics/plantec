@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const {
-      sku,
+      sku: skuInformado,
       name,
       description,
       brand,
@@ -73,9 +73,12 @@ export async function POST(request: NextRequest) {
       upsert: doUpsert,
     } = body
 
-    if (!sku || !name || !category) {
+    // Produto digitado pelo projetista pode vir sem SKU (ex.: tela de LED sob
+    // medida, fora do ERP): recebe um código DIG- único.
+    const sku = String(skuInformado ?? '').trim() || `DIG-${Date.now().toString(36).toUpperCase()}`
+    if (!name || !category) {
       return NextResponse.json(
-        { error: 'SKU, name and category are required' },
+        { error: 'Nome e categoria são obrigatórios' },
         { status: 400 }
       )
     }

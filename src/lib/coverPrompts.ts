@@ -61,6 +61,14 @@ export const COVER_PROMPTS: CoverPrompt[] = [
       'a single point, communication towers in silhouette, violet light. ' +
       'Deep indigo with violet accents. ' + COMUM,
   },
+  {
+    id: 'displays',
+    label: 'Displays e Telas de LED',
+    prompt:
+      'Large LED video wall abstraction: a grid of glowing pixels forming a screen, ' +
+      'light spilling onto a dark auditorium or façade. ' +
+      'Deep navy-black with sky blue accents. ' + COMUM,
+  },
 ]
 
 export function getCoverPrompt(id: string): CoverPrompt | undefined {

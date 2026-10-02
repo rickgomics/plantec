@@ -2,17 +2,20 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Product } from '@/types'
-import { HiMagnifyingGlass, HiXMark, HiKey } from 'react-icons/hi2'
+import { HiMagnifyingGlass, HiXMark, HiKey, HiPencilSquare } from 'react-icons/hi2'
+import ProdutoDigitado from '@/components/ProdutoDigitado'
 import CategoryFilter from '@/components/CategoryFilter'
 
 interface ProductSearchModalProps {
   onClose: () => void
   onAdd: (product: Product, quantity: number) => void
+  /** Segmento da proposta: categoria sugerida ao digitar um produto */
+  categoriaPadrao?: string
 }
 
 const LIC_FABRICANTES = ['', '3CX', 'INTELBRAS - COMUNICAÇÃO', 'INTELBRAS - SEGURANÇA ELETRONICA', 'KHOMP - COMUNICAÇÃO', 'SOMA TARIFADOR', 'KHOMP - IOT', 'ALTISTECH']
 
-type Mode = 'probing' | 'magento' | 'local' | 'licencas'
+type Mode = 'probing' | 'magento' | 'local' | 'licencas' | 'digitar'
 
 interface LicencaItem {
   chave: number
@@ -29,7 +32,7 @@ function isExternalProduct(id: string) {
   return id.startsWith('magento_') || id.startsWith('hub_') || id.startsWith('lic_')
 }
 
-export default function ProductSearchModal({ onClose, onAdd }: ProductSearchModalProps) {
+export default function ProductSearchModal({ onClose, onAdd, categoriaPadrao }: ProductSearchModalProps) {
   const [search, setSearch]         = useState('')
   const [category, setCategory]     = useState('')
   const [subcategory, setSubcat]    = useState('')
@@ -53,10 +56,11 @@ export default function ProductSearchModal({ onClose, onAdd }: ProductSearchModa
         const r = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/plantec/products?s=.&limit=1`)
         const available = r.status !== 503
         magentoAvailable.current = available
-        setMode(available ? 'magento' : 'local')
+        // só escolhe a aba se o usuário ainda não escolheu uma
+        setMode(m => m === 'probing' ? (available ? 'magento' : 'local') : m)
       } catch {
         magentoAvailable.current = false
-        setMode('local')
+        setMode(m => m === 'probing' ? 'local' : m)
       }
     }
     probe()
@@ -64,7 +68,7 @@ export default function ProductSearchModal({ onClose, onAdd }: ProductSearchModa
 
   // ── Catalog fetch ──────────────────────────────────────────────────────────
   const fetchProducts = useCallback(async () => {
-    if (mode === 'probing' || mode === 'licencas') return
+    if (mode === 'probing' || mode === 'licencas' || mode === 'digitar') return
 
     if (mode === 'magento') {
       if (!search.trim()) { setProducts([]); return }
@@ -280,9 +284,23 @@ export default function ProductSearchModal({ onClose, onAdd }: ProductSearchModa
               <HiKey className="w-3.5 h-3.5" />
               Licenças de Software
             </button>
+            <button
+              onClick={() => switchMode('digitar')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors flex items-center gap-1.5 ${
+                mode === 'digitar'
+                  ? 'border-brand-500 text-brand-600 dark:text-brand-400 bg-brand-50/60 dark:bg-brand-900/20'
+                  : 'border-transparent text-ink/45 hover:text-ink/65'
+              }`}
+            >
+              <HiPencilSquare className="w-3.5 h-3.5" />
+              Digitar produto
+            </button>
           </div>
         )}
 
+        {mode === 'digitar' ? (
+          <ProdutoDigitado categoriaPadrao={categoriaPadrao} onCriado={(p, q) => { onAdd(p, q); onClose() }} />
+        ) : (<>
         {/* Search / filters */}
         <div className="px-5 py-3 border-b border-line/10 flex gap-3">
           <div className="relative flex-1">
@@ -504,6 +522,7 @@ export default function ProductSearchModal({ onClose, onAdd }: ProductSearchModa
             </button>
           </div>
         )}
+        </>)}
       </div>
     </div>
   )

@@ -1570,6 +1570,7 @@ export default function ProposalDetailPage() {
         <ProductSearchModal
           onClose={() => setShowAddProduct(false)}
           onAdd={handleAddProduct}
+          categoriaPadrao={proposal.vertical}
         />
       )}
 

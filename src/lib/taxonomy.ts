@@ -27,6 +27,8 @@ export const TAXONOMY: CategoryDef[] = [
   { name: 'Controle de Acesso', subs: ['Leitores e Controladoras', 'Fechaduras', 'Catracas e Cancelas', 'Credenciais', 'Acionadores', 'Automatizadores'] },
   { name: 'Alarme e Incêndio', subs: ['Centrais de Alarme', 'Sensores', 'Sirenes', 'Cercas Elétricas', 'Detecção de Incêndio'] },
   { name: 'Portaria e Interfonia', subs: ['Videoporteiros', 'Porteiros e Interfones', 'Portaria Virtual'] },
+  // Produtos digitados pelos projetistas (não vêm do Magento) — 02/10/2026
+  { name: 'Displays e Telas de LED', subs: ['Painéis de LED', 'Videowall', 'Monitores e Displays', 'Processadores e Controladoras', 'Estruturas e Suportes'] },
   { name: 'Telefonia', subs: ['Centrais Telefônicas', 'Telefones e Headsets', 'Gateways VoIP', 'Rádios'] },
   { name: 'Mobilidade Elétrica', subs: ['Estação de recarga AC', 'Carregador portátil AC', 'Carregador rápido DC'] },
   { name: 'Informática', subs: ['Periféricos', 'Cabos e Adaptadores', 'Servidores'] },
@@ -122,6 +124,7 @@ const REGRAS: Regra[] = [
   ['disjuntor',        /^(DISJUNTOR|MINIDISJUNTOR|MINI ?DISJUNTOR|QUADRO|BARRAMENTO|INTERRUPTOR DIFERENCIAL|DR\b|CONTATOR|PENTE)\b/, 'Infraestrutura Elétrica', 'Disjuntores e Quadros'],
   ['tomada',           /^(TOMADA|INTERRUPTOR|INTERRUPTORES|PLACA\b(?!.*\b(RAMA(L|IS)|TRONCO|CENTRAL|IMPACTA)\b).*\b[24] ?X ?[24]\b|PLACA\+|ESPELHO|CONJUNTO|MODULO (TOMADA|INTERRUPTOR|PULSADOR|CEGO)|CAMPAINHA|PULSADOR|DIMMER|SOQUETE|PLUGUE)\b/, 'Infraestrutura Elétrica', 'Tomadas e Interruptores'],
   ['canaleta',         /^(CANALETA|ELETROCALHA|CALHA|COTOVELO|DERIVACAO|DERIVADOR|CURVA|LUVA (DE )?(EMENDA|PARA (ELETRODUTO|CANALETA|ELETROCALHA)|PVC|ROSCAVEL|\d)|UNIAO|TE\b|TAMPA (DE )?(CANALETA|CALHA|ELETROCALHA)|ELETRODUTO|CONDULETE|CAIXA (DE )?(SOBREPOR|EMBUTIR|PASSAGEM)|PERFILADO|SAIDA LATERAL|EMENDA)\b/, 'Infraestrutura Elétrica', 'Canaletas e Eletrocalhas'],
+  ['tela-led',         /\b(TELA|PAINEL|MODULO|GABINETE) (DE )?LED\b.*\b(P ?\d+([.,]\d+)?|PIXEL|INDOOR|OUTDOOR|RGB|M2|M²)\b|\bVIDEO ?WALL\b|\bLED WALL\b/, 'Displays e Telas de LED', null],
   ['iluminacao',       /^(LAMPADA|LUMINARIA|LED|REFLETOR|PAINEL LED|FITA LED|ARANDELA|PLAFON)\b/, 'Infraestrutura Elétrica', 'Iluminação'],
 
   // Controle de acesso

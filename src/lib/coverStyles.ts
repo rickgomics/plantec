@@ -1,6 +1,6 @@
 export type CoverStyleId =
   | 'teal' | 'carbon' | 'ocean' | 'burgundy' | 'pearl'
-  | 'security' | 'networks' | 'access' | 'energy' | 'comms'
+  | 'security' | 'networks' | 'access' | 'energy' | 'comms' | 'displays'
 
 export interface CoverStyle {
   id: CoverStyleId
@@ -231,6 +231,27 @@ export const COVER_STYLES: CoverStyle[] = [
   <circle cx="95" cy="200" r="3" fill="#8B5CF6" fill-opacity="0.5"/>
   <circle cx="160" cy="200" r="3" fill="#8B5CF6" fill-opacity="0.5"/>
   <circle cx="225" cy="200" r="3" fill="#8B5CF6" fill-opacity="0.4"/>
+</svg>`,
+  },
+
+  // Displays e Telas de LED — preto-azulado + grade de pixels (02/10/2026)
+  {
+    id: 'displays',
+    name: 'Displays e LED',
+    vertical: 'Displays e Telas de LED',
+    bg: 'linear-gradient(150deg,#05070F 0%,#0B1530 55%,#102A4C 100%)',
+    pattern: 'radial-gradient(ellipse at 78% 30%,rgba(56,189,248,.18) 0%,transparent 45%),radial-gradient(circle,rgba(56,189,248,.07) 1px,transparent 1.5px)',
+    accent: '#38BDF8',
+    accentLight: '#BAE6FD',
+    text: '#ffffff',
+    subText: 'rgba(255,255,255,0.55)',
+    footerBg: 'rgba(0,0,0,0.35)',
+    dark: true,
+    decorationSvg: `<svg width="360" height="300" viewBox="0 0 360 300" fill="none" xmlns="http://www.w3.org/2000/svg" style="${decoStyle('right:-30px;top:50%;transform:translateY(-52%);opacity:0.14')}">
+  <rect x="10" y="20" width="330" height="190" rx="6" stroke="#38BDF8" stroke-width="3"/>
+  <g fill="#38BDF8">${Array.from({ length: 9 }, (_, l) => Array.from({ length: 15 }, (_, c) =>
+    `<rect x="${24 + c * 21}" y="${33 + l * 19}" width="13" height="11" rx="1.5" fill-opacity="${(0.15 + ((l * 7 + c * 3) % 10) / 14).toFixed(2)}"/>`).join('')).join('')}</g>
+  <path d="M175 210 L175 262 M120 266 L230 266" stroke="#38BDF8" stroke-width="3" stroke-linecap="round"/>
 </svg>`,
   },
 ]

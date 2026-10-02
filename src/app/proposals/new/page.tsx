@@ -5,7 +5,7 @@ import AppLayout from '@/components/AppLayout'
 import { useRouter } from 'next/navigation'
 import { Customer } from '@/types'
 
-const VERTICALS = ['CFTV', 'Redes', 'Energia', 'Controle de Acesso', 'Infraestrutura', 'Serviços', 'Geral']
+const VERTICALS = ['CFTV', 'Redes', 'Energia', 'Controle de Acesso', 'Displays e Telas de LED', 'Infraestrutura', 'Serviços', 'Geral']
 
 export default function NewProposalPage() {
   const router = useRouter()
