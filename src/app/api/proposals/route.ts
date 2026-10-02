@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { TEMA_DO_SEGMENTO } from '@/lib/segmentos'
 
 async function generateProposalNumber(): Promise<string> {
   const year = new Date().getFullYear()
@@ -76,6 +77,8 @@ export async function POST(req: NextRequest) {
         number,
         title,
         vertical: vertical ?? 'Geral',
+        // a capa já nasce com o tema do segmento (Displays → capa Displays e LED)
+        coverStyle: TEMA_DO_SEGMENTO[vertical ?? ''] ?? 'teal',
         customerId,
         executiveSummary: executiveSummary ?? null,
         scope: scope ?? null,

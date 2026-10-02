@@ -23,6 +23,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Proposal, ProposalItem, Product, RuleEngineResult, CompanyProfile } from '@/types'
 import { COVER_STYLES, getCoverStyle } from '@/lib/coverStyles'
+import { SEGMENTOS, TEMA_DO_SEGMENTO, segmentoDoTema } from '@/lib/segmentos'
 import CoverArtPanel from '@/components/CoverArtPanel'
 import { isServico, itensDaProposta } from '@/lib/services'
 import toast from 'react-hot-toast'
@@ -409,6 +410,24 @@ export default function ProposalDetailPage() {
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [executiveSummary, scope, scenarioDesc, globalDiscount, coverStyle, coverProfileId, introProfileId, showUnitPrice])
+
+  // Segmento da proposta: é o que a capa imprime acima do título. Trocar o
+  // segmento leva junto o tema de capa do segmento, se a proposta já usa um
+  // tema de segmento (tema clássico fica como está).
+  const trocarSegmento = async (v: string) => {
+    if (!proposal || v === proposal.vertical) return
+    const tema = TEMA_DO_SEGMENTO[v]
+    const usaTemaDeSegmento = !!COVER_STYLES.find(s => s.id === coverStyle)?.vertical
+    const novoTema = tema && usaTemaDeSegmento && tema !== coverStyle ? tema : null
+    setProposal(p => p && ({ ...p, vertical: v }))
+    if (novoTema) setCoverStyle(novoTema)
+    await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(novoTema ? { vertical: v, coverStyle: novoTema } : { vertical: v }),
+    })
+    setPdfVersao(n => n + 1)
+    toast.success(novoTema ? `Segmento ${v} — capa trocada para o tema do segmento` : `Segmento ${v}`)
+  }
 
   const handleAdvanceStatus = async () => {
     if (!proposal) return
@@ -1308,6 +1327,17 @@ export default function ProposalDetailPage() {
           <div className={pdfAoLado ? 'grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_620px] gap-5 items-start' : ''}>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start min-w-0">
           <div className="space-y-6">
+            <div className="card p-6 space-y-3">
+              <div>
+                <h2 className="font-semibold text-ink">Segmento da proposta</h2>
+                <p className="text-sm text-ink/55">É o que a capa mostra acima do título. Com tema de segmento, a capa acompanha.</p>
+              </div>
+              <select className="input" value={proposal.vertical} onChange={e => trocarSegmento(e.target.value)}>
+                {!SEGMENTOS.includes(proposal.vertical) && <option value={proposal.vertical}>{proposal.vertical}</option>}
+                {SEGMENTOS.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+
             <div className="card p-6 space-y-4">
               <h2 className="font-semibold text-ink">Perfil da Capa</h2>
               <p className="text-sm text-ink/55">Selecione o perfil que aparecerá na capa da proposta.</p>
@@ -1390,6 +1420,16 @@ export default function ProposalDetailPage() {
               {/* Verticais */}
               <div>
                 <p className="text-xs text-ink/45 font-semibold uppercase tracking-wider mb-2">Por Vertical</p>
+                {(() => {
+                  const seg = segmentoDoTema(coverStyle)
+                  if (!seg || seg === proposal.vertical) return null
+                  return (
+                    <div className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                      <span>A capa usa o tema de <strong>{seg}</strong>, mas imprime o segmento da proposta: <strong>{proposal.vertical}</strong>.</span>
+                      <button type="button" className="btn-secondary btn-xs flex-shrink-0" onClick={() => trocarSegmento(seg)}>Mudar segmento para {seg}</button>
+                    </div>
+                  )
+                })()}
                 <div className="flex gap-3 flex-wrap">
                   {COVER_STYLES.filter(s => !!s.vertical).map(s => (
                     <button
