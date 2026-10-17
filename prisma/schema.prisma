@@ -85,6 +85,12 @@ model Proposal {
   includeServices     Boolean         @default(true)
   priceTable          String?
   externalProjectId   String?         @unique
+  /// Quando a proposta passou para "sent" pela primeira vez — é a data de
+  /// entrega do BOM que o Painel de Projetos do Cockpit compara com o prazo.
+  sentAt              DateTime?
+  /// Quando a proposta passou para "generated" (PDF pronto) pela primeira vez
+  /// — um dos passos que contam no engajamento do time de Projetos.
+  generatedAt         DateTime?
   /// Respostas do projetista para a IA (objetivo, ambiente, existentes, restricoes) — src/lib/proposalAI.ts
   brief               Json?
   /// Origem de cada seção de texto (ia | manual) e quando — protege edição à mão de ser sobrescrita

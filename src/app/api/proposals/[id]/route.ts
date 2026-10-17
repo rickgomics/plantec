@@ -92,9 +92,23 @@ export async function PUT(
       }
     }
 
+    // Data de entrega do BOM (17/10/2026): a primeira vez que a proposta
+    // vira "sent". Voltar para rascunho e reenviar não mexe — vale a primeira.
+    // O mesmo para "generated" (17/10/2026): enviar sem ter passado por
+    // "generated" também marca a geração, que aconteceu junto.
+    let sentAt: Date | undefined
+    let generatedAt: Date | undefined
+    if (status === 'sent' || status === 'generated') {
+      const atual = await prisma.proposal.findUnique({ where: { id: params.id }, select: { sentAt: true, generatedAt: true } })
+      if (atual && status === 'sent' && !atual.sentAt) sentAt = new Date()
+      if (atual && !atual.generatedAt) generatedAt = new Date()
+    }
+
     const proposal = await prisma.proposal.update({
       where: { id: params.id },
       data: {
+        sentAt,
+        generatedAt,
         title,
         vertical,
         status,
