@@ -80,16 +80,44 @@ function paginarTexto(texto: string, extra = 0, alturaPrimeira?: number): string
   let usado = 0
   let disponivel = alturaPrimeira ?? CONTENT_H - S_HDG - extra
 
+  // Cada linha do texto (bullet do escopo) ocupa ao menos uma linha impressa
+  const alturaDe = (t: string) =>
+    t.split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / TXT_CHARS)), 0) * TXT_LINHA_H
+
+  const fecharPagina = () => {
+    paginas.push(atual.join('\n\n'))
+    atual = []
+    usado = 0
+    // Páginas seguintes não repetem o título da seção.
+    disponivel = CONTENT_H - extra
+  }
+
   for (const par of paragrafos) {
-    const linhas = Math.max(1, Math.ceil(par.length / TXT_CHARS))
-    const h = linhas * TXT_LINHA_H + TXT_LINHA_H
-    if (usado + h > disponivel && atual.length) {
-      paginas.push(atual.join('\n\n'))
-      atual = []
-      usado = 0
-      // Páginas seguintes não repetem o título da seção.
-      disponivel = CONTENT_H - extra
+    const h = alturaDe(par) + TXT_LINHA_H
+    if (usado + h <= disponivel) {
+      atual.push(par)
+      usado += h
+      continue
     }
+    // Bloco que não cabe numa página inteira (lista longa do escopo): quebra
+    // entre linhas em vez de deixar o excedente sumir no overflow:hidden.
+    if (h > CONTENT_H - extra) {
+      let pedaco: string[] = []
+      for (const linha of par.split('\n')) {
+        const hl = alturaDe(linha)
+        if (usado + hl > disponivel && (pedaco.length || atual.length)) {
+          if (pedaco.length) atual.push(pedaco.join('\n'))
+          fecharPagina()
+          pedaco = []
+        }
+        pedaco.push(linha)
+        usado += hl
+      }
+      if (pedaco.length) atual.push(pedaco.join('\n'))
+      usado += TXT_LINHA_H
+      continue
+    }
+    if (atual.length) fecharPagina()
     atual.push(par)
     usado += h
   }

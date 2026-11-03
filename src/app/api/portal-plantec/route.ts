@@ -115,6 +115,38 @@ function parsePortalItems(html: string): PortalItem[] {
   return items
 }
 
+// ── Itens pelo ERP (gateway SQL) ──────────────────────────────────────────────
+// 03/11/2026: a página do Portal passou a vir só com o cabeçalho da tabela,
+// sem as linhas, e a leitura acima não acha nada. O ERP (TAB015) tem os
+// mesmos itens, e TREFERENCIA é o SKU do catálogo. O Portal fica de reserva.
+
+const GW_URL = process.env.CUBOS_GATEWAY_URL ?? 'http://localhost:3002'
+const GW_KEY = process.env.CUBOS_GATEWAY_KEY ?? ''
+
+async function itensDoErp(orcamento: string): Promise<PortalItem[] | null> {
+  if (!GW_KEY || !/^\d+$/.test(orcamento)) return null
+  try {
+    const res = await fetch(`${GW_URL}/cubos/orcamento-itens?orcamento=${orcamento}`, {
+      headers: { 'x-api-key': GW_KEY },
+      signal: AbortSignal.timeout(15_000),
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    const { data } = await res.json() as {
+      data: { REFERENCIA: string | null; PRODUTO: string | null; QUANTIDADE: number | null; VALOR_UNITARIO: number | null }[]
+    }
+    return data.map(r => ({
+      code:      (r.REFERENCIA ?? '').trim(),
+      name:      (r.PRODUTO ?? '').trim(),
+      quantity:  Math.max(1, Math.round(Number(r.QUANTIDADE) || 1)),
+      unitPrice: Math.round((Number(r.VALOR_UNITARIO) || 0) * 100) / 100,
+    }))
+  } catch (err) {
+    console.error('[/api/portal-plantec] gateway:', err)
+    return null
+  }
+}
+
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -129,6 +161,9 @@ export async function POST(req: NextRequest) {
     if (!quotationId) {
       return NextResponse.json({ error: 'quotationId é obrigatório' }, { status: 400 })
     }
+
+    const doErp = await itensDoErp(String(quotationId).trim())
+    if (doErp?.length) return NextResponse.json({ items: doErp, count: doErp.length, fonte: 'erp' })
 
     const loginEmail    = (email    || PORTAL_EMAIL).trim()
     const loginPassword = (password || PORTAL_PASSWORD).trim()

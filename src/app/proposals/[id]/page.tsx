@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import AppLayout from '@/components/AppLayout'
 import StatusBadge from '@/components/StatusBadge'
-import { HiLink, HiClipboard, HiXMark, HiArrowDownTray, HiSparkles } from 'react-icons/hi2'
-import { FiSave, FiCheck, FiSend, FiCheckCircle, FiEye, FiDownload, FiRadio, FiColumns, FiArrowRight } from 'react-icons/fi'
+import { HiLink, HiClipboard, HiXMark, HiArrowDownTray, HiSparkles, HiPencil } from 'react-icons/hi2'
+import { FiSave, FiCheck, FiSend, FiCheckCircle, FiEye, FiDownload, FiRadio, FiColumns, FiArrowRight, FiRotateCcw } from 'react-icons/fi'
 import RevisarEtapa from '@/components/RevisarEtapa'
 import BOMTable from '@/components/BOMTable'
 import AlertPanel from '@/components/AlertPanel'
@@ -33,6 +33,9 @@ const STATUS_FLOW: Record<string, string> = {
   generated: 'sent',
   sent: 'approved',
 }
+
+// Gerada ou enviada pode voltar a rascunho para ajustes; a data do primeiro envio fica
+const PODE_VOLTAR_RASCUNHO = ['generated', 'sent']
 
 // Etapas na ordem do documento (27/09/2026); antes eram as abas BOM/Capa/Introdução/Cenário
 type Tab = 'bom' | 'conteudo' | 'visual' | 'revisar'
@@ -124,6 +127,7 @@ export default function ProposalDetailPage() {
   const [showUnitPrice, setShowUnitPrice] = useState(true)
   const [externalProjectId, setExternalProjectId] = useState('')
   const [linkingExt, setLinkingExt] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false)
 
   // UI edit mode toggles
   const [editingScope, setEditingScope] = useState(false)
@@ -443,6 +447,34 @@ export default function ProposalDetailPage() {
     setSaving(false)
   }
 
+  const handleSaveTitle = async (valor: string) => {
+    setEditingTitle(false)
+    const title = valor.trim()
+    if (!proposal || !title || title === proposal.title) return
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    })
+    if (!res.ok) { toast.error('Erro ao salvar o nome'); return }
+    setProposal(p => p && ({ ...p, title }))
+    setPdfVersao(n => n + 1)
+    toast.success('Nome da proposta alterado')
+  }
+
+  const handleBackToDraft = async () => {
+    if (!proposal) return
+    if (!confirm('Voltar a proposta para rascunho? Depois dos ajustes, gere e marque como enviada de novo.')) return
+    setSaving(true)
+    await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'draft' }),
+    })
+    await loadProposal()
+    setSaving(false)
+    toast.success('Proposta voltou para rascunho')
+  }
+
   const handleAddSuggestion = async (skus: string[]) => {
     for (const sku of skus) {
       const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/products?search=${sku}`)
@@ -575,7 +607,7 @@ export default function ProposalDetailPage() {
 
   // Importações de fora passam pela conferência (ImportReviewModal): só o SKU
   // igual ao código entra sozinho, o resto o usuário escolhe ou deixa de fora.
-  const [importReview, setImportReview] = useState<{ title: string; rows: ImportRow[]; onDone?: () => void } | null>(null)
+  const [importReview, setImportReview] = useState<{ title: string; rows: ImportRow[]; permitirCadastro?: boolean; onDone?: () => void } | null>(null)
 
   const addImportedItems = async (choices: ImportChoice[]) => {
     let imported = 0
@@ -642,8 +674,10 @@ export default function ProposalDetailPage() {
 
   const handlePortalImport = () => {
     setImportReview({
-      title: `Importar orçamento #${portalQuotationId} do Portal`,
+      title: `Importar orçamento #${portalQuotationId}`,
       rows: portalItems.map(it => ({ code: it.code, name: it.name, quantity: it.quantity, unitPrice: it.unitPrice })),
+      // Código do ERP: o que não está na loja (ex.: Prysmian) pode ser cadastrado
+      permitirCadastro: true,
       onDone: () => {
         setShowPortalImport(false)
         setPortalStep('input')
@@ -692,7 +726,29 @@ export default function ProposalDetailPage() {
               <StatusBadge status={proposal.status} />
             </div>
             <div className="eyebrow">Proposta</div>
-            <h1 className="page-title !text-[26px] !leading-tight line-clamp-2 max-w-[62ch]" title={proposal.title}>{proposal.title}</h1>
+            {editingTitle ? (
+              <input
+                autoFocus
+                defaultValue={proposal.title}
+                onBlur={e => handleSaveTitle(e.currentTarget.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') e.currentTarget.blur()
+                  if (e.key === 'Escape') { e.currentTarget.value = proposal.title; e.currentTarget.blur() }
+                }}
+                className="input page-title !text-[26px] !leading-tight w-full max-w-[62ch]"
+              />
+            ) : (
+              <div className="group flex items-start gap-2">
+                <h1 className="page-title !text-[26px] !leading-tight line-clamp-2 max-w-[62ch]" title={proposal.title}>{proposal.title}</h1>
+                <button
+                  onClick={() => setEditingTitle(true)}
+                  className="mt-1.5 p-1 text-ink/45 hover:text-brand-600 transition-colors flex-shrink-0"
+                  title="Alterar nome da proposta"
+                >
+                  <HiPencil className="w-4 h-4" />
+                </button>
+              </div>
+            )}
             <p className="text-ink/55 text-sm">
               {proposal.customer.companyName} · {proposal.vertical} ·{' '}
               Válida por {proposal.validityDays} dias
@@ -770,6 +826,11 @@ export default function ProposalDetailPage() {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {PODE_VOLTAR_RASCUNHO.includes(proposal.status) && (
+              <button onClick={handleBackToDraft} disabled={saving} className="btn-secondary" title="Voltar para rascunho para alterar">
+                <FiRotateCcw className="w-4 h-4" />Voltar para rascunho
+              </button>
+            )}
             {canAdvance && (
               <button onClick={handleAdvanceStatus} disabled={saving} className="btn-primary">
                 {proposal.status === 'draft' ? <><FiCheck className="w-4 h-4" />Gerar Proposta</> :
@@ -1775,6 +1836,7 @@ export default function ProposalDetailPage() {
           rows={importReview.rows}
           onClose={() => setImportReview(null)}
           onConfirm={addImportedItems}
+          permitirCadastro={importReview.permitirCadastro}
         />
       )}
     </AppLayout>

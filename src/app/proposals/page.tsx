@@ -95,7 +95,8 @@ export default function ProposalsPage() {
         </div>
 
         {/* Tabela */}
-        <div className="card overflow-hidden">
+        {/* Rolagem horizontal: em telas estreitas a tabela não pode cortar a coluna de ações */}
+        <div className="card p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-background border-b border-line/10">
               <tr>
@@ -107,7 +108,7 @@ export default function ProposalsPage() {
                 <th className="px-4 py-3 text-right text-[10px] font-black text-ink/45 uppercase tracking-widest">Total</th>
                 <th className="px-4 py-3 text-right text-[10px] font-black text-ink/45 uppercase tracking-widest">Margem</th>
                 <th className="px-4 py-3 text-right text-[10px] font-black text-ink/45 uppercase tracking-widest">Data</th>
-                <th className="px-4 py-3" />
+                <th className="px-4 py-3 sticky right-0 bg-background" />
               </tr>
             </thead>
             <tbody className="divide-y divide-line/5">
@@ -125,7 +126,7 @@ export default function ProposalsPage() {
               ) : proposals.map((p) => (
                 <tr key={p.id} className="hover:bg-brand-50/30 transition-colors group">
                   <td className="px-4 py-3.5 num-mono text-[11px] text-ink/55 whitespace-nowrap">{p.number}</td>
-                  <td className="px-4 py-3.5 min-w-[300px]">
+                  <td className="px-4 py-3.5 min-w-[220px]">
                     <Link
                       href={`/proposals/${p.id}`}
                       className="font-semibold text-ink hover:text-brand-600 transition-colors"
@@ -153,8 +154,9 @@ export default function ProposalsPage() {
                   <td className="px-4 py-3.5 text-right text-ink/55 text-xs num-mono whitespace-nowrap">
                     {new Date(p.createdAt).toLocaleDateString('pt-BR')}
                   </td>
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Ações fixas à direita e sempre visíveis (hover não existe em toque) */}
+                  <td className="px-4 py-3.5 sticky right-0 bg-surface">
+                    <div className="flex items-center justify-end gap-1">
                       <Link
                         href={`/proposals/${p.id}`}
                         className="p-1.5 rounded-lg text-brand-600 hover:bg-brand-50 transition-colors"

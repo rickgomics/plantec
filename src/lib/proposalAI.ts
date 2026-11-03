@@ -161,15 +161,15 @@ const SCHEMA_SECAO = {
   escopo: {
     type: 'object', additionalProperties: false, required: ['incluso', 'naoIncluso', 'condicoes'],
     properties: {
-      incluso: { ...lista, description: '5 a 10 entregas, uma frase curta cada. Só o que a BOM e o brief sustentam: serviço sem item de serviço na BOM não é entrega' },
-      naoIncluso: { ...lista, description: '3 a 7 exclusões que evitam mal-entendido (obra civil, elétrica, etc.)' },
-      condicoes: { ...lista, description: '2 a 5 condições de execução (acesso, infraestrutura fornecida pelo cliente, etc.)' },
+      incluso: { ...lista, description: '8 a 15 entregas, cada uma com 1 a 2 frases que digam o quê, onde e com quais equipamentos. Só o que a BOM e o brief sustentam: serviço sem item de serviço na BOM não é entrega' },
+      naoIncluso: { ...lista, description: '4 a 8 exclusões que evitam mal-entendido (obra civil, elétrica, etc.), cada uma explicada em uma frase' },
+      condicoes: { ...lista, description: '3 a 6 condições de execução (acesso, infraestrutura fornecida pelo cliente, prazos, etc.), cada uma explicada em uma frase' },
     },
   },
   cenario: {
     type: 'object', additionalProperties: false, required: ['paragrafos', 'vantagens', 'beneficios'],
     properties: {
-      paragrafos: { ...lista, description: 'Exatamente 3 parágrafos: (1) ambiente físico, (2) arquitetura da solução e como os equipamentos se ligam, (3) integração e dependências externas. Total de 1.800 a 2.600 caracteres.' },
+      paragrafos: { ...lista, description: '4 a 6 parágrafos: (1) ambiente físico e situação atual, (2) necessidade e objetivos do cliente, (3) arquitetura da solução e como os equipamentos se ligam, (4) cobertura e dimensionamento, (5) integração e dependências externas, (6) operação e manutenção, quando fizer sentido. Total de 3.500 a 6.000 caracteres — pode ocupar duas páginas.' },
       vantagens: { ...lista, description: '5 vantagens técnicas, uma frase cada' },
       beneficios: { ...lista, description: '5 benefícios para o cliente, uma frase cada' },
     },
@@ -305,10 +305,11 @@ export function conferir(p: PropostaConferencia): Aviso[] {
 
   if (p.scenarioDesc?.trim()) {
     const narrativa = p.scenarioDesc.split(PARAGRAFOS_CENARIO)[0].trim()
-    if (narrativa.length > 3200) {
+    // O PDF pagina a narrativa; o aviso só pega texto que passa de ~3 páginas
+    if (narrativa.length > 8000) {
       avisos.push({
-        secao: 'cenario', nivel: 'atencao', texto: `Narrativa do cenário com ${narrativa.length} caracteres — vai ocupar mais de uma página`,
-        correcao: 'reescrever', problema: `A narrativa (os 3 parágrafos) tem ${narrativa.length} caracteres: reduza para 1.800 a 2.600, mantendo os fatos e os equipamentos citados.`,
+        secao: 'cenario', nivel: 'atencao', texto: `Narrativa do cenário com ${narrativa.length} caracteres — vai ocupar mais de três páginas`,
+        correcao: 'reescrever', problema: `A narrativa tem ${narrativa.length} caracteres: reduza para 3.500 a 6.000, mantendo os fatos e os equipamentos citados.`,
       })
     }
     if (!PARAGRAFOS_CENARIO.test(p.scenarioDesc)) {

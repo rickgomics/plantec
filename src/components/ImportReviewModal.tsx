@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { HiXMark } from 'react-icons/hi2'
+import { classificarPorRegra } from '@/lib/taxonomy'
+import { normalizarMarca } from '@/lib/brands'
 
 /** Item como veio da origem (orçamento do Portal, hub Intelbras). */
 export interface ImportRow {
@@ -32,6 +34,45 @@ interface Found {
 interface Resolved { match: Found | null; candidates: Found[] }
 
 const SKIP = ''
+// Cadastrar o item no catálogo com os dados da origem (03/11/2026): produto
+// que está no ERP mas não na loja (ex.: Prysmian) não tinha como entrar.
+const NOVO = '__novo__'
+
+/** Marca do nome do ERP ("… - PRYSMIAN"): conhecida pelo brands.ts ou o último trecho. */
+function marcaDaOrigem(name: string): string | null {
+  const conhecida = normalizarMarca(null, name)
+  if (conhecida) return conhecida
+  const fim = name.includes(' - ') ? name.slice(name.lastIndexOf(' - ') + 3).trim() : ''
+  if (!fim || /\d/.test(fim) || fim.length > 30) return null
+  return fim.toLowerCase().replace(/(^|\s)\S/g, s => s.toUpperCase())
+}
+
+async function cadastrarDaOrigem(r: ImportRow): Promise<string> {
+  const classif = classificarPorRegra(r.name)
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sku: r.code,
+      name: r.name,
+      brand: marcaDaOrigem(r.name),
+      category: classif?.category ?? 'Outros',
+      subcategory: classif?.subcategory ?? null,
+      basePrice: r.unitPrice ?? 0,
+      cost: 0,
+      stock: 0,
+      unit: 'un',
+      // Classificação da regra fica como "regra" (revisável); sem regra, Outros
+      attributes: { origem: 'orcamento', ...(classif ? { classificacao: { ...classif, em: new Date().toISOString() } } : {}) },
+      compatible: [], required: [], suggested: [],
+      // Se o SKU já existir (nova tentativa), reaproveita sem perder classificação manual
+      upsert: true,
+    }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(`${r.code}: ${data.error ?? `HTTP ${res.status}`}`)
+  return data.product.id as string
+}
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -41,10 +82,12 @@ const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', cur
  * deixa a linha de fora — nada entra na BOM por palpite.
  */
 export default function ImportReviewModal({
-  title, rows, onClose, onConfirm,
+  title, rows, onClose, onConfirm, permitirCadastro = false,
 }: {
   title: string
   rows: ImportRow[]
+  /** Oferece cadastrar no catálogo o que não está nele (origem com código do ERP). */
+  permitirCadastro?: boolean
   onClose: () => void
   onConfirm: (choices: ImportChoice[]) => Promise<void>
 }) {
@@ -70,37 +113,46 @@ export default function ImportReviewModal({
         if (cancel) return
         const list = data.results as Resolved[]
         setResolved(list)
-        setChosen(list.map(r => r.match?.id ?? SKIP))
+        // Sem SKU igual: já marca para cadastrar, se veio com código do ERP. O
+        // código é o SKU da loja, então parecido com outro SKU é outro produto.
+        setChosen(list.map((r, i) => r.match?.id ?? (permitirCadastro && rows[i].code ? NOVO : SKIP)))
       })
       .catch(e => { if (!cancel) setError(e instanceof Error ? e.message : String(e)) })
     return () => { cancel = true }
   }, [rows])
 
   const counts = useMemo(() => {
-    if (!resolved) return { exact: 0, picked: 0, skipped: 0 }
-    let exact = 0, picked = 0, skipped = 0
+    if (!resolved) return { exact: 0, picked: 0, novos: 0, skipped: 0 }
+    let exact = 0, picked = 0, novos = 0, skipped = 0
     resolved.forEach((r, i) => {
       if (!chosen[i]) skipped++
+      else if (chosen[i] === NOVO) novos++
       else if (r.match && chosen[i] === r.match.id) exact++
       else picked++
     })
-    return { exact, picked, skipped }
+    return { exact, picked, novos, skipped }
   }, [resolved, chosen])
 
   const confirm = async () => {
-    const choices: ImportChoice[] = []
-    rows.forEach((r, i) => {
-      if (!chosen[i]) return
-      const price = r.unitPrice ?? 0
-      choices.push({
-        productId: chosen[i],
-        quantity: Math.max(1, qty[i] || 1),
-        ...(useSourcePrice && price > 0 ? { unitPrice: price } : {}),
-      })
-    })
     setSaving(true)
+    setError('')
     try {
+      const choices: ImportChoice[] = []
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i]
+        if (!chosen[i]) continue
+        const price = r.unitPrice ?? 0
+        const novo = chosen[i] === NOVO
+        choices.push({
+          productId: novo ? await cadastrarDaOrigem(r) : chosen[i],
+          quantity: Math.max(1, qty[i] || 1),
+          // Cadastrado agora não tem tabela de preço: vale o preço da origem
+          ...((useSourcePrice || novo) && price > 0 ? { unitPrice: price } : {}),
+        })
+      }
       await onConfirm(choices)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
     } finally {
       setSaving(false)
     }
@@ -173,6 +225,7 @@ export default function ImportReviewModal({
                               onChange={e => setChosen(c => c.map((v, j) => j === i ? e.target.value : v))}
                             >
                               <option value={SKIP}>Não importar</option>
+                              {permitirCadastro && r.code && <option value={NOVO}>Cadastrar com os dados da origem ({r.code})</option>}
                               {options.map(o => (
                                 <option key={o.id} value={o.id}>
                                   {o.sku} · {o.name}{o.active ? '' : ' (inativo)'}
@@ -181,8 +234,24 @@ export default function ImportReviewModal({
                             </select>
                             {current && <div className="text-ink/45">{current.brand ?? '—'} · {current.category}</div>}
                           </div>
+                        ) : permitirCadastro && r.code ? (
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="mt-0.5"
+                              checked={chosen[i] === NOVO}
+                              onChange={e => setChosen(c => c.map((v, j) => j === i ? (e.target.checked ? NOVO : SKIP) : v))}
+                            />
+                            <span>
+                              <span className="inline-block rounded bg-sky-50 text-sky-700 font-bold px-1.5 py-0.5 mr-1.5">Não está no catálogo</span>
+                              <span className="text-ink/65">cadastrar com o código, o nome e o preço da origem</span>
+                            </span>
+                          </label>
                         ) : (
                           <span className="inline-block rounded bg-red-50 text-red-700 font-bold px-1.5 py-0.5">Não está no catálogo</span>
+                        )}
+                        {chosen[i] === NOVO && res.candidates.length > 0 && (
+                          <div className="text-ink/45 mt-1">Será cadastrado com o código {r.code}</div>
                         )}
                       </td>
                       <td className="py-2.5 text-center">
@@ -206,7 +275,7 @@ export default function ImportReviewModal({
         <div className="px-6 py-4 border-t border-line/10 space-y-3">
           {resolved && (
             <div className="text-xs text-ink/55 font-medium">
-              {counts.exact} pelo SKU · {counts.picked} escolhidos · {counts.skipped} de fora
+              {counts.exact} pelo SKU · {counts.picked} escolhidos · {counts.novos} a cadastrar · {counts.skipped} de fora
             </div>
           )}
           {hasSourcePrice && (
@@ -219,10 +288,10 @@ export default function ImportReviewModal({
             <button onClick={onClose} className="btn-secondary btn-block">Cancelar</button>
             <button
               onClick={confirm}
-              disabled={saving || !resolved || counts.exact + counts.picked === 0}
+              disabled={saving || !resolved || counts.exact + counts.picked + counts.novos === 0}
               className="btn-primary btn-block"
             >
-              {saving ? 'Importando…' : `+ Importar ${counts.exact + counts.picked} itens`}
+              {saving ? 'Importando…' : `+ Importar ${counts.exact + counts.picked + counts.novos} itens`}
             </button>
           </div>
         </div>
