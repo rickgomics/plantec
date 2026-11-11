@@ -19,6 +19,7 @@ import RefazerSecao from '@/components/RefazerSecao'
 import { gerarIA, type ResultadoIA } from '@/lib/aiClient'
 import { lerTopologia, renderTopologiaSvg } from '@/lib/topologia'
 import type { Brief } from '@/lib/proposalAI'
+import { OPCOES_VALIDADE } from '@/lib/validade'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Proposal, ProposalItem, Product, RuleEngineResult, CompanyProfile } from '@/types'
@@ -461,6 +462,18 @@ export default function ProposalDetailPage() {
     toast.success('Nome da proposta alterado')
   }
 
+  const handleSaveValidade = async (validityDays: number) => {
+    if (!proposal || validityDays === proposal.validityDays) return
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/proposals/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ validityDays }),
+    })
+    if (!res.ok) { toast.error('Erro ao salvar a validade'); return }
+    setProposal(p => p && ({ ...p, validityDays }))
+    setPdfVersao(n => n + 1)
+    toast.success(`Validade: ${validityDays} dias`)
+  }
+
   const handleBackToDraft = async () => {
     if (!proposal) return
     if (!confirm('Voltar a proposta para rascunho? Depois dos ajustes, gere e marque como enviada de novo.')) return
@@ -900,7 +913,18 @@ export default function ProposalDetailPage() {
                 </div>
                 <div className="info-card">
                   <div className="info-label">Validade</div>
-                  <div className="info-value" style={{ fontSize: 18 }}>{proposal.validityDays}</div>
+                  <select
+                    className="info-value bg-transparent cursor-pointer focus:outline-none"
+                    style={{ fontSize: 18 }}
+                    value={proposal.validityDays}
+                    onChange={e => handleSaveValidade(Number(e.target.value))}
+                    title="Alterar a validade da proposta (até 90 dias)"
+                  >
+                    {(OPCOES_VALIDADE.includes(proposal.validityDays)
+                      ? OPCOES_VALIDADE
+                      : [...OPCOES_VALIDADE, proposal.validityDays].sort((a, b) => a - b)
+                    ).map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
                   <div className="info-sub">dias</div>
                 </div>
               </div>

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Customer } from '@/types'
 
 import { SEGMENTOS as VERTICALS } from '@/lib/segmentos'
+import { OPCOES_VALIDADE } from '@/lib/validade'
 
 export default function NewProposalPage() {
   const router = useRouter()
@@ -139,14 +140,13 @@ export default function NewProposalPage() {
 
           <div>
             <label className="label">Validade da Proposta (dias)</label>
-            <input
-              type="number"
-              min={1}
-              max={365}
+            <select
               className="input w-32"
               value={form.validityDays}
               onChange={(e) => setForm({ ...form, validityDays: parseInt(e.target.value) || 30 })}
-            />
+            >
+              {OPCOES_VALIDADE.map(d => <option key={d} value={d}>{d} dias</option>)}
+            </select>
           </div>
 
           <div className="flex gap-3 justify-end pt-2">

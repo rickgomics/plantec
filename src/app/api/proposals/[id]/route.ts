@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { SECAO_CAMPO, type AiMeta, type Secao } from '@/lib/proposalAI'
+import { validadeDias } from '@/lib/validade'
 
 export async function GET(
   _req: NextRequest,
@@ -115,7 +116,7 @@ export async function PUT(
         executiveSummary,
         scope,
         commercialTerms,
-        validityDays,
+        validityDays: validadeDias(validityDays),
         discount,
         totalCost,
         totalPrice,

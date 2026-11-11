@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { TEMA_DO_SEGMENTO } from '@/lib/segmentos'
+import { validadeDias } from '@/lib/validade'
 
 async function generateProposalNumber(): Promise<string> {
   const year = new Date().getFullYear()
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
         executiveSummary: executiveSummary ?? null,
         scope: scope ?? null,
         commercialTerms: commercialTerms ?? null,
-        validityDays: validityDays ?? 30,
+        validityDays: validadeDias(validityDays) ?? 30,
         status: 'draft',
       },
       include: {
